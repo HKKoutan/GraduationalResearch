@@ -1,0 +1,7 @@
+.vscode/
+archive/
+build/
+data/
+result/
+sample/
+venv/
