@@ -1,4 +1,5 @@
 ﻿#include <thread>
+#include <tuple>
 #include "common/timekeep.hpp"
 #include "common/randombits.hpp"
 #include "ldpc/codeLDPC.hpp"
@@ -9,8 +10,8 @@ using std::size_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 
 constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000ul;
-constexpr size_t SOURCE_LENGTH = 256u;
-constexpr size_t CODE_LENGTH = 512u;
+constexpr size_t SOURCE_LENGTH = 252u;
+constexpr size_t CODE_LENGTH = 504u;
 constexpr size_t NUM_THREADS = 12u;
 
 int main(int argc, char* argv[]){
@@ -29,112 +30,65 @@ int main(int argc, char* argv[]){
 	constexpr size_t nsize = noise_factor.size();
 
 	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
-	array<array<uint64_t,nsize>,NUM_THREADS> pl_biterrors = {0};
-	array<array<uint64_t,nsize>,NUM_THREADS> sp_biterrors = {0};
-	array<array<uint64_t,nsize>,NUM_THREADS> ms_biterrors = {0};
+	array<array<uint64_t,nsize>,3> biterror = {0};
+	array<array<uint64_t,nsize>,NUM_THREADS> biterrors = {0};
 
+	//スレッドで動かす関数オブジェクトを定義
+	//符号化なし
+	auto plain = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
+		for(size_t n=0u; n<nsize; ++n){
+			channel::AWGN<float,SOURCE_LENGTH> ch(pow(10,-noise_factor[n]*0.1),t);
+			util::RandomBits<SOURCE_LENGTH> rb(t);
+			bitset<SOURCE_LENGTH> info;
+			auto &bn = (*bt)[n];
+
+			for(size_t r=0u; r<repeat_per_thread; ++r){
+				rb.generate(info);
+
+				auto y = ch.noise(info);
+				auto est = ch.estimate(y);
+
+				bn += (est^info).count();
+			}
+		}
+	};
+	//符号化あり
+	auto encoded = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt, auto decodertype){
+		auto decoder = ldpc.make_decoder<decltype(decodertype)::type>();
+		for(size_t n=0u; n<nsize; ++n){
+			channel::AWGN<float,CODE_LENGTH> ch(pow(10,-noise_factor[n]*0.1),t);
+			util::RandomBits<SOURCE_LENGTH> rb(t);
+			bitset<SOURCE_LENGTH> info;
+			auto &bn = (*bt)[n];
+
+			for(size_t r=0u; r<repeat_per_thread; ++r){
+				rb.generate(info);
+
+				auto code = ldpc.encode(info);
+				auto y = ch.noise(code);
+				auto est = ldpc.decode(ch.LLR(y), decoder);
+
+				bn += (est^info).count();
+			}
+		}
+	};
+
+	//関数オブジェクトをスレッドに与えて実行
 	vector<std::thread> threads;
 	tk.split();
-
-	for(auto &bt: pl_biterrors){
-		threads.emplace_back([&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
-			for(size_t n=0u; n<nsize; ++n){
-				bitset<SOURCE_LENGTH> info;
-				auto &bn = (*bt)[n];
-
-				channel::AWGN<float,SOURCE_LENGTH> ch(pow(10,-noise_factor[n]*0.1),t);
-				util::RandomBits<SOURCE_LENGTH> rb(t);
-
-				for(size_t r=0u; r<repeat_per_thread; ++r){
-					rb.generate(info);
-
-					auto y = ch.noise(info);
-
-					auto est = ch.estimate(y);
-
-					bn += (est^info).count();
-				}
-			}
-		}, threads.size(), &bt);
-	}
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(plain, threads.size(), &bt);
 	for(auto &t: threads) t.join();
-
+	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-
-	for(auto &bt: sp_biterrors){
-		threads.emplace_back([&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
-			const auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
-			for(size_t n=0u; n<nsize; ++n){
-				bitset<SOURCE_LENGTH> info;
-				auto &bn = (*bt)[n];
-
-				channel::AWGN<float,CODE_LENGTH> ch(pow(10,-noise_factor[n]*0.1),t);
-				util::RandomBits<SOURCE_LENGTH> rb(t);
-
-				for(size_t r=0u; r<repeat_per_thread; ++r){
-					rb.generate(info);
-
-					auto code = ldpc.encode(info);
-
-					auto y = ch.noise(code);
-
-					auto LLR = ch.LLR(y);
-					auto est = ldpc.decode(LLR, decoder);
-
-					bn += (est^info).count();
-				}
-			}
-		}, threads.size(), &bt);
-	}
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, std::type_identity<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>());
 	for(auto &t: threads) t.join();
-
+	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-
-	for(auto &bt: ms_biterrors){
-		threads.emplace_back([&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
-			const auto decoder = ldpc.make_decoder<code::LDPC::MinSum_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
-			for(size_t n=0u; n<nsize; ++n){
-				bitset<SOURCE_LENGTH> info;
-				auto &bn = (*bt)[n];
-
-				channel::AWGN<float,CODE_LENGTH> ch(pow(10,-noise_factor[n]*0.1),t);
-				util::RandomBits<SOURCE_LENGTH> rb(t);
-
-				for(size_t r=0u; r<repeat_per_thread; ++r){
-					rb.generate(info);
-
-					auto code = ldpc.encode(info);
-
-					auto y = ch.noise(code);
-
-					auto LLR = ch.LLR(y);
-					auto est = ldpc.decode(LLR, decoder);
-
-					bn += (est^info).count();
-				}
-			}
-		}, threads.size(), &bt);
-	}
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, std::type_identity<code::LDPC::MinSum_Decoding<SOURCE_LENGTH,CODE_LENGTH>>());
 	for(auto &t: threads) t.join();
-
-	threads.clear();
-	tk.split();
-
-	array<uint64_t,nsize> pl_biterror = {0};
-	array<uint64_t,nsize> sp_biterror = {0};
-	array<uint64_t,nsize> ms_biterror = {0};
-
-	for(size_t t=0u; t<NUM_THREADS; ++t){
-		auto &pt = pl_biterrors[t], &st = sp_biterrors[t], &mt = ms_biterrors[t];
-		for(size_t n=0u; n<nsize; ++n){
-			pl_biterror[n] += pt[n];
-			sp_biterror[n] += st[n];
-			ms_biterror[n] += mt[n];
-		}
-	}
-
+	for(auto &bs = biterror[2]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	tk.stop();
 
 	cout<<"S/N"
@@ -145,9 +99,9 @@ int main(int argc, char* argv[]){
 
 	for(size_t n=0u; n<nsize; ++n){
 		cout<<noise_factor[n]
-		<<"\t"<<static_cast<double>(pl_biterror[n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
-		<<"\t"<<static_cast<double>(sp_biterror[n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
-		<<"\t"<<static_cast<double>(ms_biterror[n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
+		<<"\t"<<static_cast<double>(biterror[0][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
+		<<"\t"<<static_cast<double>(biterror[1][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
+		<<"\t"<<static_cast<double>(biterror[2][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
 		<<endl;
 	}
 
