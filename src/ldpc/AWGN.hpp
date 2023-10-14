@@ -25,6 +25,7 @@ public:
 
 	auto noise(const std::bitset<L> &in);
 	auto LLR(const std::array<double,L> &y) const;
+	auto estimate(const std::array<double,L> &y) const;
 };
 
 template<std::size_t L>
@@ -38,6 +39,7 @@ public:
 
 	auto noise(const std::bitset<L> &in);
 	auto LLR(const std::array<float,L> &y) const;
+	auto estimate(const std::array<float,L> &y) const;
 };
 
 template<std::size_t L>
@@ -56,7 +58,7 @@ AWGN<float,L>::AWGN(double sigmasq, std::int64_t seed):
 
 template<std::size_t L>
 auto AWGN<double,L>::noise(const std::bitset<L> &in){
-	std::array<double,L> out(in.size());
+	std::array<double,L> out;
 	for(std::size_t i=0u, iend=in.size(); i<iend; ++i) out[i] = (in.test(i)?-1.0:1.0)+norm(mt);
 	return out;
 }
@@ -70,7 +72,7 @@ auto AWGN<float,L>::noise(const std::bitset<L> &in){
 
 template<std::size_t L>
 auto AWGN<double,L>::LLR(const std::array<double,L> &y) const{
-	std::array<double,L> LLR(y.size());
+	std::array<double,L> LLR;
 	for(std::size_t i=0u, iend=y.size(); i<iend; ++i) LLR[i] = y[i]*llrcoefficient;
 	return LLR;
 }
@@ -80,6 +82,20 @@ auto AWGN<float,L>::LLR(const std::array<float,L> &y) const{
 	std::array<float,L> LLR;
 	for(std::size_t i=0u, iend=y.size(); i<iend; ++i) LLR[i] = y[i]*llrcoefficient;
 	return LLR;
+}
+
+template<std::size_t L>
+auto AWGN<double,L>::estimate(const std::array<double,L> &y) const{
+	std::bitset<L> est;
+	for(std::size_t i=0u, iend=y.size(); i<iend; ++i) est[i] = y[i]<0.0;
+	return est;
+}
+
+template<std::size_t L>
+auto AWGN<float,L>::estimate(const std::array<float,L> &y) const{
+	std::bitset<L> est;
+	for(std::size_t i=0u, iend=y.size(); i<iend; ++i) est[i] = y[i]<0.0f;
+	return est;
 }
 
 }
