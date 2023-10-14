@@ -35,7 +35,7 @@ Marker_LDPC_SPD::Marker_LDPC_SPD(const string &path, const vector<bool> &marker,
 
 vector<bool> Marker_LDPC_SPD::encode(const vector<bool> &information) const{
 	auto ldpccode = information;
-	auto parity = ldpcenc->systematic_parity(information);
+	auto parity = ldpcenc->systematic_redundancy(information);
 	ldpccode.insert(ldpccode.end(), parity.begin(), parity.end());
 	return markerenc->insert(ldpcenc->inverse_substitution(ldpccode));
 }
@@ -75,7 +75,7 @@ Marker_LDPC_MPD::Marker_LDPC_MPD(const string &path, const vector<bool> &marker,
 
 vector<bool> Marker_LDPC_MPD::encode(const vector<bool> &information) const{
 	auto ldpccode = information;
-	auto parity = ldpcenc->systematic_parity(information);
+	auto parity = ldpcenc->systematic_redundancy(information);
 	ldpccode.insert(ldpccode.end(), parity.begin(), parity.end());
 	return markerenc->insert(ldpcenc->inverse_substitution(ldpccode));
 }
