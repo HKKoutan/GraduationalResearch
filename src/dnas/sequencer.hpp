@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cmath>
 #include <random>
-#include "DNASmytype.hpp"
+#include "DNASnttype.hpp"
 
 namespace channel{
 	class Nanopore_Sequencing{

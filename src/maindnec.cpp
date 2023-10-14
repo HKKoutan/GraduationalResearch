@@ -1,68 +1,60 @@
-﻿#include <vector>
-#include <string>
-#include <cstdint>
-#include <cmath>
+﻿#include <array>
 #include <thread>
 #include <numeric>
-#include "dnas/DNASmytype.hpp"
+#include "dnas/DNASnttype.hpp"
 #include "dnas/codeDNAS.hpp"
 #include "dnas/sequencer.hpp"
 #include "ldpc/codeLDPC.hpp"
-#include "main/randombits.hpp"
-#include "main/timekeep.hpp"
+#include "common/randombits.hpp"
+#include "common/timekeep.hpp"
 
-using std::vector, std::string;
-using std::int32_t, std::uint32_t, std::uint64_t;
+using std::array, std::bitset, std::vector;
+using std::size_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
-constexpr uint32_t REPEAT_PER_THREAD = 1000;
-constexpr uint32_t NUM_THREADS = 12;
+constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000u;
+constexpr size_t SOURCE_LENGTH = 256u;
+constexpr size_t CODE_LENGTH = 512u;
+constexpr size_t NUM_THREADS = 12u;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
 	tk.start();
 
-	if(argc<2){
-		cerr<<"Usage: "<<argv[0]<<" FILENAME"<<endl;
-		return 1;
-	}
+	auto temp = DEFAULT_REPEAT_PER_THREAD;
+	if(argc>1) temp = std::stoull(argv[1]);
+	const auto repeat_per_thread = temp;
 
-	string path(argv[1]);
-	cout<<path<<endl;
-
-	uint32_t temp = REPEAT_PER_THREAD;
-	if(argc>2){
-		temp = std::stoi(string{argv[2]});
-	}
-	const uint32_t repeat_per_thread = temp;
+	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<repeat_per_thread<<"*"<<NUM_THREADS<<endl;
 
 	//const vector<double> noise_factor = {0};
 	//const vector<double> noise_factor = {0.04,0.0375,0.035,0.0325,0.03};
-	const vector<double> noise_factor = {0.04,0.035,0.03,0.025,0.02};
+	constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
 
 	vector<std::thread> threads;
-	vector<vector<uint64_t>> biterrors(NUM_THREADS, vector<uint64_t>(noise_factor.size(), 0));
-	vector<vector<uint64_t>> bitcounts(NUM_THREADS, vector<uint64_t>(noise_factor.size(), 0));
-	vector<vector<uint64_t>> nterrors(NUM_THREADS, vector<uint64_t>(noise_factor.size(), 0));
-	vector<vector<uint64_t>> ntcounts(NUM_THREADS, vector<uint64_t>(noise_factor.size(), 0));
-	vector<vector<double>> GCpercentages(NUM_THREADS, vector<double>(repeat_per_thread*noise_factor.size()));
+	array<array<uint64_t,noise_factor.size()>,NUM_THREADS> biterrors = {0};
+	array<array<uint64_t,noise_factor.size()>,NUM_THREADS> bitcounts = {0};
+	array<array<uint64_t,noise_factor.size()>,NUM_THREADS> nterrors = {0};
+	array<array<uint64_t,noise_factor.size()>,NUM_THREADS> ntcounts = {0};
+	array<vector<double>,NUM_THREADS> GCpercentages;
+	for(auto &i: GCpercentages) i.resize(repeat_per_thread*noise_factor.size());
 
-	code::Systematic_LDPC ldpc(path);
+	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
 
 	tk.split();
 
-	for(uint32_t t=0; t<NUM_THREADS; t++){
+	for(size_t t=0; t<NUM_THREADS; t++){
 		threads.emplace_back([&ldpc, &biterrors, &bitcounts, &nterrors, &ntcounts, &GCpercentages, &noise_factor, repeat_per_thread, t](){
-			for(uint32_t n=0; n<noise_factor.size(); n++){
-				vector<bool> m(ldpc.sourcesize());
-				vector<nucleotide_t> cm(ldpc.sourcesize()/2);
-				uint32_t qty_AT, qty_GC, qty_ATs, qty_GCs;
+			for(size_t n=0; n<noise_factor.size(); n++){
+				bitset<SOURCE_LENGTH> m;
+				vector<nucleotide_t> cm(SOURCE_LENGTH/2);
+				size_t qty_AT, qty_GC, qty_ATs, qty_GCs;
 				vector<bool> mest;
 
 				channel::Nanopore_Sequencing ch(noise_factor[n],t);
-				util::RandomBits rb(t);
+				util::RandomBits<SOURCE_LENGTH> rb(t);
 
 				for(uint32_t r=0; r<repeat_per_thread; r++){
 					rb.generate(m);
@@ -108,13 +100,13 @@ int main(int argc, char* argv[]){
 	for(auto &p: GCpercentages) sum = std::inner_product(p.begin(),p.end(),p.begin(),sum);
 	double var = sum/(noise_factor.size()*NUM_THREADS*repeat_per_thread) - (average*average);
 
-	vector<uint64_t> biterror(noise_factor.size(), 0);
-	vector<uint64_t> bitcount(noise_factor.size(), 0);
-	vector<uint64_t> nterror(noise_factor.size(), 0);
-	vector<uint64_t> ntcount(noise_factor.size(), 0);
+	array<uint64_t,noise_factor.size()> biterror = {0};
+	array<uint64_t,noise_factor.size()> bitcount = {0};
+	array<uint64_t,noise_factor.size()> nterror = {0};
+	array<uint64_t,noise_factor.size()> ntcount = {0};
 
-	for(uint32_t n=0; n<noise_factor.size(); n++){
-		for(uint32_t t=0; t<NUM_THREADS; t++){
+	for(size_t n=0; n<noise_factor.size(); n++){
+		for(size_t t=0; t<NUM_THREADS; t++){
 			biterror[n] += biterrors[t][n];
 			bitcount[n] += bitcounts[t][n];
 			nterror[n] += nterrors[t][n];
@@ -131,10 +123,10 @@ int main(int argc, char* argv[]){
 	<<"\tNER"
 	<<endl;
 
-	for(int32_t n=0; n<noise_factor.size(); n++){
+	for(size_t n=0; n<noise_factor.size(); n++){
 		cout<<noise_factor[n]
-		<<"\t"<<(double)biterror[n]/(double)(bitcount[n])
-		<<"\t"<<(double)nterror[n]/(double)(ntcount[n])
+		<<"\t"<<static_cast<double>(biterror[n])/static_cast<double>(bitcount[n])
+		<<"\t"<<static_cast<double>(nterror[n])/static_cast<double>(ntcount[n])
 		<<endl;
 	}
 	return 0;

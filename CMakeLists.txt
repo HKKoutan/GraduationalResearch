@@ -40,9 +40,8 @@ add_executable(lids ${PROJECT_SOURCE_DIR}/src/mainlids.cpp)
 
 add_executable(dnec ${PROJECT_SOURCE_DIR}/src/maindnec.cpp)
 add_executable(dnpb ${PROJECT_SOURCE_DIR}/src/maindnpb.cpp)
-add_executable(dpb1 ${PROJECT_SOURCE_DIR}/src/maindpb1.cpp)
-add_executable(dpb2 ${PROJECT_SOURCE_DIR}/src/maindpb2.cpp)
-add_executable(dpb4 ${PROJECT_SOURCE_DIR}/src/maindpb4.cpp)
+add_executable(dpbe ${PROJECT_SOURCE_DIR}/src/maindpbe.cpp)
+add_executable(dpbn ${PROJECT_SOURCE_DIR}/src/maindpbn.cpp)
 
 target_link_libraries(awgn PRIVATE main ldpc)
 target_link_libraries(mids PRIVATE main idec)
@@ -50,8 +49,7 @@ target_link_libraries(lids PRIVATE main ldpcidec)
 
 target_link_libraries(dnec PRIVATE main ldpc dnas)
 target_link_libraries(dnpb PRIVATE main ldpc dnas)
-target_link_libraries(dpb1 PRIVATE main ldpc dnas)
-target_link_libraries(dpb2 PRIVATE main ldpc dnas)
-target_link_libraries(dpb4 PRIVATE main ldpc dnas)
+target_link_libraries(dpbe PRIVATE main ldpc dnas)
+target_link_libraries(dpbn PRIVATE main ldpc dnas)
 
 # add_custom_target(dpbc DEPENDS dnec dnpb dpb1 dpb2 dpb4)
