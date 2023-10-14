@@ -16,7 +16,8 @@ public:
 	explicit Systematic_LDPC(std::uint64_t iterationlimit);
 	Systematic_LDPC(): Systematic_LDPC(DEFAULT_ITERATION_LIMIT){}
 
-	auto encode(const std::bitset<S> &information) const;//引数から冗長を求める
+	auto encode(const std::bitset<S> &information) const;//引数から符号語を求める
+	auto encode_redundancy(const std::bitset<S> &information) const;//引数から冗長を求める
 	auto decode(const std::array<LDPC::fptype,C> &LLR, const std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>> &decoder);
 
 	template<typename T> const auto make_decoder(){return std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>>(new T(H));}
@@ -41,10 +42,15 @@ Systematic_LDPC<S,C>::Systematic_LDPC(std::uint64_t iterationlimit):
 template<std::size_t S, std::size_t C>
 auto Systematic_LDPC<S,C>::encode(const std::bitset<S> &information) const{
 	std::bitset<C> code;
-	auto parity = encoder->systematic_parity(information);
+	auto parity = encoder->systematic_redundancy(information);
 	for(std::size_t i=0u, iend=S; i<iend; ++i) code[i]=information[i];
 	for(std::size_t i=S, iend=C; i<iend; ++i) code[i]=parity[i-S];
 	return code;
+}
+
+template<std::size_t S, std::size_t C>
+auto Systematic_LDPC<S,C>::encode_redundancy(const std::bitset<S> &information) const{
+	return encoder->systematic_redundancy(information);
 }
 
 template<std::size_t S, std::size_t C>

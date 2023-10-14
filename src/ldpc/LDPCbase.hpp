@@ -54,7 +54,7 @@ protected:
 public:
 	I_LDPC_Encoding(){}
 	virtual ~I_LDPC_Encoding(){}
-	virtual std::bitset<C-S> systematic_parity(const std::bitset<S> &information) const = 0;//return parity bits
+	virtual std::bitset<C-S> systematic_redundancy(const std::bitset<S> &information) const = 0;//return parity bits
 	auto substitution(std::array<fptype,C> vec) const;//Qに従って置換
 	auto substitution(std::bitset<C> vec) const;//Qに従って置換
 	auto inverse_substitution(std::array<fptype,C> vec) const;//置換を戻す
@@ -68,7 +68,7 @@ class Generation_Matrix_Encoding : public I_LDPC_Encoding<S,C> {
 	auto GT_product(const std::bitset<S> &vec) const;//matpos1とvecの積を取る
 public:
 	explicit Generation_Matrix_Encoding(const CheckMatrix<S,C> &H);
-	std::bitset<C-S> systematic_parity(const std::bitset<S> &information) const override;
+	std::bitset<C-S> systematic_redundancy(const std::bitset<S> &information) const override;
 };
 
 //decoder class
@@ -285,7 +285,7 @@ auto Generation_Matrix_Encoding<S,C>::GT_product(const std::bitset<S> &vec) cons
 }
 
 template<std::size_t S, std::size_t C>
-std::bitset<C-S> Generation_Matrix_Encoding<S,C>::systematic_parity(const std::bitset<S> &information) const{
+std::bitset<C-S> Generation_Matrix_Encoding<S,C>::systematic_redundancy(const std::bitset<S> &information) const{
 	return GT_product(information);
 }
 
