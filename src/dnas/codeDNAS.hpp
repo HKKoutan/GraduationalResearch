@@ -122,12 +122,113 @@ void interim_demap(const std::bitset<S> &source, std::array<nucleotide_t,S/2> &c
 	}
 }	
 
-		void VLRLL_decode(const std::vector<nucleotide_t> &source, std::vector<bool> &decode, const nucleotide_t initial_state = 0);
-		void modified_VLRLL_decode(const std::vector<nucleotide_t> &source, std::vector<bool> &decode, const nucleotide_t initial_state = 0);
+template<std::size_t S>
+void VLRLL_decode(const std::array<nucleotide_t,S/2> &source, std::bitset<S> &decode, nucleotide_t initial_state = 0){
+	nucleotide_t previous = initial_state;
+	std::size_t zeros = 0u;
 
-		void nt_addequalizing_encode(const std::vector<nucleotide_t> &cr, std::vector<nucleotide_t> &crbar, std::vector<bool> &info, std::uint32_t qty_AT=0, std::uint32_t qty_GC=0);
-		void nt_addequalizing_decode(const std::vector<nucleotide_t> &crbar, const std::vector<bool> &i, std::vector<nucleotide_t> &cr);
-		void nt_qty_count(const std::vector<nucleotide_t> &c, std::uint32_t &qty_AT, std::uint32_t &qty_GC);
+	for(std::size_t i=0u, iend=S/2, j=0u; i<iend; ++i){
+		switch(source[i]-previous){
+		case 0:
+			decode.set(j++);
+			decode.set(j++);
+			zeros++;
+			break;
+	
+		case 1:
+			decode.reset(j++);
+			decode.reset(j++);
+			zeros=0;
+			break;
+	
+		case 2:
+			decode.reset(j++);
+			decode.set(j++);
+			zeros=0;
+			break;
+
+		case 3:
+			decode.set(j++);
+			if(zeros<2) decode.reset(j++);
+			zeros=0;
+			break;
+		}
+		previous = source[i];
+	}
+}
+
+template<std::size_t S>
+void modified_VLRLL_decode(const std::array<nucleotide_t,S/2> &source, std::bitset<S> &decode, nucleotide_t initial_state = 0){
+	nucleotide_t previous = initial_state;
+
+	for(std::size_t i=0u, iend=S/2, j=0u; i<iend; ++i){
+		switch(source[i]-previous){
+		case 0:
+			decode.set(j++);
+			decode.set(j++);
+			break;
+	
+		case 1:
+			decode.reset(j++);
+			decode.reset(j++);
+			break;
+	
+		case 2:
+			decode.reset(j++);
+			decode.set(j++);
+			break;
+
+		case 3:
+			decode.set(j++);
+			if(zeros<2) decode.reset(j++);
+			break;
+		}
+		previous = source[i];
+	}
+}
+
+template<std::size_t R>
+void nt_addequalizing_encode(const std::array<nucleotide_t,R> &cr, std::array<nucleotide_t,R> &crbar, std::bitset<R> &flipinfo, std::size_t qty_AT=0, std::size_t qty_GC=0){
+	nucleotide_t diff = 0;
+
+	for(uint64_t i=0; i<R; ++i){
+		nucleotide_t prev_state = cr[i]+diff;
+		if(qty_AT>qty_GC && !prev_state.msb()){
+			crbar[i] = ~prev_state;
+			flipinfo.set(i);
+		}else if(qty_AT<qty_GC && prev_state>>1==1){
+			crbar[i] = ~prev_state;
+			flipinfo.set(i);
+		}else{
+			crbar[i] = prev_state;
+			flipinfo.reset(i);
+		}
+		diff = crbar[i]-cr[i];
+		qty_AT += !crbar[i].msb();
+		qty_GC += crbar[i].msb();
+	}
+}
+
+template<std::size_t R>
+void nt_addequalizing_decode(const std::array<nucleotide_t,R> &crbar, const std::bitset<R> &flipinfo, std::array<nucleotide_t,R> &cr){
+	nucleotide_t diff = 0;
+
+	for(uint64_t i=0; i<R; i++){
+		if(flipinfo.test(i)) cr[i] = (~crbar[i])-diff;
+		else cr[i] = crbar[i]-diff;
+		diff = crbar[i]-cr[i];
+	}
+}
+
+template<std::size_t L>
+void nt_qty_count(const std::array<nucleotide_t,L> &c, std::size_t &qty_AT, std::size_t &qty_GC){
+	qty_AT=0;
+	qty_GC=0;
+	for(const auto &i: c){
+		qty_AT += i.msb();
+		qty_GC += !i.msb();
+	}
+}
 
 }
 
