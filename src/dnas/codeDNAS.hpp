@@ -45,7 +45,7 @@ auto VLRLL_encode(const std::bitset<S> &source, std::array<nucleotide_t,S/2> &co
 			break;
 		
 		case 6:
-			current_state = (current_state + (source.test(i+processing-1)?2:1)) & 3;
+			current_state = current_state+(source.test(i+processing-1)?2:1);
 			code[j++] = current_state;
 			processing=0;
 			break;
@@ -53,7 +53,7 @@ auto VLRLL_encode(const std::bitset<S> &source, std::array<nucleotide_t,S/2> &co
 	}
 	//端数処理(0パディング)
 	if(processing%2 != 0){
-		current_state = (current_state + (source.test(i+processing-1)?3:1)) & 3;
+		current_state = current_state+(source.test(i+processing-1)?3:1);
 		code[j++] = current_state;
 	}
 
@@ -187,17 +187,18 @@ void modified_VLRLL_decode(const std::array<nucleotide_t,S/2> &source, std::bits
 	}
 }
 
-template<std::size_t R>
+template<std::size_t R, std::uint8_t ATGC=0x1B>
 void nt_addequalizing_encode(const std::array<nucleotide_t,R> &cr, std::array<nucleotide_t,R> &crbar, std::bitset<R> &flipinfo, std::size_t qty_AT=0, std::size_t qty_GC=0){
+	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
 	nucleotide_t diff = 0;
 
 	for(uint64_t i=0; i<R; ++i){
 		nucleotide_t prev_state = cr[i]+diff;
 		if(qty_AT>qty_GC && !prev_state.msb()){
-			crbar[i] = ~prev_state;
+			crbar[i] = prev_state^3;
 			flipinfo.set(i);
-		}else if(qty_AT<qty_GC && prev_state>>1==1){
-			crbar[i] = ~prev_state;
+		}else if(qty_AT<qty_GC && prev_state.msb()){
+			crbar[i] = prev_state^3;
 			flipinfo.set(i);
 		}else{
 			crbar[i] = prev_state;
@@ -209,8 +210,9 @@ void nt_addequalizing_encode(const std::array<nucleotide_t,R> &cr, std::array<nu
 	}
 }
 
-template<std::size_t R>
+template<std::size_t R, std::uint8_t ATGC=0x1B>
 void nt_addequalizing_decode(const std::array<nucleotide_t,R> &crbar, const std::bitset<R> &flipinfo, std::array<nucleotide_t,R> &cr){
+	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
 	nucleotide_t diff = 0;
 
 	for(uint64_t i=0; i<R; i++){
@@ -220,13 +222,27 @@ void nt_addequalizing_decode(const std::array<nucleotide_t,R> &crbar, const std:
 	}
 }
 
-template<std::size_t L>
+template<std::size_t L, std::uint8_t ATGC=0x1B>
 void nt_qty_count(const std::array<nucleotide_t,L> &c, std::size_t &qty_AT, std::size_t &qty_GC){
 	qty_AT=0;
 	qty_GC=0;
+	constexpr std::uint8_t A = (ATGC>>6)&3;
+	constexpr std::uint8_t T = (ATGC>>4)&3;
+	constexpr std::uint8_t G = (ATGC>>2)&3;
+	constexpr std::uint8_t C = ATGC&3;
+	static_assert((A!=T)&&(A!=G)&&(A!=C)&&(T!=G)&&(T!=C)&&(G!=C));
 	for(const auto &i: c){
-		qty_AT += i.msb();
-		qty_GC += !i.msb();
+		switch(i){
+		case A:
+		case T:
+			++qty_AT;
+			break;
+
+		case G:
+		case C:
+			++qty_GC;
+			break;
+		}
 	}
 }
 
