@@ -1,18 +1,16 @@
 ﻿#ifndef __code_CODEDNAS__
 #define __code_CODEDNAS__
 
-#include <iostream>
-#include <cstdint>
 #include <array>
 #include <bitset>
-#include <vector>
-#include <exception>
+// #include <exception>
 #include "DNASnttype.hpp"
 
 namespace code::DNAS {
 
 template<std::size_t S>
-auto VLRLL_encode(const std::bitset<S> &source, std::array<nucleotide_t,S/2> &code, nucleotide_t initial_state = 0){
+auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
+	std::array<nucleotide_t,S/2> code; 
 	std::size_t processing;
 	nucleotide_t current_state = initial_state;
 
@@ -57,12 +55,13 @@ auto VLRLL_encode(const std::bitset<S> &source, std::array<nucleotide_t,S/2> &co
 		code[j++] = current_state;
 	}
 
-	return i;
+	return std::make_pair(code,i);
 }
 
 template<std::size_t S>
-void modified_VLRLL_encode(const std::bitset<S> &source, std::array<nucleotide_t,S/2> &code, nucleotide_t initial_state = 0){
+auto modified_VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 	static_assert(S%2==0);
+	std::array<nucleotide_t,S/2> code; 
 	std::size_t processing;
 	nucleotide_t current_state = initial_state;
 
@@ -99,31 +98,37 @@ void modified_VLRLL_encode(const std::bitset<S> &source, std::array<nucleotide_t
 			break;
 		}
 	}
+	return code;
 }
 
 template<std::size_t C>
-void interim_map(const std::array<nucleotide_t,C/2> &source, std::bitset<C> &code){
+auto interim_map(const std::array<nucleotide_t,C/2> &source){
 	static_assert(C%2==0);
+	std::bitset<C> code;
 	std::size_t i=0u;
 	for(const auto &j: source){
 		code[i]=j.lsb();
 		code[i+1]=j.msb();
 		i+=2;
 	}
+	return code;
 }
 
 template<std::size_t S>
-void interim_demap(const std::bitset<S> &source, std::array<nucleotide_t,S/2> &code){
+auto interim_demap(const std::bitset<S> &source){
 	static_assert(S%2==0);
+	std::array<nucleotide_t,S/2> code;
 	std::size_t i=0u;
 	for(const auto &j: source){
 		j=(source.test(i)?2:0)+static_cast<int>(source.test(i+1));
 		i+=2;
 	}
+	return code;
 }	
 
 template<std::size_t S>
-void VLRLL_decode(const std::array<nucleotide_t,S/2> &source, std::bitset<S> &decode, nucleotide_t initial_state = 0){
+auto VLRLL_decode(const std::array<nucleotide_t,S/2> &source, nucleotide_t initial_state = 0){
+	std::bitset<S> decode;
 	nucleotide_t previous = initial_state;
 	std::size_t zeros = 0u;
 
@@ -155,10 +160,12 @@ void VLRLL_decode(const std::array<nucleotide_t,S/2> &source, std::bitset<S> &de
 		}
 		previous = source[i];
 	}
+	return decode;
 }
 
 template<std::size_t S>
-void modified_VLRLL_decode(const std::array<nucleotide_t,S/2> &source, std::bitset<S> &decode, nucleotide_t initial_state = 0){
+auto modified_VLRLL_decode(const std::array<nucleotide_t,S/2> &source, nucleotide_t initial_state = 0){
+	std::bitset<S> decode;
 	nucleotide_t previous = initial_state;
 
 	for(std::size_t i=0u, iend=S/2, j=0u; i<iend; ++i){
@@ -185,11 +192,14 @@ void modified_VLRLL_decode(const std::array<nucleotide_t,S/2> &source, std::bits
 		}
 		previous = source[i];
 	}
+	return decode;
 }
 
 template<std::size_t R, std::uint8_t ATGC=0x1B>
-void nt_addequalizing_encode(const std::array<nucleotide_t,R> &cr, std::array<nucleotide_t,R> &crbar, std::bitset<R> &flipinfo, std::size_t qty_AT=0, std::size_t qty_GC=0){
+auto nt_addequalizing_encode(const std::array<nucleotide_t,R> &cr, std::size_t qty_AT=0, std::size_t qty_GC=0){
 	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
+	std::array<nucleotide_t,R> crbar;
+	std::bitset<R> flipinfo; 
 	nucleotide_t diff = 0;
 
 	for(uint64_t i=0; i<R; ++i){
@@ -208,11 +218,13 @@ void nt_addequalizing_encode(const std::array<nucleotide_t,R> &cr, std::array<nu
 		qty_AT += !crbar[i].msb();
 		qty_GC += crbar[i].msb();
 	}
+	return std::make_pair(crbar,flipinfo);
 }
 
 template<std::size_t R, std::uint8_t ATGC=0x1B>
-void nt_addequalizing_decode(const std::array<nucleotide_t,R> &crbar, const std::bitset<R> &flipinfo, std::array<nucleotide_t,R> &cr){
+auto nt_addequalizing_decode(const std::array<nucleotide_t,R> &crbar, const std::bitset<R> &flipinfo){
 	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
+	std::array<nucleotide_t,R> cr;
 	nucleotide_t diff = 0;
 
 	for(uint64_t i=0; i<R; i++){
@@ -220,10 +232,11 @@ void nt_addequalizing_decode(const std::array<nucleotide_t,R> &crbar, const std:
 		else cr[i] = crbar[i]-diff;
 		diff = crbar[i]-cr[i];
 	}
+	return cr;
 }
 
 template<std::size_t L, std::uint8_t ATGC=0x1B>
-void nt_qty_count(const std::array<nucleotide_t,L> &c, std::size_t &qty_AT, std::size_t &qty_GC){
+auto nt_qty_count(const std::array<nucleotide_t,L> &c, std::size_t &qty_AT){
 	qty_AT=0;
 	qty_GC=0;
 	constexpr std::uint8_t A = (ATGC>>6)&3;
@@ -238,12 +251,12 @@ void nt_qty_count(const std::array<nucleotide_t,L> &c, std::size_t &qty_AT, std:
 			++qty_AT;
 			break;
 
-		case G:
-		case C:
-			++qty_GC;
-			break;
+		// case G:
+		// case C:
+		// 	break;
 		}
 	}
+	return qty_AT;
 }
 
 }

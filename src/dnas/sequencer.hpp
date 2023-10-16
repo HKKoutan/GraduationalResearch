@@ -2,7 +2,6 @@
 #define __channel_SEQUENCER__
 
 #include <array>
-#include <cstdint>
 #include <cmath>
 #include <random>
 #include <exception>
@@ -25,12 +24,12 @@ public:
 	Nanopore_Sequencing(double alpha);
 
 	template<std::size_t L>
-	void noise(std::array<code::DNAS::nucleotide_t,L> &c);
+	auto noise(const std::array<code::DNAS::nucleotide_t,L> &in);
 
 	template<std::size_t S>
-	void message_LLR(const std::array<code::DNAS::nucleotide_t,S/2> &cm, std::array<double,S> &LLRm) const;
+	auto message_LLR(const std::array<code::DNAS::nucleotide_t,S/2> &cm) const;
 	template<std::size_t R>
-	void redundancy_LLR(const std::array<code::DNAS::nucleotide_t,R/2> &cr, std::array<double,R> &LLRr, code::DNAS::nucleotide_t initial_state) const;
+	auto redundancy_LLR(const std::array<code::DNAS::nucleotide_t,R/2> &cr, code::DNAS::nucleotide_t initial_state) const;
 };
 
 template<std::uint8_t ATGC>
@@ -56,8 +55,9 @@ Nanopore_Sequencing<ATGC>::Nanopore_Sequencing(double alpha, std::int64_t seed):
 
 template<std::uint8_t ATGC>
 template<std::size_t L>
-void Nanopore_Sequencing<ATGC>::noise(std::array<code::DNAS::nucleotide_t,L> &c){
-	for(auto &i: c){
+auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,L> &in){
+	auto out = in;
+	for(auto &i: out){
 		//std::cout<<int(i)<<endl;
 		nucleotide_t j=0;
 		double rand = uniform(mt)-condprob[i][j];
@@ -67,11 +67,13 @@ void Nanopore_Sequencing<ATGC>::noise(std::array<code::DNAS::nucleotide_t,L> &c)
 		}
 		i=j;
 	}
+	return out;
 }
 
 template<std::uint8_t ATGC>
 template<std::size_t S>
-void Nanopore_Sequencing<ATGC>::message_LLR(const std::array<code::DNAS::nucleotide_t,S/2> &cm, std::array<double,S> &LLRm) const{
+auto Nanopore_Sequencing<ATGC>::message_LLR(const std::array<code::DNAS::nucleotide_t,S/2> &cm) const{
+	std::array<double,S> LLRm;
 	for(std::size_t i=0u, j=0u; i<S/2; ++i){
 		switch(cm[i]){
 		case A:
@@ -99,10 +101,10 @@ void Nanopore_Sequencing<ATGC>::message_LLR(const std::array<code::DNAS::nucleot
 
 template<std::uint8_t ATGC>
 template<std::size_t R>
-void Nanopore_Sequencing<ATGC>::redundancy_LLR(const std::array<code::DNAS::nucleotide_t,R/2> &cr, std::array<double,R> &LLRr, code::DNAS::nucleotide_t initial_state) const{
+auto Nanopore_Sequencing<ATGC>::redundancy_LLR(const std::array<code::DNAS::nucleotide_t,R/2> &cr, code::DNAS::nucleotide_t initial_state) const{
 	constexpr double p3_to_11 = 1.0/22.0;
 	constexpr double p3_to_10 = 21.0/22.0;
-
+	std::array<double,R> LLRr;
 	nucleotide_t previous = initial_state;
 
 	for(std::size_t i=0u, iend=S/2 j=0u; i<iend; ++i){
