@@ -18,10 +18,10 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 	while(j<S/2){
 		++processing;
 		switch(processing){
-		case 1:
-		case 3:
-			break;
-		
+		// case 1:
+		// case 3:
+		// 	break;
+
 		case 2:
 		case 4:
 			if(source.test(i+processing-2)){
@@ -39,14 +39,14 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 			break;
 
 		case 5:
-			if(source.test(i+processing-1)){
+			if(source.test(i+4)){
 				current_state += 3;
 				code[j++] = current_state;
 				i+=processing;
 				processing=0;
 			}
 			break;
-		
+
 		case 6:
 			current_state = current_state+(source.test(i+processing-1)?2:1);
 			code[j++] = current_state;
@@ -63,7 +63,7 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 
 	std::bitset<S> used;
 	used.set();
-	used >>= S-i;
+	used >>= S-(i+processing);
 
 	return std::make_pair(code,used);
 }
@@ -79,11 +79,11 @@ auto modified_VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_st
 	while(j<S/2){
 		++processing;
 		switch(processing){
-		case 0:
-		case 1:
-		case 3:
-		case 5:
-			break;
+		// case 0:
+		// case 1:
+		// case 3:
+		// case 5:
+		// 	break;
 		
 		case 2:
 		case 4:
@@ -142,20 +142,20 @@ auto VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial
 	nucleotide_t previous = initial_state;
 	std::size_t zeros = 0u;
 
-	for(std::size_t i=0u, iend=S/2, j=0u; i<iend; ++i){
+	for(std::size_t i=0u, iend=S, j=0u; i<iend; ++i){
 		switch(source[i]-previous){
 		case 0:
 			decode.set(j++);
 			decode.set(j++);
-			zeros++;
+			++zeros;
 			break;
-	
+
 		case 1:
 			decode.reset(j++);
 			decode.reset(j++);
 			zeros=0;
 			break;
-	
+
 		case 2:
 			decode.reset(j++);
 			decode.set(j++);
@@ -184,12 +184,12 @@ auto modified_VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_
 			decode.set(j++);
 			decode.set(j++);
 			break;
-	
+
 		case 1:
 			decode.reset(j++);
 			decode.reset(j++);
 			break;
-	
+
 		case 2:
 			decode.reset(j++);
 			decode.set(j++);
