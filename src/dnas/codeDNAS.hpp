@@ -10,7 +10,7 @@ namespace code::DNAS {
 
 template<std::size_t S>
 auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
-	std::array<nucleotide_t,S/2> code; 
+	std::array<nucleotide_t,S/2> code;
 	std::size_t processing;
 	nucleotide_t current_state = initial_state;
 
@@ -55,7 +55,11 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 		code[j++] = current_state;
 	}
 
-	return std::make_pair(code,i);
+	std::bitset<S> used;
+	used.set();
+	used =>> S-i;
+
+	return std::make_pair(code,used);
 }
 
 template<std::size_t S>
