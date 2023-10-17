@@ -112,9 +112,9 @@ auto modified_VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_st
 }
 
 template<std::size_t C>
-auto interim_map(const std::array<nucleotide_t,C/2> &source){
-	static_assert(C%2==0);
-	std::bitset<C> code;
+auto interim_map(const std::array<nucleotide_t,C> &source){
+	static_assert(C==0);
+	std::bitset<C*2> code;
 	std::size_t i=0u;
 	for(const auto &j: source){
 		code[i]=j.lsb();
