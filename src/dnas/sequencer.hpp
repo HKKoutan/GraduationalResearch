@@ -14,7 +14,7 @@ class Nanopore_Sequencing{
 	std::mt19937_64 mt;
 	std::uniform_real_distribution<> uniform;
 	static constexpr std::uint8_t A = (ATGC>>6)&3, T = (ATGC>>4)&3, G = (ATGC>>2)&3, C = ATGC&3;
-	static constexpr double A0 = (A>>1?-1.0,1.0), A1 = (A&1?-1.0,1.0), T0 = (T>>1?-1.0,1.0), T1 = (T&1?-1.0,1.0), G0 = (G>>1?-1.0,1.0), G1 = (G&1?-1.0,1.0), C0 = (C>>1?-1.0,1.0), C1 = (C&1?-1.0,1.0); 
+	static constexpr double A0 = (A>>1?-1.0:1.0), A1 = (A&1?-1.0:1.0), T0 = (T>>1?-1.0:1.0), T1 = (T&1?-1.0:1.0), G0 = (G>>1?-1.0:1.0), G1 = (G&1?-1.0:1.0), C0 = (C>>1?-1.0:1.0), C1 = (C&1?-1.0:1.0); 
 	const std::array<double,4> error_rate;//error_rate[0]~error_rate[3] = p1~p4
 	const std::array<double,4> non_error_rate;//ATGCそれぞれ誤らない確率
 	const std::array<std::array<double,4>,4> condprob;//condprob[a][b] P(a|b) 条件付き確率
@@ -32,12 +32,6 @@ public:
 	template<std::size_t R>
 	auto redundancy_LLR(const std::array<code::DNAS::nucleotide_t,R/2> &cr, code::DNAS::nucleotide_t initial_state) const;
 };
-
-template<std::uint8_t ATGC>
-auto Nanopore_Sequencing<ATGC>::condprob_init() const{
-	static_assert(false);
-	return std::array<std::array<double,4>,4>();
-}
 
 auto Nanopore_Sequencing<0x1B>::condprob_init() const{
 	return std::array<std::array<double,4>,4>{
@@ -69,7 +63,7 @@ auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,
 	auto out = in;
 	for(auto &i: out){
 		//std::cout<<int(i)<<endl;
-		nucleotide_t j=0;
+		code::DNAS::nucleotide_t j=0;
 		double rand = uniform(mt)-condprob[i][j];
 		while(rand>=condprob[i][j]){
 			j+=1;
@@ -115,9 +109,10 @@ auto Nanopore_Sequencing<ATGC>::redundancy_LLR(const std::array<code::DNAS::nucl
 	constexpr double p3_to_11 = 1.0/22.0;
 	constexpr double p3_to_10 = 21.0/22.0;
 	std::array<double,R> LLRr;
-	nucleotide_t previous = initial_state;
+	auto previous = initial_state;
 
-	for(std::size_t i=0u, iend=S/2 j=0u; i<iend; ++i){
+	for(std::size_t i=0u, iend=R/2, j=0u; i<iend; ++i){
+		auto current = cr[i];
 		double P0X =//遷移語が1 or 2になる組み合わせ
 			condprob[previous][previous] * (condprob[previous+1][current] + condprob[previous+2][current]) +
 			condprob[previous-1][previous] * (condprob[previous][current] + condprob[previous+1][current]) +

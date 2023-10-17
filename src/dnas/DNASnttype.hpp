@@ -20,7 +20,7 @@ public:
 	void operator+=(int rhs){val=(val+static_cast<std::uint8_t>(rhs))&3ui8;}
 	void operator-=(nucleotide_t rhs){val=(val-rhs.val)&3ui8;}
 	void operator-=(int rhs){val=(val-static_cast<std::uint8_t>(rhs))&3ui8;}
-	auto operator^(int rhs)const{return nucleotide_t(val^rhs);}
+	auto operator^(int rhs)const{return nucleotide_t(val^static_cast<std::uint8_t>(rhs));}
 	operator std::uint8_t()const{return val;}
 
 	auto msb()const{return static_cast<bool>(val>>1);}

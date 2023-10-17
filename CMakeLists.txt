@@ -47,9 +47,9 @@ target_link_libraries(awgn PRIVATE main ldpc)
 target_link_libraries(mids PRIVATE main idec)
 target_link_libraries(lids PRIVATE main ldpcidec)
 
-target_link_libraries(dnec PRIVATE main ldpc dnas)
-target_link_libraries(dnpb PRIVATE main ldpc dnas)
-target_link_libraries(dpbe PRIVATE main ldpc dnas)
-target_link_libraries(dpbn PRIVATE main ldpc dnas)
+target_link_libraries(dnec PRIVATE main ldpc)
+target_link_libraries(dnpb PRIVATE main ldpc)
+target_link_libraries(dpbe PRIVATE main ldpc)
+target_link_libraries(dpbn PRIVATE main ldpc)
 
 # add_custom_target(dpbc DEPENDS dnec dnpb dpb1 dpb2 dpb4)

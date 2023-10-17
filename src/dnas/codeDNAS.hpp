@@ -11,10 +11,10 @@ namespace code::DNAS {
 template<std::size_t S>
 auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 	std::array<nucleotide_t,S/2> code;
-	std::size_t processing;
+	std::size_t processing = 0;
 	nucleotide_t current_state = initial_state;
 
-	size_t i,j=0u;
+	size_t i=0u ,j=0u;
 	while(j<S/2){
 		++processing;
 		switch(processing){
@@ -26,9 +26,13 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 		case 4:
 			if(source.test(i+processing-2)){
 				current_state += (source.test(i+processing-1)?0:3);
-				if(!source.test(i+processing-1)) processing=0;
+				if(!source.test(i+processing-1)){
+					i+=processing;
+					processing=0;
+				}
 			}else{
 				current_state += (source.test(i+processing-1)?2:1);
+				i+=processing;
 				processing=0;
 			}
 			code[j++] = current_state;
@@ -38,6 +42,7 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 			if(source.test(i+processing-1)){
 				current_state += 3;
 				code[j++] = current_state;
+				i+=processing;
 				processing=0;
 			}
 			break;
@@ -45,6 +50,7 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 		case 6:
 			current_state = current_state+(source.test(i+processing-1)?2:1);
 			code[j++] = current_state;
+			i+=processing;
 			processing=0;
 			break;
 		}
@@ -57,7 +63,7 @@ auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 
 	std::bitset<S> used;
 	used.set();
-	used =>> S-i;
+	used >>= S-i;
 
 	return std::make_pair(code,used);
 }
@@ -131,8 +137,8 @@ auto interim_demap(const std::bitset<S> &source){
 }	
 
 template<std::size_t S>
-auto VLRLL_decode(const std::array<nucleotide_t,S/2> &source, nucleotide_t initial_state = 0){
-	std::bitset<S> decode;
+auto VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state = 0){
+	std::bitset<S*2> decode;
 	nucleotide_t previous = initial_state;
 	std::size_t zeros = 0u;
 
@@ -168,8 +174,8 @@ auto VLRLL_decode(const std::array<nucleotide_t,S/2> &source, nucleotide_t initi
 }
 
 template<std::size_t S>
-auto modified_VLRLL_decode(const std::array<nucleotide_t,S/2> &source, nucleotide_t initial_state = 0){
-	std::bitset<S> decode;
+auto modified_VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state = 0){
+	std::bitset<S*2> decode;
 	nucleotide_t previous = initial_state;
 
 	for(std::size_t i=0u, iend=S/2, j=0u; i<iend; ++i){
@@ -191,7 +197,7 @@ auto modified_VLRLL_decode(const std::array<nucleotide_t,S/2> &source, nucleotid
 
 		case 3:
 			decode.set(j++);
-			if(zeros<2) decode.reset(j++);
+			decode.reset(j++);
 			break;
 		}
 		previous = source[i];
@@ -240,9 +246,8 @@ auto nt_addequalizing_decode(const std::array<nucleotide_t,R> &crbar, const std:
 }
 
 template<std::size_t L, std::uint8_t ATGC=0x1B>
-auto nt_qty_count(const std::array<nucleotide_t,L> &c, std::size_t &qty_AT){
-	qty_AT=0;
-	qty_GC=0;
+auto nt_qty_count(const std::array<nucleotide_t,L> &c, std::size_t qty_AT_init=0){
+	auto qty_AT=qty_AT_init;
 	constexpr std::uint8_t A = (ATGC>>6)&3;
 	constexpr std::uint8_t T = (ATGC>>4)&3;
 	constexpr std::uint8_t G = (ATGC>>2)&3;
