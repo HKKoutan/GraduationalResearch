@@ -27,10 +27,8 @@ public:
 	template<std::size_t L>
 	auto noise(const std::array<code::DNAS::nucleotide_t,L> &in);
 
-	template<std::size_t S>
-	auto message_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm) const;
-	template<std::size_t R>
-	auto redundancy_LLR(const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const;
+	template<typename FPTYPE = typename float, std::size_t S, std::size_t R>
+	auto LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const;
 };
 
 auto Nanopore_Sequencing<0x1B>::condprob_init() const{
@@ -62,7 +60,6 @@ template<std::size_t L>
 auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,L> &in){
 	auto out = in;
 	for(auto &i: out){
-		//std::cout<<int(i)<<endl;
 		code::DNAS::nucleotide_t j=0;
 		double rand = uniform(mt)-condprob[i][j];
 		while(rand>=condprob[i][j]){
@@ -75,44 +72,39 @@ auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,
 }
 
 template<std::uint8_t ATGC>
-template<std::size_t S>
-auto Nanopore_Sequencing<ATGC>::message_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm) const{
-	std::array<double,S*2> LLRm;
-	for(std::size_t i=0u, j=0u; i<S; ++i){
-		switch(cm[i]){
+template<typename FPTYPE, std::size_t S, std::size_t R>
+auto Nanopore_Sequencing<ATGC>::LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const{
+	std::array<FPTYPE,S*2+R*2> LLR;
+	std::size_t j=0u;
+	//情報部
+	for(const auto &current: cm){
+		switch(current){
 		case A:
-			LLRm[j++] = A0*log((non_error_rate[0]+error_rate[1])/(error_rate[3]+error_rate[2]));
-			LLRm[j++] = A1*log((non_error_rate[0]+error_rate[3])/(error_rate[1]+error_rate[2]));
+			LLR[j++] = static_cast<FPTYPE>(A0*std::log((non_error_rate[0]+error_rate[1])/(error_rate[3]+error_rate[2])));
+			LLR[j++] = static_cast<FPTYPE>(A1*std::log((non_error_rate[0]+error_rate[3])/(error_rate[1]+error_rate[2])));
 			break;
 
 		case T:
-			LLRm[j++] = T0*log((non_error_rate[1]+error_rate[1])/(error_rate[0]+error_rate[2]));
-			LLRm[j++] = T1*log((non_error_rate[1]+error_rate[0])/(error_rate[1]+error_rate[2]));
+			LLR[j++] = static_cast<FPTYPE>(T0*std::log((non_error_rate[1]+error_rate[1])/(error_rate[0]+error_rate[2])));
+			LLR[j++] = static_cast<FPTYPE>(T1*std::log((non_error_rate[1]+error_rate[0])/(error_rate[1]+error_rate[2])));
 			break;
 
 		case G:
-			LLRm[j++] = G0*log((non_error_rate[2]+error_rate[1])/(error_rate[3]+error_rate[2]));
-			LLRm[j++] = G1*log((non_error_rate[2]+error_rate[3])/(error_rate[1]+error_rate[2]));
+			LLR[j++] = static_cast<FPTYPE>(G0*std::log((non_error_rate[2]+error_rate[1])/(error_rate[3]+error_rate[2])));
+			LLR[j++] = static_cast<FPTYPE>(G1*std::log((non_error_rate[2]+error_rate[3])/(error_rate[1]+error_rate[2])));
 			break;
 
 		case C:
-			LLRm[j++] = C0*log((non_error_rate[3]+error_rate[1])/(error_rate[0]+error_rate[2]));
-			LLRm[j++] = C1*log((non_error_rate[3]+error_rate[0])/(error_rate[1]+error_rate[2]));
+			LLR[j++] = static_cast<FPTYPE>(C0*std::log((non_error_rate[3]+error_rate[1])/(error_rate[0]+error_rate[2])));
+			LLR[j++] = static_cast<FPTYPE>(C1*std::log((non_error_rate[3]+error_rate[0])/(error_rate[1]+error_rate[2])));
 			break;
 		}
 	}
-}
-
-template<std::uint8_t ATGC>
-template<std::size_t R>
-auto Nanopore_Sequencing<ATGC>::redundancy_LLR(const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const{
+	//冗長部
 	constexpr double p3_to_11 = 1.0/22.0;
 	constexpr double p3_to_10 = 21.0/22.0;
-	std::array<double,R*2> LLRr;
-	auto previous = initial_state;
 
-	for(std::size_t i=0u, iend=R, j=0u; i<iend; ++i){
-		auto current = cr[i];
+	for(auto previous = initial_state; const auto &current: cr){
 		double P0X =//遷移語が1 or 2になる組み合わせ
 			condprob[previous][previous] * (condprob[previous+1][current] + condprob[previous+2][current]) +
 			condprob[previous-1][previous] * (condprob[previous][current] + condprob[previous+1][current]) +
@@ -135,10 +127,10 @@ auto Nanopore_Sequencing<ATGC>::redundancy_LLR(const std::array<code::DNAS::nucl
 			(condprob[current+3][previous] + condprob[current+1][previous] + p3_to_11*condprob[current][previous]) * condprob[current+3][current];
 
 		previous = current;
-
-		LLRr[j++] = log(P0X/P1X);
-		LLRr[j++] = log(PX0/PX1);
+		LLR[j++] = static_cast<FPTYPE>(std::log(P0X/P1X));
+		LLR[j++] = static_cast<FPTYPE>(std::log(PX0/PX1));
 	}
+	return LLR;
 }
 
 }

@@ -11,10 +11,10 @@ namespace code::DNAS {
 template<std::size_t S>
 auto VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 	std::array<nucleotide_t,S/2> code;
-	std::size_t processing = 0;
+	std::size_t processing = 0u;
 	nucleotide_t current_state = initial_state;
 
-	size_t i=0u ,j=0u;
+	std::size_t i=0u ,j=0u;
 	while(j<S/2){
 		++processing;
 		switch(processing){
@@ -72,10 +72,10 @@ template<std::size_t S>
 auto modified_VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_state = 0){
 	static_assert(S%2==0);
 	std::array<nucleotide_t,S/2> code; 
-	std::size_t processing;
+	std::size_t processing = 0u;
 	nucleotide_t current_state = initial_state;
 
-	size_t i,j=0u;
+	std::size_t i=0u, j=0u;
 	while(j<S/2){
 		++processing;
 		switch(processing){
@@ -84,14 +84,18 @@ auto modified_VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_st
 		// case 3:
 		// case 5:
 		// 	break;
-		
+
 		case 2:
 		case 4:
 			if(source.test(i+processing-2)){
 				current_state += (source.test(i+processing-1)?0:3);
-				if(!source.test(i+processing-1)) processing=0;
+				if(!source.test(i+processing-1)){
+					i+=processing;
+					processing=0;
+				}
 			}else{
 				current_state += (source.test(i+processing-1)?2:1);
+				i+=processing;
 				processing=0;
 			}
 			code[j++] = current_state;
@@ -103,8 +107,9 @@ auto modified_VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_st
 			}else{
 				current_state += (source.test(i+processing-1)?2:1);
 			}
-			code[j++] = current_state;
+			i+=processing;
 			processing=0;
+			code[j++] = current_state;
 			break;
 		}
 	}
@@ -113,12 +118,10 @@ auto modified_VLRLL_encode(const std::bitset<S> &source, nucleotide_t initial_st
 
 template<std::size_t C>
 auto interim_map(const std::array<nucleotide_t,C> &source){
-	static_assert(C==0);
 	std::bitset<C*2> code;
-	std::size_t i=0u;
-	for(const auto &j: source){
-		code[i]=j.lsb();
-		code[i+1]=j.msb();
+	for(std::size_t i=0u; const auto &j: source){
+		code[i]=j.msb();
+		code[i+1]=j.lsb();
 		i+=2;
 	}
 	return code;
@@ -128,13 +131,12 @@ template<std::size_t S>
 auto interim_demap(const std::bitset<S> &source){
 	static_assert(S%2==0);
 	std::array<nucleotide_t,S/2> code;
-	std::size_t i=0u;
-	for(const auto &j: source){
-		j=(source.test(i)?2:0)+static_cast<int>(source.test(i+1));
+	for(std::size_t i=0u; auto &j: code){
+		j = (static_cast<int>(source.test(i))<<1)+static_cast<int>(source.test(i+1));
 		i+=2;
 	}
 	return code;
-}	
+}
 
 template<std::size_t S>
 auto VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state = 0){
@@ -174,7 +176,7 @@ auto VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial
 }
 
 template<std::size_t S>
-auto modified_VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state = 0){
+auto modified_VLRLL_decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state){
 	std::bitset<S*2> decode;
 	nucleotide_t previous = initial_state;
 
