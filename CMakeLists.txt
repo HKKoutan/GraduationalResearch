@@ -38,8 +38,7 @@ add_executable(awgn ${PROJECT_SOURCE_DIR}/src/mainawgn.cpp)
 add_executable(mids ${PROJECT_SOURCE_DIR}/src/mainmids.cpp)
 add_executable(lids ${PROJECT_SOURCE_DIR}/src/mainlids.cpp)
 
-add_executable(dnec ${PROJECT_SOURCE_DIR}/src/maindnec.cpp)
-add_executable(dnpb ${PROJECT_SOURCE_DIR}/src/maindnpb.cpp)
+add_executable(dvfb ${PROJECT_SOURCE_DIR}/src/maindvfb.cpp)
 add_executable(dpbe ${PROJECT_SOURCE_DIR}/src/maindpbe.cpp)
 add_executable(dpbn ${PROJECT_SOURCE_DIR}/src/maindpbn.cpp)
 
@@ -47,8 +46,7 @@ target_link_libraries(awgn PRIVATE main ldpc)
 target_link_libraries(mids PRIVATE main idec)
 target_link_libraries(lids PRIVATE main ldpcidec)
 
-target_link_libraries(dnec PRIVATE main ldpc)
-target_link_libraries(dnpb PRIVATE main ldpc)
+target_link_libraries(dvfb PRIVATE main ldpc)
 target_link_libraries(dpbe PRIVATE main ldpc)
 target_link_libraries(dpbn PRIVATE main ldpc)
 

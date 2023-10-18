@@ -28,7 +28,7 @@ public:
 	auto noise(const std::array<code::DNAS::nucleotide_t,L> &in);
 
 	template<typename FPTYPE = typename float, std::size_t S, std::size_t R>
-	auto LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const;
+	auto VLRLL_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const;
 };
 
 auto Nanopore_Sequencing<0x1B>::condprob_init() const{
@@ -73,7 +73,7 @@ auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,
 
 template<std::uint8_t ATGC>
 template<typename FPTYPE, std::size_t S, std::size_t R>
-auto Nanopore_Sequencing<ATGC>::LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const{
+auto Nanopore_Sequencing<ATGC>::VLRLL_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const{
 	std::array<FPTYPE,S*2+R*2> LLR;
 	std::size_t j=0u;
 	//情報部
