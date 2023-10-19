@@ -8,6 +8,12 @@
 
 namespace code::DNAS {
 
+namespace differential {
+	template<std::size_t S>
+	auto encode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state = 0);
+	template<std::size_t S>
+	auto decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state = 0);
+}
 namespace VLRLL {
 	template<std::size_t S>
 	auto encode(const std::bitset<S> &source, nucleotide_t initial_state = 0);
@@ -36,10 +42,39 @@ template<std::size_t L, std::uint8_t ATGC=0x1B>
 auto count_AT(const std::array<nucleotide_t,L> &c, std::size_t qty_AT_init=0);
 
 
+namespace differential {
+
+template<std::size_t S>
+auto encode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state){
+	std::array<nucleotide_t,S> code;
+	nucleotide_t current_state = initial_state;
+
+	for(std::size_t i=0u, iend=S; i<iend; ++i){
+		current_state += source[i];
+		code[i] = current_state;
+	}
+	return code;
+}
+
+template<std::size_t S>
+auto decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state){
+	std::array<nucleotide_t,S> decode;
+	nucleotide_t prev = initial_state;
+
+	for(std::size_t i=0u, iend=S; i<iend; ++i){
+		decode[i] = source[i]-prev;
+		prev = source[i];
+	}
+	return decode;
+}
+
+}
+
 namespace VLRLL {
 
 template<std::size_t S>
 auto encode(const std::bitset<S> &source, nucleotide_t initial_state){
+	static_assert(S%2==0);
 	std::array<nucleotide_t,S/2> code;
 	std::size_t processing = 0u;
 	nucleotide_t current_state = initial_state;
