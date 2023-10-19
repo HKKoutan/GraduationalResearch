@@ -29,6 +29,8 @@ public:
 
 	template<typename FPTYPE = typename float, std::size_t S, std::size_t R>
 	auto VLRLL_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const;
+	template<typename FPTYPE = typename float, std::size_t S>
+	auto differential_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state = 0) const;
 };
 
 auto Nanopore_Sequencing<0x1B>::condprob_init() const{
@@ -125,6 +127,41 @@ auto Nanopore_Sequencing<ATGC>::VLRLL_LLR(const std::array<code::DNAS::nucleotid
 			(condprob[current+1][previous] + condprob[current-1][previous] + p3_to_11*condprob[current-2][previous]) * condprob[current+1][current] +
 			(condprob[current+2][previous] + condprob[current][previous] + p3_to_11*condprob[current-1][previous]) * condprob[current+2][current] +
 			(condprob[current+3][previous] + condprob[current+1][previous] + p3_to_11*condprob[current][previous]) * condprob[current+3][current];
+
+		previous = current;
+		LLR[j++] = static_cast<FPTYPE>(std::log(P0X/P1X));
+		LLR[j++] = static_cast<FPTYPE>(std::log(PX0/PX1));
+	}
+	return LLR;
+}
+
+template<std::uint8_t ATGC>
+template<typename FPTYPE, std::size_t S>
+auto Nanopore_Sequencing<ATGC>::differential_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state) const{
+	std::array<FPTYPE,S*2> LLR;
+	code::DNAS::nucleotide_t previous = initial_state;
+
+	for(std::size_t j=0u; const auto &current: code){
+		double P0X =//遷移語が0 or 1になる組み合わせ
+			condprob[previous][previous] * (condprob[previous][current] + condprob[previous+1][current]) +
+			condprob[previous-1][previous] * (condprob[previous-1][current] + condprob[previous][current]) +
+			condprob[previous-2][previous] * (condprob[previous-2][current] + condprob[previous-1][current]) +
+			condprob[previous-3][previous] * (condprob[previous-3][current] + condprob[previous-2][current]);
+		double P1X =//遷移語が2 or 3になる組み合わせ
+			condprob[previous][previous] * (condprob[previous+2][current] + condprob[previous+3][current]) +
+			condprob[previous-1][previous] * (condprob[previous+1][current] + condprob[previous+2][current]) +
+			condprob[previous-2][previous] * (condprob[previous][current] + condprob[previous+1][current]) +
+			condprob[previous-3][previous] * (condprob[previous-1][current] + condprob[previous][current]);
+		double PX0 =//遷移語が0 or 2になる組み合わせ
+			(condprob[current][previous] + condprob[current-2][previous]) * condprob[current][current] +
+			(condprob[current+1][previous] + condprob[current-1][previous]) * condprob[current+1][current] +
+			(condprob[current+2][previous] + condprob[current][previous]) * condprob[current+2][current] +
+			(condprob[current+3][previous] + condprob[current+1][previous]) * condprob[current+3][current];
+		double PX1 =//遷移語が1 or 3になる組み合わせ
+			(condprob[current-1][previous] + condprob[current-3][previous]) * condprob[current][current] +
+			(condprob[current][previous] + condprob[current-2][previous]) * condprob[current+1][current] +
+			(condprob[current+1][previous] + condprob[current-1][previous]) * condprob[current+2][current] +
+			(condprob[current+2][previous] + condprob[current][previous]) * condprob[current+3][current];
 
 		previous = current;
 		LLR[j++] = static_cast<FPTYPE>(std::log(P0X/P1X));

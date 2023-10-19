@@ -37,7 +37,7 @@ int main(int argc, char* argv[]){
 	constexpr size_t nsize = noise_factor.size();
 
 	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
-	// tuple: biterrors, bitcounts, nterrors, ntcounts, GCper(average,var)
+	// tuple: biterrors, bitcounts, nterrors, GCper(average,var)
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>>,2> stat = {};
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>>,NUM_THREADS> stats = {};
 
