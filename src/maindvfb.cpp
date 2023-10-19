@@ -23,6 +23,8 @@ int main(int argc, char* argv[]){
 	util::Timekeep tk;
 	tk.start();
 
+	cout<<"Title: DNA storage simulation on nanopore sequencing channel with VLRLL encoding and flip balancing."<<endl;
+
 	auto temp = DEFAULT_REPEAT_PER_THREAD;
 	if(argc>1) temp = std::stoull(argv[1]);
 	const auto repeat_per_thread = temp;
@@ -51,15 +53,15 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask] = code::DNAS::VLRLL_encode(m);
+				auto [cm, mmask] = code::DNAS::VLRLL::encode(m);
 
-				auto qty_AT = code::DNAS::nt_qty_count(cm);
+				auto qty_AT = code::DNAS::count_AT(cm);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size());
 
 				auto rm = ch.noise(cm);
 				// auto rm=cm;
 
-				auto mest = code::DNAS::VLRLL_decode(rm);
+				auto mest = code::DNAS::VLRLL::decode(rm);
 				{
 					uint64_t acc = 0u;
 					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
@@ -85,12 +87,12 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask] = code::DNAS::VLRLL_encode(m);
-				auto tm = code::DNAS::interim_map(cm);
+				auto [cm, mmask] = code::DNAS::VLRLL::encode(m);
+				auto tm = code::DNAS::interim_mapping::map(cm);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto cr = code::DNAS::modified_VLRLL_encode(tr, cm[cm.size()-1]);
+				auto cr = code::DNAS::modified_VLRLL::encode(tr, cm[cm.size()-1]);
 
-				auto qty_AT = code::DNAS::nt_qty_count(cm, code::DNAS::nt_qty_count(cr));
+				auto qty_AT = code::DNAS::count_AT(cm, code::DNAS::count_AT(cr));
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size()+cr.size());
 
 				auto rm = ch.noise(cm);
@@ -102,8 +104,8 @@ int main(int argc, char* argv[]){
 				auto LLR = ch.VLRLL_LLR(rm, rr, rm[rm.size()-1]);
 
 				auto test = ldpc.decode(LLR, decoder);
-				auto cest = code::DNAS::interim_demap(test);
-				auto mest = code::DNAS::VLRLL_decode(cest);
+				auto cest = code::DNAS::interim_mapping::demap(test);
+				auto mest = code::DNAS::VLRLL::decode(cest);
 				{
 					uint64_t acc = 0u;
 					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=cest[i]);
