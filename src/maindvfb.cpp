@@ -88,7 +88,7 @@ int main(int argc, char* argv[]){
 				rb.generate(m);
 
 				auto [cm, mmask] = code::DNAS::VLRLL::encode(m);
-				auto tm = code::DNAS::interim_mapping::map(cm);
+				auto tm = code::DNAS::quarternary_to_binary(cm);
 				auto tr = ldpc.encode_redundancy(tm);
 				auto cr = code::DNAS::modified_VLRLL::encode(tr, cm[cm.size()-1]);
 
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
 				auto LLR = ch.VLRLL_LLR(rm, rr, rm[rm.size()-1]);
 
 				auto test = ldpc.decode(LLR, decoder);
-				auto cest = code::DNAS::interim_mapping::demap(test);
+				auto cest = code::DNAS::binary_to_quarternary(test);
 				auto mest = code::DNAS::VLRLL::decode(cest);
 				{
 					uint64_t acc = 0u;

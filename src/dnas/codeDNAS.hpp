@@ -26,18 +26,16 @@ namespace modified_VLRLL {
 	template<std::size_t S>
 	auto decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state);
 }
-namespace interim_mapping {
-	template<std::size_t S>
-	auto map(const std::array<nucleotide_t,S> &source);
-	template<std::size_t S>
-	auto demap(const std::bitset<S> &source);
-}
 namespace flip_balancing {
 	template<std::size_t R, std::uint8_t ATGC=0x1B>
 	auto balance(const std::array<nucleotide_t,R> &cr, std::size_t qty_AT=0, std::size_t qty_GC=0);
 	template<std::size_t R, std::uint8_t ATGC=0x1B>
 	auto restore(const std::array<nucleotide_t,R> &crbar, const std::bitset<R> &flipinfo);
 }
+template<std::size_t S>
+auto quarternary_to_binary(const std::array<nucleotide_t,S> &source);
+template<std::size_t S>
+auto binary_to_quarternary(const std::bitset<S> &source);
 template<std::size_t L, std::uint8_t ATGC=0x1B>
 auto count_AT(const std::array<nucleotide_t,L> &c, std::size_t qty_AT_init=0);
 
@@ -256,42 +254,16 @@ auto decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state
 
 }
 
-namespace interim_mapping {
-
-template<std::size_t S>
-auto map(const std::array<nucleotide_t,S> &source){
-	std::bitset<S*2> code;
-	for(std::size_t i=0u; const auto &j: source){
-		code[i]=j.msb();
-		code[i+1]=j.lsb();
-		i+=2;
-	}
-	return code;
-}
-
-template<std::size_t S>
-auto demap(const std::bitset<S> &source){
-	static_assert(S%2==0);
-	std::array<nucleotide_t,S/2> code;
-	for(std::size_t i=0u; auto &j: code){
-		j = (static_cast<int>(source.test(i))<<1)+static_cast<int>(source.test(i+1));
-		i+=2;
-	}
-	return code;
-}
-
-}
-
 namespace flip_balancing {
 
-template<std::size_t S, std::uint8_t ATGC=0x1B>
+template<std::size_t S, std::uint8_t ATGC>
 auto balance(const std::array<nucleotide_t,S> &source, std::size_t qty_AT, std::size_t qty_GC){
 	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
 	std::array<nucleotide_t,S> balanced;
 	std::bitset<S> flipinfo; 
 	nucleotide_t diff = 0;
 
-	for(uint64_t i=0; i<R; ++i){
+	for(uint64_t i=0; i<S; ++i){
 		nucleotide_t prev_state = source[i]+diff;
 		if(qty_AT>qty_GC && !prev_state.msb()){
 			balanced[i] = prev_state^3;
@@ -310,7 +282,7 @@ auto balance(const std::array<nucleotide_t,S> &source, std::size_t qty_AT, std::
 	return std::make_pair(balanced,flipinfo);
 }
 
-template<std::size_t S, std::uint8_t ATGC=0x1B>
+template<std::size_t S, std::uint8_t ATGC>
 auto restore(const std::array<nucleotide_t,S> &source, const std::bitset<S> &flipinfo){
 	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
 	std::array<nucleotide_t,S> restored;
@@ -325,8 +297,30 @@ auto restore(const std::array<nucleotide_t,S> &source, const std::bitset<S> &fli
 
 }
 
-template<std::size_t L, std::uint8_t ATGC=0x1B>
-auto count_AT(const std::array<nucleotide_t,L> &c, std::size_t qty_AT_init=0){
+template<std::size_t S>
+auto quarternary_to_binary(const std::array<nucleotide_t,S> &source){
+	std::bitset<S*2> code;
+	for(std::size_t i=0u; const auto &j: source){
+		code[i]=j.msb();
+		code[i+1]=j.lsb();
+		i+=2;
+	}
+	return code;
+}
+
+template<std::size_t S>
+auto binary_to_quarternary(const std::bitset<S> &source){
+	static_assert(S%2==0);
+	std::array<nucleotide_t,S/2> code;
+	for(std::size_t i=0u; auto &j: code){
+		j = (static_cast<int>(source.test(i))<<1)+static_cast<int>(source.test(i+1));
+		i+=2;
+	}
+	return code;
+}
+
+template<std::size_t L, std::uint8_t ATGC>
+auto count_AT(const std::array<nucleotide_t,L> &c, std::size_t qty_AT_init){
 	auto qty_AT=qty_AT_init;
 	constexpr std::uint8_t A = (ATGC>>6)&3;
 	constexpr std::uint8_t T = (ATGC>>4)&3;
