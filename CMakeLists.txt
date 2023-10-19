@@ -39,15 +39,17 @@ add_executable(mids ${PROJECT_SOURCE_DIR}/src/mainmids.cpp)
 add_executable(lids ${PROJECT_SOURCE_DIR}/src/mainlids.cpp)
 
 add_executable(dvfb ${PROJECT_SOURCE_DIR}/src/maindvfb.cpp)
-add_executable(dpbe ${PROJECT_SOURCE_DIR}/src/maindpbe.cpp)
-add_executable(dpbn ${PROJECT_SOURCE_DIR}/src/maindpbn.cpp)
+add_executable(dddb ${PROJECT_SOURCE_DIR}/src/maindddb.cpp)
+# add_executable(dpbe ${PROJECT_SOURCE_DIR}/src/maindpbe.cpp)
+# add_executable(dpbn ${PROJECT_SOURCE_DIR}/src/maindpbn.cpp)
 
 target_link_libraries(awgn PRIVATE main ldpc)
 target_link_libraries(mids PRIVATE main idec)
 target_link_libraries(lids PRIVATE main ldpcidec)
 
 target_link_libraries(dvfb PRIVATE main ldpc)
-target_link_libraries(dpbe PRIVATE main ldpc)
-target_link_libraries(dpbn PRIVATE main ldpc)
+target_link_libraries(dddb PRIVATE main ldpc)
+# target_link_libraries(dpbe PRIVATE main ldpc)
+# target_link_libraries(dpbn PRIVATE main ldpc)
 
 # add_custom_target(dpbc DEPENDS dnec dnpb dpb1 dpb2 dpb4)
