@@ -26,18 +26,25 @@ namespace modified_VLRLL {
 	template<std::size_t S>
 	auto decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state);
 }
-namespace flip_balancing {
-	template<std::size_t R, std::uint8_t ATGC=0x1B>
+class flip_balancing {//ATGC=0x1B
+public:
+	template<std::size_t R>
 	auto balance(const std::array<nucleotide_t,R> &cr, std::size_t qty_AT=0, std::size_t qty_GC=0);
-	template<std::size_t R, std::uint8_t ATGC=0x1B>
+	template<std::size_t R>
 	auto restore(const std::array<nucleotide_t,R> &crbar, const std::bitset<R> &flipinfo);
-}
+};
+template<std::size_t BS=0>//ATGC=0x37
+class division_balancing {
+public:
+	template<std::size_t S>
+	auto balance(const std::array<nucleotide_t,S> &source);
+};
 template<std::size_t S>
 auto quarternary_to_binary(const std::array<nucleotide_t,S> &source);
 template<std::size_t S>
 auto binary_to_quarternary(const std::bitset<S> &source);
-template<std::size_t L, std::uint8_t ATGC=0x1B>
-auto count_AT(const std::array<nucleotide_t,L> &c, std::size_t qty_AT_init=0);
+template<std::uint8_t ATGC=0x1B, std::size_t L>
+auto count_AT(const std::array<nucleotide_t,L> &c, std::uint64_t qty_AT_init=0);
 
 
 namespace differential {
@@ -254,11 +261,8 @@ auto decode(const std::array<nucleotide_t,S> &source, nucleotide_t initial_state
 
 }
 
-namespace flip_balancing {
-
-template<std::size_t S, std::uint8_t ATGC>
-auto balance(const std::array<nucleotide_t,S> &source, std::size_t qty_AT, std::size_t qty_GC){
-	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
+template<std::size_t S>
+auto flip_balancing::balance(const std::array<nucleotide_t,S> &source, std::size_t qty_AT, std::size_t qty_GC){
 	std::array<nucleotide_t,S> balanced;
 	std::bitset<S> flipinfo; 
 	nucleotide_t diff = 0;
@@ -282,9 +286,8 @@ auto balance(const std::array<nucleotide_t,S> &source, std::size_t qty_AT, std::
 	return std::make_pair(balanced,flipinfo);
 }
 
-template<std::size_t S, std::uint8_t ATGC>
-auto restore(const std::array<nucleotide_t,S> &source, const std::bitset<S> &flipinfo){
-	static_assert(ATGC==0x1B);//ATGC=0x1Bの場合のみ対応
+template<std::size_t S>
+auto flip_balancing::restore(const std::array<nucleotide_t,S> &source, const std::bitset<S> &flipinfo){
 	std::array<nucleotide_t,S> restored;
 	nucleotide_t diff = 0;
 
@@ -295,6 +298,64 @@ auto restore(const std::array<nucleotide_t,S> &source, const std::bitset<S> &fli
 	return restored;
 }
 
+template<std::size_t BS>
+template<std::size_t S>
+auto division_balancing<BS>::balance(const std::array<nucleotide_t,S> &source){
+	constexpr std::size_t block_size = BS==0?S:BS;
+	static_assert(block_size%2==0&&S%block_size==0);
+	auto balanced = source;
+
+	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
+		std::size_t div_size = block_size>>1, block_head = i*block_size, block_tail = block_head+block_size;
+		std::uint64_t qtyATblock = 0, qtyATdiv, qtyAThalf;
+
+		for(std::size_t j=block_head, jend=block_head+div_size; j<jend; ++j){
+			switch(source[j]){
+			case 0:
+			case 2:
+				++qtyATblock;
+				break;
+			}
+		}
+		qtyATdiv = qtyATblock;
+		for(std::size_t j=block_head+div_size, jend=block_tail; j<jend; ++j){
+			switch(source[j]){
+			case 0:
+			case 2:
+				++qtyATblock;
+				break;
+			}
+		}
+		qtyAThalf = qtyATblock>>1;
+
+		std::size_t div_head=block_head, div_tail=div_head+div_size;
+		if(qtyATblock&1){
+			switch(source[div_tail++]){
+			case 0:
+			case 2:
+				++qtyATdiv;
+				break;
+			}
+			++qtyAThalf;
+		}
+		while(qtyATdiv!=qtyAThalf&&div_tail<block_tail){
+			switch(source[div_head]){
+			case 0:
+			case 2:
+				--qtyATdiv;
+				break;
+			}
+			switch(source[div_tail]){
+			case 0:
+			case 2:
+				++qtyATdiv;
+				break;
+			}
+			++div_head, ++div_tail;
+		}
+		for(std::size_t j=div_head, jend=div_tail; j<jend; ++j) balanced[j]+=1;
+	}
+	return balanced;
 }
 
 template<std::size_t S>
@@ -319,8 +380,8 @@ auto binary_to_quarternary(const std::bitset<S> &source){
 	return code;
 }
 
-template<std::size_t L, std::uint8_t ATGC>
-auto count_AT(const std::array<nucleotide_t,L> &c, std::size_t qty_AT_init){
+template<std::uint8_t ATGC, std::size_t L>
+auto count_AT(const std::array<nucleotide_t,L> &c, std::uint64_t qty_AT_init){
 	auto qty_AT=qty_AT_init;
 	constexpr std::uint8_t A = (ATGC>>6)&3;
 	constexpr std::uint8_t T = (ATGC>>4)&3;
