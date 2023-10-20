@@ -50,7 +50,7 @@ Nanopore_Sequencing<ATGC>::Nanopore_Sequencing(double alpha, std::int64_t seed):
 	mt(seed),
 	uniform(0,1),
 	error_rate{4*alpha, alpha, 0.01, 0},
-	non_error_rate{1-error_rate[1]-error_rate[2]-error_rate[3], 1-error_rate[0]-error_rate[1]-error_rate[2], 1-error_rate[1]-error_rate[2]-error_rate[3], 1-error_rate[0]-error_rate[1]-error_rate[2]},//ATGCそれぞれの誤らない確率
+	non_error_rate{1.0-error_rate[1]-error_rate[2]-error_rate[3], 1.0-error_rate[0]-error_rate[1]-error_rate[2], 1.0-error_rate[1]-error_rate[2]-error_rate[3], 1.0-error_rate[0]-error_rate[1]-error_rate[2]},//ATGCそれぞれの誤らない確率
 	condprob(condprob_init())
 {
 	static_assert((A!=T)&&(A!=G)&&(A!=C)&&(T!=G)&&(T!=C)&&(G!=C));
@@ -64,7 +64,7 @@ auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,
 	for(auto &i: out){
 		code::DNAS::nucleotide_t j=0;
 		double rand = uniform(mt)-condprob[i][j];
-		while(rand>=condprob[i][j]){
+		while(rand>=0){
 			j+=1;
 			rand-=condprob[i][j];
 		}
