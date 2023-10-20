@@ -18,7 +18,7 @@ constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000u;
 constexpr size_t SOURCE_LENGTH = 256u;
 constexpr size_t CODE_LENGTH = 512u;
 constexpr size_t NUM_THREADS = 12u;
-constexpr size_t SECTION_SIZE = 0u;
+constexpr size_t BLOCK_SIZE = 0u;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]){
 			bitset<SOURCE_LENGTH> m;
 			util::RandomBits rb(t);
 			channel::Nanopore_Sequencing ch(noise_factor[n],t);
-			code::DNAS::division_balancing<SECTION_SIZE> bl;
+			code::DNAS::division_balancing<BLOCK_SIZE> bl;
 			gcper[n].resize(repeat_per_thread);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]){
 			bitset<SOURCE_LENGTH> m;
 			util::RandomBits rb(t);
 			channel::Nanopore_Sequencing ch(noise_factor[n],t);
-			code::DNAS::division_balancing<SECTION_SIZE> bl;
+			code::DNAS::division_balancing<BLOCK_SIZE> bl;
 			gcper[n].resize(repeat_per_thread);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
@@ -247,10 +247,10 @@ int main(int argc, char* argv[]){
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(no balancing)"<<endl;
 	result(1, CODE_LENGTH);
-	cout<<SOURCE_LENGTH<<endl;
+	cout<<SOURCE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
 	cout<<"balanced"<<endl;
 	result(2, SOURCE_LENGTH);
-	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
+	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
 	cout<<"encoded(with balancing)"<<endl;
 	result(3, CODE_LENGTH);
 
