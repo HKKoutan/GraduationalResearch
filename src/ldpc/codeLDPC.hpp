@@ -20,7 +20,7 @@ public:
 	auto encode_redundancy(const std::bitset<S> &information) const;//引数から冗長を求める
 	auto decode(const std::array<LDPC::fptype,C> &LLR, const std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>> &decoder);
 
-	template<typename T> const auto make_decoder(){return std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>>(new T(H));}
+	template<typename T> auto make_decoder(){return std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>>(new T(H));}
 
 	auto sourcesize() const{return H->sourcesize();}
 	auto codesize() const{return H->codesize();}
