@@ -25,14 +25,14 @@ public:
 	Nanopore_Sequencing(double alpha);
 
 	template<std::size_t L>
-	auto noise(const std::array<code::DNAS::nucleotide_t,L> &in);
+	auto noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in);
 
 	template<typename FPTYPE = typename float, std::size_t S, std::size_t R>
-	auto VLRLL_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const;
+	auto VLRLL_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &cm, const std::array<code::DNAS::nucleotide_t<ATGC>,R> &cr, code::DNAS::nucleotide_t<ATGC> initial_state) const;
 	template<typename FPTYPE = typename float, std::size_t S>
-	auto differential_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state = 0) const;
+	auto differential_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &code, code::DNAS::nucleotide_t<ATGC> initial_state = 0) const;
 	template<std::size_t BS = 0, typename FPTYPE = typename float, std::size_t S>
-	auto division_balancing_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state = 0) const;
+	auto division_balancing_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &code, code::DNAS::nucleotide_t<ATGC> initial_state = 0) const;
 };
 
 auto Nanopore_Sequencing<0x1B>::condprob_init() const{
@@ -70,10 +70,10 @@ Nanopore_Sequencing<ATGC>::Nanopore_Sequencing(double alpha, std::int64_t seed):
 
 template<std::uint8_t ATGC>
 template<std::size_t L>
-auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,L> &in){
+auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in){
 	auto out = in;
 	for(auto &i: out){
-		code::DNAS::nucleotide_t j=0;
+		code::DNAS::nucleotide_t<ATGC> j=0;
 		double rand = uniform(mt)-condprob[i][j];
 		while(rand>=0){
 			j+=1;
@@ -86,7 +86,7 @@ auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t,
 
 template<std::uint8_t ATGC>
 template<typename FPTYPE, std::size_t S, std::size_t R>
-auto Nanopore_Sequencing<ATGC>::VLRLL_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const{
+auto Nanopore_Sequencing<ATGC>::VLRLL_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &cm, const std::array<code::DNAS::nucleotide_t<ATGC>,R> &cr, code::DNAS::nucleotide_t<ATGC> initial_state) const{
 	std::array<FPTYPE,S*2+R*2> LLR;
 	std::size_t j=0u;
 	//情報部
@@ -148,7 +148,7 @@ auto Nanopore_Sequencing<ATGC>::VLRLL_LLR(const std::array<code::DNAS::nucleotid
 
 template<std::uint8_t ATGC>
 template<typename FPTYPE, std::size_t S>
-auto Nanopore_Sequencing<ATGC>::differential_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state) const{
+auto Nanopore_Sequencing<ATGC>::differential_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &code, code::DNAS::nucleotide_t<ATGC> initial_state) const{
 	std::array<FPTYPE,S*2> LLR;
 	auto previous = initial_state;
 
@@ -183,7 +183,7 @@ auto Nanopore_Sequencing<ATGC>::differential_LLR(const std::array<code::DNAS::nu
 
 template<std::uint8_t ATGC>
 template<std::size_t BS, typename FPTYPE, std::size_t S>
-auto Nanopore_Sequencing<ATGC>::division_balancing_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state) const{
+auto Nanopore_Sequencing<ATGC>::division_balancing_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &code, code::DNAS::nucleotide_t<ATGC> initial_state) const{
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	constexpr double div_prob = 1.0/div_size;

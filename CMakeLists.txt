@@ -10,7 +10,7 @@ endif()
 
 enable_language(CXX)
 enable_language(CUDA)
-set(PROJECT_VERSION 3.10.2)
+set(PROJECT_VERSION 3.10.4)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)

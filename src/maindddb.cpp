@@ -56,11 +56,11 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto qm = code::DNAS::binary_to_quarternary(m);
+				auto qm = code::DNAS::binary_to_quarternary<ATGC>(m);
 				auto cm = code::DNAS::differential::encode(qm);
 				// for(auto &ci: cm) ci = 3;
 
-				auto qty_AT = code::DNAS::count_AT<ATGC>(cm);
+				auto qty_AT = code::DNAS::count_AT(cm);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size());
 
 				auto rm = ch.noise(cm);
@@ -92,10 +92,10 @@ int main(int argc, char* argv[]){
 				rb.generate(m);
 
 				auto c = ldpc.encode(m);
-				auto qc = code::DNAS::binary_to_quarternary(c);
+				auto qc = code::DNAS::binary_to_quarternary<ATGC>(c);
 				auto cc = code::DNAS::differential::encode(qc);
 
-				auto qty_AT = code::DNAS::count_AT<ATGC>(cc);
+				auto qty_AT = code::DNAS::count_AT(cc);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cc.size());
 
 				auto rc = ch.noise(cc);
@@ -127,12 +127,12 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto qm = code::DNAS::binary_to_quarternary(m);
+				auto qm = code::DNAS::binary_to_quarternary<ATGC>(m);
 				auto cm = code::DNAS::differential::encode(qm);
 
 				auto cmbar = bl.balance(cm);
 
-				auto qty_AT = code::DNAS::count_AT<ATGC>(cmbar);
+				auto qty_AT = code::DNAS::count_AT(cmbar);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cmbar.size());
 
 				auto rm = ch.noise(cmbar);
@@ -165,12 +165,12 @@ int main(int argc, char* argv[]){
 				rb.generate(m);
 
 				auto c = ldpc.encode(m);
-				auto qc = code::DNAS::binary_to_quarternary(c);
+				auto qc = code::DNAS::binary_to_quarternary<ATGC>(c);
 				auto cc = code::DNAS::differential::encode(qc);
 
 				auto ccbar = bl.balance(cc);
 
-				auto qty_AT = code::DNAS::count_AT<ATGC>(ccbar);
+				auto qty_AT = code::DNAS::count_AT(ccbar);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(ccbar.size());
 
 				auto rc = ch.noise(ccbar);
