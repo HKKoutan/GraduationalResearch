@@ -15,8 +15,8 @@ using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
 constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000u;
-constexpr size_t SOURCE_LENGTH = 256u;
-constexpr size_t CODE_LENGTH = 512u;
+constexpr size_t SOURCE_LENGTH = 512u;
+constexpr size_t CODE_LENGTH = 1024u;
 constexpr size_t NUM_THREADS = 12u;
 
 int main(int argc, char* argv[]){
@@ -116,87 +116,56 @@ int main(int argc, char* argv[]){
 		}
 	};
 
+	auto aggregate = [&stat, &stats, repeat_per_thread](std::size_t dest){
+		for(auto &st: stats) for(size_t n=0, nend=nsize; n<nend; ++n){
+			std::get<0>(stat[dest])[n] += std::get<0>(st)[n];
+			std::get<1>(stat[dest])[n] += std::get<1>(st)[n];
+			std::get<2>(stat[dest])[n] += std::get<2>(st)[n];
+		}
+		auto sum = 0.0, sqsum = 0.0;
+		for(auto &st: stats) for(auto &pn: std::get<3>(st)) for(auto &pr: pn){
+			sum += pr;
+			sqsum += pr*pr;
+		}
+		auto num = static_cast<double>(nsize*NUM_THREADS*repeat_per_thread);
+		auto average = sum/num;
+		std::get<3>(stat[dest]).first = average;
+		std::get<3>(stat[dest]).second = sqsum/num - average*average;
+	};
+
+	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t channel_size){
+		cout<<"GCper var: "<<std::get<3>(stat[target]).second<<", ave: "<<std::get<3>(stat[target]).first<<endl;
+		cout<<"Noise factor"
+		<<"\tBER"
+		<<"\tNER"
+		<<endl;
+		for(size_t n=0; n<noise_factor.size(); n++){
+			cout<<noise_factor[n]
+			<<"\t"<<static_cast<double>(std::get<0>(stat[target])[n])/static_cast<double>(std::get<1>(stat[target])[n])
+			<<"\t"<<static_cast<double>(std::get<2>(stat[target])[n])/static_cast<double>(channel_size/2*NUM_THREADS*repeat_per_thread)
+			<<endl;
+		}
+	};
+
 	vector<std::thread> threads;
 	tk.split();
 	for(stats = {}; auto &st: stats) threads.emplace_back(plain, threads.size(), &st);
 	for(auto &t: threads) t.join();
-	for(auto &st: stats){
-		for(size_t n=0, nend=nsize; n<nend; ++n){
-			std::get<0>(stat[0])[n] += std::get<0>(st)[n];
-			std::get<1>(stat[0])[n] += std::get<1>(st)[n];
-			std::get<2>(stat[0])[n] += std::get<2>(st)[n];
-		}
-	}
-	{
-		auto sum = 0.0, sqsum = 0.0;
-		for(auto &st: stats){
-			for(auto &pn: std::get<3>(st)){
-				for(auto &pr: pn){
-					sum += pr;
-					sqsum += pr*pr;
-				}
-			}
-		}
-		auto num = static_cast<double>(nsize*NUM_THREADS*repeat_per_thread);
-		auto average = sum/num;
-		std::get<3>(stat[0]).first = average;
-		std::get<3>(stat[0]).second = sqsum/num - average*average;
-	}
+	aggregate(0);
 	threads.clear();
 	tk.split();
 	for(stats = {}; auto &st: stats) threads.emplace_back(encoded, threads.size(), &st);
 	for(auto &t: threads) t.join();
-	for(auto &st: stats){
-		for(size_t n=0, nend=nsize; n<nend; ++n){
-			std::get<0>(stat[1])[n] += std::get<0>(st)[n];
-			std::get<1>(stat[1])[n] += std::get<1>(st)[n];
-			std::get<2>(stat[1])[n] += std::get<2>(st)[n];
-		}
-	}
-	{
-		auto sum = 0.0, sqsum = 0.0;
-		for(auto &st: stats){
-			for(auto &pn: std::get<3>(st)){
-				for(auto &pr: pn){
-					sum += pr;
-					sqsum += pr*pr;
-				}
-			}
-		}
-		auto num = static_cast<double>(nsize*NUM_THREADS*repeat_per_thread);
-		auto average = sum/num;
-		std::get<3>(stat[1]).first = average;
-		std::get<3>(stat[1]).second = sqsum/num - average*average;
-	}
+	aggregate(1);
 	tk.stop();
 
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain"<<endl;
-	cout<<"GCper var: "<<std::get<3>(stat[0]).second<<", ave: "<<std::get<3>(stat[0]).first<<endl;
-	cout<<"Noise factor"
-	<<"\tBER"
-	<<"\tNER"
-	<<endl;
+	result(0,SOURCE_LENGTH);
 
-	for(size_t n=0; n<noise_factor.size(); n++){
-		cout<<noise_factor[n]
-		<<"\t"<<static_cast<double>(std::get<0>(stat[0])[n])/static_cast<double>(std::get<1>(stat[0])[n])
-		<<"\t"<<static_cast<double>(std::get<2>(stat[0])[n])/static_cast<double>(SOURCE_LENGTH/2*NUM_THREADS*repeat_per_thread)
-		<<endl;
-	}
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(no balancing)"<<endl;
-	cout<<"GCper var: "<<std::get<3>(stat[1]).second<<", ave: "<<std::get<3>(stat[1]).first<<endl;
-	cout<<"Noise factor"
-	<<"\tBER"
-	<<"\tNER"
-	<<endl;
+	result(1,CODE_LENGTH);
 
-	for(size_t n=0; n<noise_factor.size(); n++){
-		cout<<noise_factor[n]
-		<<"\t"<<static_cast<double>(std::get<0>(stat[1])[n])/static_cast<double>(std::get<1>(stat[1])[n])
-		<<"\t"<<static_cast<double>(std::get<2>(stat[1])[n])/static_cast<double>(CODE_LENGTH/2*NUM_THREADS*repeat_per_thread)
-		<<endl;
-	}
 	return 0;
 }

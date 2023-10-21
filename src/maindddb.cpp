@@ -15,10 +15,10 @@ using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
 constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000u;
-constexpr size_t SOURCE_LENGTH = 256u;
-constexpr size_t CODE_LENGTH = 512u;
+constexpr size_t SOURCE_LENGTH = 512u;
+constexpr size_t CODE_LENGTH = 1024u;
 constexpr size_t NUM_THREADS = 12u;
-constexpr size_t BLOCK_SIZE = 0u;
+constexpr size_t BLOCK_SIZE = 32u;
 constexpr uint8_t ATGC = 0x27;
 
 int main(int argc, char* argv[]){
@@ -41,7 +41,7 @@ int main(int argc, char* argv[]){
 
 	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
 	// tuple: biterrors, nterrors, GCper(average,var)
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>>,4> stat = {};
+	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>>,5> stat = {};
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>>,NUM_THREADS> stats = {};
 
 	auto plain = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
@@ -190,6 +190,46 @@ int main(int argc, char* argv[]){
 		}
 	};
 
+	auto encoded_balance_diff = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
+		auto &gcper = std::get<2>(*st);
+		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
+		for(size_t n=0; n<nsize; ++n){
+			bitset<SOURCE_LENGTH> m;
+			util::RandomBits rb(t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
+			code::DNAS::division_balancing<BLOCK_SIZE> bl;
+			gcper[n].resize(repeat_per_thread);
+
+			for(size_t r=0u; r<repeat_per_thread; r++){
+				rb.generate(m);
+
+				auto c = ldpc.encode(m);
+				auto qc = code::DNAS::binary_to_quarternary<ATGC>(c);
+				auto cc = code::DNAS::differential::encode(qc);
+
+				auto ccbar = bl.balance(cc);
+
+				auto qty_AT = code::DNAS::count_AT(ccbar);
+				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(ccbar.size());
+
+				auto rc = ch.noise(ccbar);
+				// auto rc=ccbar;
+
+				auto LLR = ch.differential_LLR(rc);
+				// auto LLR = ch.division_balancing_LLR<BLOCK_SIZE>(rc);
+
+				auto mest = ldpc.decode(LLR, decoder);
+				{
+					uint64_t acc = 0u;
+					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (ccbar[i]!=rc[i]);
+					nterror[n] += acc;
+				}
+				biterror[n] += (mest^m).count();
+			}
+		}
+	};
+
 	auto aggregate = [&stat, &stats, repeat_per_thread](std::size_t dest){
 		for(auto &st: stats) for(size_t n=0, nend=nsize; n<nend; ++n){
 			std::get<0>(stat[dest])[n] += std::get<0>(st)[n];
@@ -241,6 +281,11 @@ int main(int argc, char* argv[]){
 	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_balance, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(3);
+	threads.clear();
+	tk.split();
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_balance_diff, threads.size(), &st);
+	for(auto &t: threads) t.join();
+	aggregate(4);
 	tk.stop();
 
 	//結果表示
@@ -256,6 +301,9 @@ int main(int argc, char* argv[]){
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
 	cout<<"encoded(with balancing)"<<endl;
 	result(3, CODE_LENGTH);
+	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
+	cout<<"encoded(with balancing: differential LLR)"<<endl;
+	result(4, CODE_LENGTH);
 
 	return 0;
 }
