@@ -10,7 +10,7 @@
 #include "common/timekeep.hpp"
 
 using std::array, std::bitset, std::vector, std::tuple, std::pair;
-using std::size_t, std::uint64_t;
+using std::size_t, std::uint8_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
@@ -19,6 +19,7 @@ constexpr size_t SOURCE_LENGTH = 256u;
 constexpr size_t CODE_LENGTH = 512u;
 constexpr size_t NUM_THREADS = 12u;
 constexpr size_t BLOCK_SIZE = 0u;
+constexpr uint8_t ATGC = 0x27;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -34,7 +35,8 @@ int main(int argc, char* argv[]){
 	cout<<repeat_per_thread<<"*"<<NUM_THREADS<<endl;
 
 	// constexpr array noise_factor = {0.0};
-	constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
+	constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
+	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
 	constexpr size_t nsize = noise_factor.size();
 
 	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
@@ -47,7 +49,7 @@ int main(int argc, char* argv[]){
 		auto &gcper = std::get<2>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing ch(noise_factor[n],t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
@@ -56,9 +58,9 @@ int main(int argc, char* argv[]){
 
 				auto qm = code::DNAS::binary_to_quarternary(m);
 				auto cm = code::DNAS::differential::encode(qm);
-				// for(auto &ci: cm) ci = 0;
+				// for(auto &ci: cm) ci = 3;
 
-				auto qty_AT = code::DNAS::count_AT<0x27>(cm);
+				auto qty_AT = code::DNAS::count_AT<ATGC>(cm);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size());
 
 				auto rm = ch.noise(cm);
@@ -82,7 +84,7 @@ int main(int argc, char* argv[]){
 		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing ch(noise_factor[n],t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
@@ -93,7 +95,7 @@ int main(int argc, char* argv[]){
 				auto qc = code::DNAS::binary_to_quarternary(c);
 				auto cc = code::DNAS::differential::encode(qc);
 
-				auto qty_AT = code::DNAS::count_AT<0x27>(cc);
+				auto qty_AT = code::DNAS::count_AT<ATGC>(cc);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cc.size());
 
 				auto rc = ch.noise(cc);
@@ -118,7 +120,7 @@ int main(int argc, char* argv[]){
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			util::RandomBits rb(t);
-			channel::Nanopore_Sequencing ch(noise_factor[n],t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			code::DNAS::division_balancing<BLOCK_SIZE> bl;
 			gcper[n].resize(repeat_per_thread);
 
@@ -130,7 +132,7 @@ int main(int argc, char* argv[]){
 
 				auto cmbar = bl.balance(cm);
 
-				auto qty_AT = code::DNAS::count_AT<0x27>(cmbar);
+				auto qty_AT = code::DNAS::count_AT<ATGC>(cmbar);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cmbar.size());
 
 				auto rm = ch.noise(cmbar);
@@ -155,7 +157,7 @@ int main(int argc, char* argv[]){
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			util::RandomBits rb(t);
-			channel::Nanopore_Sequencing ch(noise_factor[n],t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			code::DNAS::division_balancing<BLOCK_SIZE> bl;
 			gcper[n].resize(repeat_per_thread);
 
@@ -168,13 +170,14 @@ int main(int argc, char* argv[]){
 
 				auto ccbar = bl.balance(cc);
 
-				auto qty_AT = code::DNAS::count_AT<0x27>(ccbar);
+				auto qty_AT = code::DNAS::count_AT<ATGC>(ccbar);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(ccbar.size());
 
 				auto rc = ch.noise(ccbar);
 				// auto rc=ccbar;
 
-				auto LLR = ch.differential_LLR(rc);
+				// auto LLR = ch.differential_LLR(rc);
+				auto LLR = ch.division_balancing_LLR<BLOCK_SIZE>(rc);
 
 				auto mest = ldpc.decode(LLR, decoder);
 				{

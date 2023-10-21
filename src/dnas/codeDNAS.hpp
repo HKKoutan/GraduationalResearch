@@ -302,11 +302,12 @@ template<std::size_t BS>
 template<std::size_t S>
 auto division_balancing<BS>::balance(const std::array<nucleotide_t,S> &source){
 	constexpr std::size_t block_size = BS==0?S:BS;
+	constexpr std::size_t div_size = block_size>>1;
 	static_assert(block_size%2==0&&S%block_size==0);
 	auto balanced = source;
 
 	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
-		std::size_t div_size = block_size>>1, block_head = i*block_size, block_tail = block_head+block_size;
+		std::size_t block_head = i*block_size, block_tail = block_head+block_size;
 		std::uint64_t qtyATblock = 0, qtyATdiv, qtyAThalf;
 
 		for(std::size_t j=block_head, jend=block_head+div_size; j<jend; ++j){

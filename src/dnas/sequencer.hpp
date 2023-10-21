@@ -31,6 +31,8 @@ public:
 	auto VLRLL_LLR(const std::array<code::DNAS::nucleotide_t,S> &cm, const std::array<code::DNAS::nucleotide_t,R> &cr, code::DNAS::nucleotide_t initial_state) const;
 	template<typename FPTYPE = typename float, std::size_t S>
 	auto differential_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state = 0) const;
+	template<std::size_t BS = 0, typename FPTYPE = typename float, std::size_t S>
+	auto division_balancing_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state = 0) const;
 };
 
 auto Nanopore_Sequencing<0x1B>::condprob_init() const{
@@ -39,6 +41,15 @@ auto Nanopore_Sequencing<0x1B>::condprob_init() const{
 		error_rate[1],non_error_rate[1],error_rate[2],error_rate[0],
 		error_rate[3],error_rate[2],non_error_rate[2],error_rate[1],
 		error_rate[2],error_rate[0],error_rate[1],non_error_rate[3]
+	};
+}
+
+auto Nanopore_Sequencing<0x27>::condprob_init() const{
+	return std::array<std::array<double,4>,4>{
+		non_error_rate[0],error_rate[3],error_rate[1],error_rate[2],
+		error_rate[3],non_error_rate[2],error_rate[2],error_rate[1],
+		error_rate[1],error_rate[2],non_error_rate[1],error_rate[0],
+		error_rate[2],error_rate[1],error_rate[0],non_error_rate[3]
 	};
 }
 
@@ -139,7 +150,7 @@ template<std::uint8_t ATGC>
 template<typename FPTYPE, std::size_t S>
 auto Nanopore_Sequencing<ATGC>::differential_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state) const{
 	std::array<FPTYPE,S*2> LLR;
-	code::DNAS::nucleotide_t previous = initial_state;
+	auto previous = initial_state;
 
 	for(std::size_t j=0u; const auto &current: code){
 		double P0X =//遷移語が0 or 1になる組み合わせ
@@ -153,19 +164,154 @@ auto Nanopore_Sequencing<ATGC>::differential_LLR(const std::array<code::DNAS::nu
 			condprob[previous-2][previous] * (condprob[previous][current] + condprob[previous+1][current]) +
 			condprob[previous-3][previous] * (condprob[previous-1][current] + condprob[previous][current]);
 		double PX0 =//遷移語が0 or 2になる組み合わせ
-			(condprob[current][previous] + condprob[current-2][previous]) * condprob[current][current] +
-			(condprob[current+1][previous] + condprob[current-1][previous]) * condprob[current+1][current] +
-			(condprob[current+2][previous] + condprob[current][previous]) * condprob[current+2][current] +
-			(condprob[current+3][previous] + condprob[current+1][previous]) * condprob[current+3][current];
+			condprob[previous][previous] * (condprob[previous][current] + condprob[previous+2][current]) +
+			condprob[previous-1][previous] * (condprob[previous-1][current] + condprob[previous+1][current]) +
+			condprob[previous-2][previous] * (condprob[previous-2][current] + condprob[previous][current]) +
+			condprob[previous-3][previous] * (condprob[previous-3][current] + condprob[previous-1][current]);
 		double PX1 =//遷移語が1 or 3になる組み合わせ
-			(condprob[current-1][previous] + condprob[current-3][previous]) * condprob[current][current] +
-			(condprob[current][previous] + condprob[current-2][previous]) * condprob[current+1][current] +
-			(condprob[current+1][previous] + condprob[current-1][previous]) * condprob[current+2][current] +
-			(condprob[current+2][previous] + condprob[current][previous]) * condprob[current+3][current];
+			condprob[previous][previous] * (condprob[previous+1][current] + condprob[previous+3][current]) +
+			condprob[previous-1][previous] * (condprob[previous][current] + condprob[previous+2][current]) +
+			condprob[previous-2][previous] * (condprob[previous-1][current] + condprob[previous+1][current]) +
+			condprob[previous-3][previous] * (condprob[previous-2][current] + condprob[previous][current]);
 
 		previous = current;
 		LLR[j++] = static_cast<FPTYPE>(std::log(P0X/P1X));
 		LLR[j++] = static_cast<FPTYPE>(std::log(PX0/PX1));
+	}
+	return LLR;
+}
+
+template<std::uint8_t ATGC>
+template<std::size_t BS, typename FPTYPE, std::size_t S>
+auto Nanopore_Sequencing<ATGC>::division_balancing_LLR(const std::array<code::DNAS::nucleotide_t,S> &code, code::DNAS::nucleotide_t initial_state) const{
+	constexpr std::size_t block_size = BS==0?S:BS;
+	constexpr std::size_t div_size = block_size>>1;
+	constexpr double div_prob = 1.0/div_size;
+	constexpr double non_div_prob = 1.0-div_prob;
+	static_assert(block_size%2==0&&S%block_size==0);
+	std::array<FPTYPE,S*2> LLR;
+	auto previous = initial_state;
+
+	for(std::size_t i=0u, iend=S/block_size, k=0u; i<iend; ++i){
+		std::size_t block_head = i*block_size, block_tail = block_head+block_size;
+		for(std::size_t j=block_head, jend=block_head+div_size; j<jend; ++j){
+			auto current = code[j];
+			double P0X =//遷移語が0 or 1になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous][current-1]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous-2][current-1]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-3][current-1]*div_prob) +
+					(condprob[previous-1][current]*non_div_prob + condprob[previous-2][current-1]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-3][current]*non_div_prob + condprob[previous][current-1]*div_prob) +
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-3][current-1]*div_prob));
+			double P1X =//遷移語が2 or 3になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous+2][current]*non_div_prob + condprob[previous+1][current-1]*div_prob) +
+					(condprob[previous+3][current]*non_div_prob + condprob[previous+2][current-1]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous+1][current]*non_div_prob + condprob[previous][current-1]*div_prob) +
+					(condprob[previous+2][current]*non_div_prob + condprob[previous+1][current-1]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous][current-1]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous-2][current-1]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob));
+			double PX0 =//遷移語が0 or 2になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob) +
+					(condprob[previous+2][current]*non_div_prob + condprob[previous+1][current-1]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous-2][current-1]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous][current-1]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-3][current-1]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-3][current]*non_div_prob + condprob[previous][current-1]*div_prob) +
+					(condprob[previous-1][current]*non_div_prob + condprob[previous-2][current-1]*div_prob));
+			double PX1 =//遷移語が1 or 3になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous+1][current]*non_div_prob + condprob[previous][current-1]*div_prob) +
+					(condprob[previous+3][current]*non_div_prob + condprob[previous+2][current-1]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob) +
+					(condprob[previous+2][current]*non_div_prob + condprob[previous+1][current-1]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous-2][current-1]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous][current-1]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-3][current-1]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-1][current-1]*div_prob));
+
+			previous = current;
+			LLR[k++] = static_cast<FPTYPE>(std::log(P0X/P1X));
+			LLR[k++] = static_cast<FPTYPE>(std::log(PX0/PX1));			
+		}
+		for(std::size_t j=block_head+div_size, jend=block_tail; j<jend; ++j){
+			auto current = code[j];
+			double P0X =//遷移語が0 or 1になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous-2][current-3]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous][current-3]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob) +
+					(condprob[previous-1][current]*non_div_prob + condprob[previous][current-3]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-3][current]*non_div_prob + condprob[previous-2][current-3]*div_prob) +
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob));
+			double P1X =//遷移語が2 or 3になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous+2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob) +
+					(condprob[previous+3][current]*non_div_prob + condprob[previous][current-3]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous+1][current]*non_div_prob + condprob[previous-2][current-3]*div_prob) +
+					(condprob[previous+2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous-2][current-3]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous][current-3]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob));
+			double PX0 =//遷移語が0 or 2になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob) +
+					(condprob[previous+2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous][current-3]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous-2][current-3]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-3][current]*non_div_prob + condprob[previous-2][current-3]*div_prob) +
+					(condprob[previous-1][current]*non_div_prob + condprob[previous][current-3]*div_prob));
+			double PX1 =//遷移語が1 or 3になる組み合わせ
+				condprob[previous][previous] * (
+					(condprob[previous+1][current]*non_div_prob + condprob[previous-2][current-3]*div_prob) +
+					(condprob[previous+3][current]*non_div_prob + condprob[previous][current-3]*div_prob)) +
+				condprob[previous-1][previous] * (
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob) +
+					(condprob[previous+2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob)) +
+				condprob[previous-2][previous] * (
+					(condprob[previous-1][current]*non_div_prob + condprob[previous][current-3]*div_prob) +
+					(condprob[previous+1][current]*non_div_prob + condprob[previous-2][current-3]*div_prob)) +
+				condprob[previous-3][previous] * (
+					(condprob[previous-2][current]*non_div_prob + condprob[previous-1][current-3]*div_prob) +
+					(condprob[previous][current]*non_div_prob + condprob[previous-3][current-3]*div_prob));
+
+			previous = current;
+			LLR[k++] = static_cast<FPTYPE>(std::log(P0X/P1X));
+			LLR[k++] = static_cast<FPTYPE>(std::log(PX0/PX1));
+		}
 	}
 	return LLR;
 }
