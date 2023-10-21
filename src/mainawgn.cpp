@@ -37,7 +37,7 @@ int main(int argc, char* argv[]){
 	//符号化なし
 	auto plain = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
 		for(size_t n=0u; n<nsize; ++n){
-			channel::AWGN<float,SOURCE_LENGTH> ch(pow(10,-noise_factor[n]*0.1),t);
+			channel::AWGN<float> ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
 			auto &bn = (*bt)[n];
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]){
 	auto encoded = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt, auto decodertype){
 		const auto decoder = ldpc.make_decoder<decltype(decodertype)::type>();
 		for(size_t n=0u; n<nsize; ++n){
-			channel::AWGN<float,CODE_LENGTH> ch(pow(10,-noise_factor[n]*0.1),t);
+			channel::AWGN<float> ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
 			auto &bn = (*bt)[n];
