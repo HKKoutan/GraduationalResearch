@@ -77,8 +77,8 @@ template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class I_LDPC_Decoding {
 protected:
 	const std::shared_ptr<const CheckMatrix<S,C>> H;//検査行列のポインタ
-	std::vector<std::pair<std::vector<fptype>,std::vector<fptype>>> alphabeta;
-	std::vector<std::pair<std::vector<fptype*>,std::vector<const fptype*>>> alphapbetap;
+	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
+	std::array<std::pair<std::vector<fptype*>,std::vector<const fptype*>>,C-S> alphapbetap;
 
 	virtual void rowupdate() = 0;
 private:
@@ -118,8 +118,7 @@ class SumProduct_Decoding : public I_LDPC_Decoding<S,C> {
 	
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
-	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u);
-	static constexpr signtype signzero = 0u;
+	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u), signzero = 0u;
 public:
 	explicit SumProduct_Decoding(decltype(I_LDPC_Decoding<S,C>::H) H): I_LDPC_Decoding<S,C>(H), fg(){}
 	void rowupdate() override;//alpha,betaを更新する(行処理)
@@ -129,8 +128,7 @@ template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class MinSum_Decoding : public I_LDPC_Decoding<S,C> {
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
-	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u);
-	static constexpr signtype signzero = 0u;
+	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u), signzero = 0u;
 public:
 	explicit MinSum_Decoding(decltype(I_LDPC_Decoding<S,C>::H) H): I_LDPC_Decoding<S,C>(H){}
 	void rowupdate() override;//alpha,betaを更新する(行処理)
@@ -298,17 +296,17 @@ std::bitset<C-S> Generation_Matrix_Encoding<S,C>::systematic_redundancy(const st
 template<std::size_t S, std::size_t C>
 auto I_LDPC_Decoding<S,C>::alphabeta_init() const{
 	//HT(temporary variable)
-	std::vector<std::size_t> Hheight(C);
+	std::array<std::size_t,C> Hheight{};
 	for(const auto &Hi: *H) for(auto j: Hi) ++Hheight[j];
-	return std::vector(std::ranges::max(Hheight), std::pair{std::vector(C, fpzero), std::vector(C, fpzero)});
+	return std::vector(std::ranges::max(Hheight), decltype(alphabeta)::value_type());
 }
 
 template<std::size_t S, std::size_t C>
 auto I_LDPC_Decoding<S,C>::alphapbetap_init(){
 	constexpr auto isize = C-S;
-	std::vector apbp(isize, std::pair{std::vector<fptype*>(), std::vector<const fptype*>()});
+	decltype(alphapbetap) apbp{};
 	//HT(temporary variable)
-	std::vector HT(C, std::vector<std::uint64_t>(0));
+	std::array<std::vector<std::uint64_t>,C> HT{};
 	for(std::size_t i=0u, iend=isize; i<iend; ++i) for(auto j: (*H)[i]) HT[j].push_back(i);
 
 	for(std::size_t i=0u, iend=isize; i<iend; ++i){
