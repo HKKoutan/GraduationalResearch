@@ -18,8 +18,8 @@ constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000u;
 constexpr size_t SOURCE_LENGTH = 512u;
 constexpr size_t CODE_LENGTH = 1024u;
 constexpr size_t NUM_THREADS = 12u;
-constexpr size_t BLOCK_SIZE = 0u;
-constexpr uint8_t ATGC = 0x27;
+constexpr size_t BLOCK_SIZE = 32u;
+constexpr uint8_t ATGC = 0x1B;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -44,13 +44,14 @@ int main(int argc, char* argv[]){
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>>,5> stat = {};
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>>,NUM_THREADS> stats = {};
 
-	auto plain = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+	auto balanced = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &gcper = std::get<2>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
+			code::DNAS::division_balancing<0> bl;
 			gcper[n].resize(repeat_per_thread);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
@@ -58,19 +59,20 @@ int main(int argc, char* argv[]){
 
 				auto qm = code::DNAS::binary_to_quarternary<ATGC>(m);
 				auto cm = code::DNAS::differential::encode(qm);
-				// for(auto &ci: cm) ci = 3;
 
-				auto qty_AT = code::DNAS::count_AT(cm);
-				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size());
+				auto cmbar = bl.balance(cm);
 
-				auto rm = ch.noise(cm);
-				// auto rm=cm;
+				auto qty_AT = code::DNAS::count_AT(cmbar);
+				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cmbar.size());
+
+				auto rm = ch.noise(cmbar);
+				// auto rm=cmbar;
 
 				auto qmest = code::DNAS::differential::decode(rm);
 				auto mest = code::DNAS::quarternary_to_binary(qmest);
 				{
 					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
+					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cmbar[i]!=rm[i]);
 					nterror[n] += acc;
 				}
 				biterror[n] += (mest^m).count();
@@ -78,14 +80,15 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+	auto encoded_balance = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &gcper = std::get<2>(*st);
 		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
+			code::DNAS::division_balancing<0> bl;
 			gcper[n].resize(repeat_per_thread);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
@@ -95,18 +98,21 @@ int main(int argc, char* argv[]){
 				auto qc = code::DNAS::binary_to_quarternary<ATGC>(c);
 				auto cc = code::DNAS::differential::encode(qc);
 
-				auto qty_AT = code::DNAS::count_AT(cc);
-				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cc.size());
+				auto ccbar = bl.balance(cc);
 
-				auto rc = ch.noise(cc);
-				// auto rc=cc;
+				auto qty_AT = code::DNAS::count_AT(ccbar);
+				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(ccbar.size());
 
-				auto LLR = ch.differential_LLR(rc);
+				auto rc = ch.noise(ccbar);
+				// auto rc=ccbar;
+
+				// auto LLR = ch.differential_LLR(rc);
+				auto LLR = ch.division_balancing_LLR<0>(rc);
 
 				auto mest = ldpc.decode(LLR, decoder);
 				{
 					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (cc[i]!=rc[i]);
+					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (ccbar[i]!=rc[i]);
 					nterror[n] += acc;
 				}
 				biterror[n] += (mest^m).count();
@@ -114,7 +120,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto balanced = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+	auto balanced_block = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &gcper = std::get<2>(*st);
 		for(size_t n=0; n<nsize; ++n){
@@ -150,7 +156,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_balance = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+	auto encoded_balance_block = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &gcper = std::get<2>(*st);
 		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
@@ -190,7 +196,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_balance_diff = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+	auto encoded_balance_block_diff = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &gcper = std::get<2>(*st);
 		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
@@ -263,46 +269,46 @@ int main(int argc, char* argv[]){
 	//実行
 	vector<std::thread> threads;
 	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(plain, threads.size(), &st);
+	for(stats = {}; auto &st: stats) threads.emplace_back(balanced, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(0);
 	threads.clear();
 	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(encoded, threads.size(), &st);
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_balance, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(1);
 	threads.clear();
 	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(balanced, threads.size(), &st);
+	for(stats = {}; auto &st: stats) threads.emplace_back(balanced_block, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(2);
 	threads.clear();
 	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_balance, threads.size(), &st);
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_balance_block, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(3);
 	threads.clear();
 	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_balance_diff, threads.size(), &st);
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_balance_block_diff, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(4);
 	tk.stop();
 
 	//結果表示
 	cout<<SOURCE_LENGTH<<endl;
-	cout<<"plain"<<endl;
+	cout<<"balanced"<<endl;
 	result(0, SOURCE_LENGTH);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
-	cout<<"encoded(no balancing)"<<endl;
+	cout<<"encoded(with balancing)"<<endl;
 	result(1, CODE_LENGTH);
 	cout<<SOURCE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
-	cout<<"balanced"<<endl;
+	cout<<"block balanced"<<endl;
 	result(2, SOURCE_LENGTH);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
-	cout<<"encoded(with balancing)"<<endl;
+	cout<<"encoded(with block balancing)"<<endl;
 	result(3, CODE_LENGTH);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
-	cout<<"encoded(with balancing: differential LLR)"<<endl;
+	cout<<"encoded(with block balancing: differential LLR)"<<endl;
 	result(4, CODE_LENGTH);
 
 	return 0;

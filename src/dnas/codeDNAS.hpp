@@ -326,7 +326,7 @@ auto division_balancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &sou
 			qtyATdiv -= source[div_head++].is_AT();
 			qtyATdiv += source[div_tail++].is_AT();
 		}
-		for(std::size_t j=div_head, jend=div_tail; j<jend; ++j) balanced[j]+=1;
+		for(std::size_t j=div_head, jend=div_tail; j<jend; ++j) balanced[j]+=(ATGC==0x1B?2:ATGC==0x27?1:0);
 	}
 	return balanced;
 }
