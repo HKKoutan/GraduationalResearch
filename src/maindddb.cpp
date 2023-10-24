@@ -72,7 +72,7 @@ int main(int argc, char* argv[]){
 				auto mest = code::DNAS::quarternary_to_binary(qmest);
 				{
 					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cmbar[i]!=rm[i]);
+					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
 					nterror[n] += acc;
 				}
 				biterror[n] += (mest^m).count();
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]){
 				auto mest = ldpc.decode(LLR, decoder);
 				{
 					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (ccbar[i]!=rc[i]);
+					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (cc[i]!=rc[i]);
 					nterror[n] += acc;
 				}
 				biterror[n] += (mest^m).count();
@@ -148,7 +148,7 @@ int main(int argc, char* argv[]){
 				auto mest = code::DNAS::quarternary_to_binary(qmest);
 				{
 					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cmbar[i]!=rm[i]);
+					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
 					nterror[n] += acc;
 				}
 				biterror[n] += (mest^m).count();
@@ -188,7 +188,7 @@ int main(int argc, char* argv[]){
 				auto mest = ldpc.decode(LLR, decoder);
 				{
 					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (ccbar[i]!=rc[i]);
+					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (cc[i]!=rc[i]);
 					nterror[n] += acc;
 				}
 				biterror[n] += (mest^m).count();
@@ -228,7 +228,7 @@ int main(int argc, char* argv[]){
 				auto mest = ldpc.decode(LLR, decoder);
 				{
 					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (ccbar[i]!=rc[i]);
+					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (cc[i]!=rc[i]);
 					nterror[n] += acc;
 				}
 				biterror[n] += (mest^m).count();
