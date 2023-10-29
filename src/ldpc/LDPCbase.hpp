@@ -20,7 +20,6 @@
 namespace code::LDPC {
 
 using fptype = float;
-constexpr fptype fpzero = 0.0;
 
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class CheckMatrix{
@@ -95,12 +94,10 @@ public:
 };
 
 class func_Gallager {
-	static constexpr float FG_LOWER_BOUND_F = 0x1p-16f;
-	static constexpr uint32_t FG_LOWER_BOUND_U = 0x37800000u;// FG_LOWER_BOUND_Fの内部表現
-	// static constexpr auto FG_MAX_VALUE = static_cast<fptype>(11.783502580212915);// = func_Gallager(FG_LOWER_BOUND_F-0x1p-40f)
-	static constexpr float FG_UPPER_BOUND_F = 0x1p6f;
-	static constexpr uint32_t FG_UPPER_BOUND_U = 0x42800000u;// FG_UPPER_BOUND_Fの内部表現
-	// static constexpr auto FG_MIN_VALUE = static_cast<fptype>(3.207621781097276e-28);// = func_Gallager(FG_UPPER_BOUND_F)
+	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
+	static constexpr auto FG_LOWER_BOUND_U = std::bit_cast<uint32_t>(0x1p-16f);// FG_LOWER_BOUND_Fの内部表現
+	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
+	static constexpr auto FG_UPPER_BOUND_U = std::bit_cast<uint32_t>(0x1p6f);// FG_UPPER_BOUND_Fの内部表現
 	static constexpr auto FG_FILENAME = "gallager_float.bin";
 
 	static const std::vector<float> values;//Gallager関数の値: 簡易singleton
@@ -116,10 +113,10 @@ public:
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class SumProduct_Decoding : public I_LDPC_Decoding<S,C> {
 	const func_Gallager fg;
-	
+
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
-	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u), signzero = 0u;
+	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u);
 public:
 	explicit SumProduct_Decoding(decltype(I_LDPC_Decoding<S,C>::H) H): I_LDPC_Decoding<S,C>(H), fg(){}
 	void rowupdate() override;//alpha,betaを更新する(行処理)
@@ -129,7 +126,7 @@ template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class MinSum_Decoding : public I_LDPC_Decoding<S,C> {
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
-	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u), signzero = 0u;
+	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u);
 public:
 	explicit MinSum_Decoding(decltype(I_LDPC_Decoding<S,C>::H) H): I_LDPC_Decoding<S,C>(H){}
 	void rowupdate() override;//alpha,betaを更新する(行処理)
@@ -337,7 +334,7 @@ I_LDPC_Decoding<S,C>::I_LDPC_Decoding(decltype(H) H) noexcept:
 
 template<std::size_t S, std::size_t C>
 void I_LDPC_Decoding<S,C>::decode_init(){
-	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = fpzero;
+	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = 0;
 }
 
 template<std::size_t S, std::size_t C>
@@ -347,14 +344,14 @@ bool I_LDPC_Decoding<S,C>::iterate(std::array<fptype,C> &LPR, const std::array<f
 	//row update
 	rowupdate();
 	//column update
-	for(auto &lpj: LPR) lpj = fpzero;
+	for(auto &lpj: LPR) lpj = 0;
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0u, jend=C; j<jend; ++j) LPR[j] += ai[j];
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0u, jend=C; j<jend; ++j) bi[j] = LPR[j]-ai[j];
 	for(std::size_t j=0u, jend=C; j<jend; ++j) LPR[j] += LLR[j];
 	//parity check
 	for(const auto &Hi : *H){
 		auto parity = false;
-		for(const auto &j : Hi) parity ^= LPR[j]<fpzero;
+		for(const auto &j : Hi) parity ^= LPR[j]<0;
 		if(parity) return false;
 	}
 	return true;
@@ -363,7 +360,7 @@ bool I_LDPC_Decoding<S,C>::iterate(std::array<fptype,C> &LPR, const std::array<f
 template<std::size_t S, std::size_t C>
 auto I_LDPC_Decoding<S,C>::estimate(const std::array<fptype,C> &LEVR) const{
 	std::bitset<S> est;
-	for(std::size_t j=0u, jend=S; j<jend; ++j) est[j] = LEVR[j]<fpzero;
+	for(std::size_t j=0u, jend=S; j<jend; ++j) est[j] = LEVR[j]<0;
 	return est;
 }
 
@@ -377,16 +374,14 @@ template<std::size_t S, std::size_t C>
 void SumProduct_Decoding<S,C>::rowupdate(){
 	for(auto &[ai, bi]: this->alphabeta) for(auto &bij: bi) bij = fg(bij);
 	for(auto &[api, bpi]: this->alphapbetap){
-		auto abssum = fpzero;
-		auto signprod = signzero;
+		auto abssum = static_cast<fptype>(0);
+		auto signprod = static_cast<signtype>(0);
 		for(const auto &bpij: bpi){
 			abssum += std::fabs(*bpij);
 			signprod ^= std::bit_cast<const signtype>(*bpij);
 		}
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
-			auto absval = fg(abssum-std::fabs(*bpi[j]));
-			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(absval));
-			// *reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(absval);
+			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(fg(abssum-std::fabs(*bpi[j]))));
 		}
 	}
 }
@@ -400,7 +395,7 @@ void SumProduct_Decoding<S,C>::rowupdate(){
 template<std::size_t S, std::size_t C>
 void MinSum_Decoding<S,C>::rowupdate(){
 	for(auto &[api, bpi]: this->alphapbetap){
-		auto signprod = signzero;
+		auto signprod = static_cast<signtype>(0);
 		for(const auto &bpij: bpi) signprod ^= std::bit_cast<const signtype>(*bpij);
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
 			auto min = std::numeric_limits<fptype>::infinity();
@@ -409,7 +404,6 @@ void MinSum_Decoding<S,C>::rowupdate(){
 				if(temp<min) min = temp;
 			}
 			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(min));
-			// *reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(min);
 		}
 	}
 }
