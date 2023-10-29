@@ -95,12 +95,10 @@ public:
 };
 
 class func_Gallager {
-	static constexpr float FG_LOWER_BOUND_F = 0x1p-16f;
-	static constexpr uint32_t FG_LOWER_BOUND_U = 0x37800000u;// FG_LOWER_BOUND_Fの内部表現
-	// static constexpr auto FG_MAX_VALUE = static_cast<fptype>(11.783502580212915);// = func_Gallager(FG_LOWER_BOUND_F-0x1p-40f)
-	static constexpr float FG_UPPER_BOUND_F = 0x1p6f;
-	static constexpr uint32_t FG_UPPER_BOUND_U = 0x42800000u;// FG_UPPER_BOUND_Fの内部表現
-	// static constexpr auto FG_MIN_VALUE = static_cast<fptype>(3.207621781097276e-28);// = func_Gallager(FG_UPPER_BOUND_F)
+	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
+	static constexpr auto FG_LOWER_BOUND_U = std::bit_cast<uint32_t>(0x1p-16f);// FG_LOWER_BOUND_Fの内部表現
+	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
+	static constexpr auto FG_UPPER_BOUND_U = std::bit_cast<uint32_t>(0x1p6f);// FG_UPPER_BOUND_Fの内部表現
 	static constexpr auto FG_FILENAME = "gallager_float.bin";
 
 	static const std::vector<float> values;//Gallager関数の値: 簡易singleton
@@ -116,7 +114,7 @@ public:
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class SumProduct_Decoding : public I_LDPC_Decoding<S,C> {
 	const func_Gallager fg;
-	
+
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
 	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u), signzero = 0u;
@@ -384,9 +382,7 @@ void SumProduct_Decoding<S,C>::rowupdate(){
 			signprod ^= std::bit_cast<const signtype>(*bpij);
 		}
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
-			auto absval = fg(abssum-std::fabs(*bpi[j]));
-			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(absval));
-			// *reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(absval);
+			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(fg(abssum-std::fabs(*bpi[j]))));
 		}
 	}
 }
@@ -409,7 +405,6 @@ void MinSum_Decoding<S,C>::rowupdate(){
 				if(temp<min) min = temp;
 			}
 			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(min));
-			// *reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(min);
 		}
 	}
 }
