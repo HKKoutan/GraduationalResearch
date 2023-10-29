@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <bit>
 #include <algorithm>
 #include <ranges>
 #include <memory>
@@ -380,11 +381,12 @@ void SumProduct_Decoding<S,C>::rowupdate(){
 		auto signprod = signzero;
 		for(const auto &bpij: bpi){
 			abssum += std::fabs(*bpij);
-			signprod ^= *reinterpret_cast<const signtype*>(bpij);
+			signprod ^= std::bit_cast<const signtype>(*bpij);
 		}
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
 			auto absval = fg(abssum-std::fabs(*bpi[j]));
-			*reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(absval);
+			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(absval));
+			// *reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(absval);
 		}
 	}
 }
@@ -399,14 +401,15 @@ template<std::size_t S, std::size_t C>
 void MinSum_Decoding<S,C>::rowupdate(){
 	for(auto &[api, bpi]: this->alphapbetap){
 		auto signprod = signzero;
-		for(const auto &bpij: bpi) signprod ^= *reinterpret_cast<const signtype*>(bpij);
+		for(const auto &bpij: bpi) signprod ^= std::bit_cast<const signtype>(*bpij);
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
 			auto min = std::numeric_limits<fptype>::infinity();
 			for(std::size_t k=0u, kend=api.size(); k<kend; ++k) if(j != k){
 				auto temp = std::fabs(*bpi[k]);
 				if(temp<min) min = temp;
 			}
-			*reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(min);
+			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(min));
+			// *reinterpret_cast<signtype*>(api[j]) = (*reinterpret_cast<const signtype*>(bpi[j])^signprod)&signmask|reinterpret_cast<signtype&>(min);
 		}
 	}
 }

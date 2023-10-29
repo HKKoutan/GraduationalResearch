@@ -30,7 +30,7 @@ std::vector<float> func_Gallager::values_init(){
 		std::cerr<<"func_Gallager: Cache file not found."<<std::endl;
 		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
 			auto iu = i+FG_LOWER_BOUND_U;
-			val[i] = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(reinterpret_cast<float&>(iu)))));
+			val[i] = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(std::bit_cast<float>(iu)))));
 		}
 		if(!write_values(val)){
 			std::cerr<<"func_Gallager: Caching failed."<<std::endl;
@@ -70,8 +70,8 @@ float func_Gallager::operator()(float x) const{
 	//定義域を限定
 	if(y<FG_LOWER_BOUND_F) y = FG_LOWER_BOUND_F;
 	if(y>FG_UPPER_BOUND_F) y = FG_UPPER_BOUND_F;
-	y = values[reinterpret_cast<uint32_t&>(y) - FG_LOWER_BOUND_U];
+	y = values[std::bit_cast<uint32_t>(y) - FG_LOWER_BOUND_U];
 	// y = static_cast<float>(std::log1p(2.0/std::expm1(y)));
-	reinterpret_cast<uint32_t&>(y) |= reinterpret_cast<uint32_t&>(x)&0x80000000;
+	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
 	return y;
 }
