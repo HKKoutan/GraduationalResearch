@@ -127,7 +127,7 @@ inline func_Gallager_table::values func_Gallager_table::table;
 
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class SumProduct_Decoding : public I_LDPC_Decoding<S,C> {
-	const func_Gallager_table fg;
+	const func_Gallager_std fg;
 
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
