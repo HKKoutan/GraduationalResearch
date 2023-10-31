@@ -1,6 +1,6 @@
 ﻿#include "LDPCbase.hpp"
 
-using code::LDPC::CheckMatrix, code::LDPC::func_Gallager_table;
+using code::LDPC::CheckMatrix, code::LDPC::func_Gallager_std, code::LDPC::func_Gallager_table;
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -16,13 +16,27 @@ const char *CheckMatrix<5000,10000>::path = "H2.txt";
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
+//                  class func_Gallager_std                   //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
+float func_Gallager_std::operator()(float x) const{
+	auto y = std::fabs(x);
+	//定義域を限定
+	if(y<FG_LOWER_BOUND_F) y = FG_LOWER_BOUND_F;
+	if(y>FG_UPPER_BOUND_F) y = FG_UPPER_BOUND_F;
+	y = static_cast<float>(std::log1p(2.0f/std::expm1(y)));
+	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
+	return y;
+}
+
+////////////////////////////////////////////////////////////////
+//                                                            //
 //                 class func_Gallager_table                  //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-const std::vector<float> func_Gallager_table::values = values_init();
-
-std::vector<float> func_Gallager_table::values_init(){
+std::vector<float> func_Gallager_table::values::values_init(){
 	constexpr auto FG_VALUE_RANGE = FG_UPPER_BOUND_U - FG_LOWER_BOUND_U + 1u;
 	std::vector<float> val(FG_VALUE_RANGE);
 
@@ -39,7 +53,7 @@ std::vector<float> func_Gallager_table::values_init(){
 	return val;
 }
 
-bool func_Gallager_table::read_values(std::vector<float> &vec){
+bool func_Gallager_table::values::read_values(std::vector<float> &vec){
 	std::ifstream file(FG_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
@@ -49,7 +63,7 @@ bool func_Gallager_table::read_values(std::vector<float> &vec){
 	return true;
 }
 
-bool func_Gallager_table::write_values(const std::vector<float> &vec){
+bool func_Gallager_table::values::write_values(const std::vector<float> &vec){
 	std::ofstream file(FG_FILENAME, std::ios::out | std::ios::binary);
 
 	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
@@ -70,8 +84,7 @@ float func_Gallager_table::operator()(float x) const{
 	//定義域を限定
 	if(y<FG_LOWER_BOUND_F) y = FG_LOWER_BOUND_F;
 	if(y>FG_UPPER_BOUND_F) y = FG_UPPER_BOUND_F;
-	y = values[std::bit_cast<uint32_t>(y) - FG_LOWER_BOUND_U];
-	// y = static_cast<float>(std::log1p(2.0/std::expm1(y)));
+	y = table[std::bit_cast<uint32_t>(y) - FG_LOWER_BOUND_U];
 	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
 	return y;
 }

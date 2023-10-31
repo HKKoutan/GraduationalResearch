@@ -93,6 +93,14 @@ public:
 	auto estimate(const std::array<fptype,C> &LEVR) const;//推定符号語を求める
 };
 
+class func_Gallager_std {
+	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
+	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
+public:
+	// double operator()(double x) const;
+	float operator()(float x) const;
+};
+
 class func_Gallager_table {
 	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
 	static constexpr auto FG_LOWER_BOUND_U = std::bit_cast<uint32_t>(0x1p-16f);// FG_LOWER_BOUND_Fの内部表現
@@ -100,15 +108,22 @@ class func_Gallager_table {
 	static constexpr auto FG_UPPER_BOUND_U = std::bit_cast<uint32_t>(0x1p6f);// FG_UPPER_BOUND_Fの内部表現
 	static constexpr auto FG_FILENAME = "gallager_float.bin";
 
-	static const std::vector<float> values;//Gallager関数の値: 簡易singleton
+	class values {
+		const std::vector<float> table;
+		std::vector<float> values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
+		bool read_values(std::vector<float> &vec);
+		bool write_values(const std::vector<float> &vec);
+	public:
+		values(): table(values_init()){}
+		auto &operator[](std::size_t i){return table[i];}
+	} static table;//Gallager関数の値: 簡易singleton
 
-	static std::vector<float> values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
-	static bool read_values(std::vector<float> &vec);
-	static bool write_values(const std::vector<float> &vec);
 public:
 	// double operator()(double x) const;
 	float operator()(float x) const;
 };
+
+inline func_Gallager_table::values func_Gallager_table::table;
 
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class SumProduct_Decoding : public I_LDPC_Decoding<S,C> {
