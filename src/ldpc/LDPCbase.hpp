@@ -93,7 +93,7 @@ public:
 	auto estimate(const std::array<fptype,C> &LEVR) const;//推定符号語を求める
 };
 
-class func_Gallager {
+class func_Gallager_table {
 	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
 	static constexpr auto FG_LOWER_BOUND_U = std::bit_cast<uint32_t>(0x1p-16f);// FG_LOWER_BOUND_Fの内部表現
 	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
@@ -112,7 +112,7 @@ public:
 
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class SumProduct_Decoding : public I_LDPC_Decoding<S,C> {
-	const func_Gallager fg;
+	const func_Gallager_table fg;
 
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
@@ -374,14 +374,18 @@ template<std::size_t S, std::size_t C>
 void SumProduct_Decoding<S,C>::rowupdate(){
 	for(auto &[ai, bi]: this->alphabeta) for(auto &bij: bi) bij = fg(bij);
 	for(auto &[api, bpi]: this->alphapbetap){
-		auto abssum = static_cast<fptype>(0);
-		auto signprod = static_cast<signtype>(0);
-		for(const auto &bpij: bpi){
-			abssum += std::fabs(*bpij);
-			signprod ^= std::bit_cast<const signtype>(*bpij);
+		fptype abssum = 0;
+		signtype signprod = 0;
+		for(auto bpij: bpi){
+			auto bij = *bpij;
+			abssum += std::fabs(bij);
+			signprod ^= std::bit_cast<signtype>(bij);
 		}
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
-			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(fg(abssum-std::fabs(*bpi[j]))));
+			auto bij = *bpi[j];
+			auto absval = fg(abssum-std::fabs(bij));
+			auto sign = (std::bit_cast<signtype>(bij)^signprod)&signmask;
+			*api[j] = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(absval));
 		}
 	}
 }
@@ -395,15 +399,18 @@ void SumProduct_Decoding<S,C>::rowupdate(){
 template<std::size_t S, std::size_t C>
 void MinSum_Decoding<S,C>::rowupdate(){
 	for(auto &[api, bpi]: this->alphapbetap){
-		auto signprod = static_cast<signtype>(0);
-		for(const auto &bpij: bpi) signprod ^= std::bit_cast<const signtype>(*bpij);
+		signtype signprod = 0;
+		for(auto bpij: bpi){
+			signprod ^= std::bit_cast<signtype>(*bpij);
+		}
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
 			auto min = std::numeric_limits<fptype>::infinity();
 			for(std::size_t k=0u, kend=api.size(); k<kend; ++k) if(j != k){
 				auto temp = std::fabs(*bpi[k]);
 				if(temp<min) min = temp;
 			}
-			*api[j] = std::bit_cast<fptype>((std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask|std::bit_cast<signtype>(min));
+			auto sign = (std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask;
+			*api[j] = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(min));
 		}
 	}
 }
