@@ -1,6 +1,5 @@
 
 add_library(ldpc STATIC
-    # AWGN.cpp
-    # codeLDPC.cpp
+    checkmatrix.cpp
     LDPCbase.cpp
 )
