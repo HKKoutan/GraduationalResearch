@@ -8,8 +8,6 @@ namespace code {
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class Systematic_LDPC {
 	static constexpr std::uint64_t DEFAULT_ITERATION_LIMIT = 100;
-
-	std::shared_ptr<const LDPC::CheckMatrix<S,C>> H;
 	std::unique_ptr<const LDPC::I_LDPC_Encoding<S,C>> encoder;
 	std::uint64_t iterationlimit;//反復回数上限
 public:
@@ -20,10 +18,11 @@ public:
 	auto encode_redundancy(const std::bitset<S> &information) const;//引数から冗長を求める
 	auto decode(const std::array<LDPC::fptype,C> &LLR, const std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>> &decoder);
 
-	template<typename T> auto make_decoder(){return std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>>(new T(H));}
+	template<std::derived_from<LDPC::I_LDPC_Decoding<S,C>> T>
+	auto make_decoder(){return std::unique_ptr<LDPC::I_LDPC_Decoding<S,C>>(new T(LDPC::CheckMatrixType_t<S,C>()));}
 
-	auto sourcesize() const{return H->sourcesize();}
-	auto codesize() const{return H->codesize();}
+	auto sourcesize() const{return S;}
+	auto codesize() const{return C;}
 };
 
 ////////////////////////////////////////////////////////////////
@@ -34,8 +33,7 @@ public:
 
 template<std::size_t S, std::size_t C>
 Systematic_LDPC<S,C>::Systematic_LDPC(std::uint64_t iterationlimit):
-	H(std::make_shared<const LDPC::CheckMatrix<S,C>>(LDPC::CheckMatrix<S,C>())),
-	encoder(new LDPC::Generation_Matrix_Encoding<S,C>(*H)),
+	encoder(new LDPC::Generation_Matrix_Encoding<S,C>(LDPC::CheckMatrixType_t<S,C>())),
 	iterationlimit(iterationlimit)
 {}
 

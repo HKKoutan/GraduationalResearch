@@ -16,34 +16,11 @@
 #include <cmath>
 #include <limits>
 #include <exception>
+#include "checkmatrix.hpp"
 
 namespace code::LDPC {
 
 using fptype = float;
-
-template<std::size_t S, std::size_t C>//S:Source length, C:Code length
-class CheckMatrix{
-	std::array<std::vector<std::uint64_t>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
-	static const char *path;
-public:
-	using reference = typename decltype(pos1)::reference;
-	using const_reference = typename decltype(pos1)::const_reference;
-	using iterator = typename decltype(pos1)::iterator;
-	using const_iterator = typename decltype(pos1)::const_iterator;
-	using value_type = typename decltype(pos1)::value_type;
-
-	CheckMatrix();
-
-	static constexpr auto codesize() noexcept{return C;}
-	static constexpr auto sourcesize() noexcept{return S;}
-	static constexpr auto size() noexcept{return C-S;}
-
-	constexpr auto begin() const noexcept{return pos1.cbegin();}
-	constexpr auto cbegin() const noexcept{return pos1.cbegin();}
-	constexpr auto end() const noexcept{return pos1.cend();}
-	constexpr auto cend() const noexcept{return pos1.cend();}
-	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
-};
 
 //encorder class
 
@@ -67,7 +44,7 @@ class Generation_Matrix_Encoding : public I_LDPC_Encoding<S,C> {
 
 	auto GT_product(const std::bitset<S> &vec) const;//matpos1とvecの積を取る
 public:
-	explicit Generation_Matrix_Encoding(const CheckMatrix<S,C> &H);
+	explicit Generation_Matrix_Encoding(const CheckMatrixType_t<S,C> &H);
 	std::bitset<C-S> systematic_redundancy(const std::bitset<S> &information) const override;
 };
 
@@ -76,7 +53,7 @@ public:
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class I_LDPC_Decoding {
 protected:
-	const std::shared_ptr<const CheckMatrix<S,C>> H;//検査行列のポインタ
+	const CheckMatrixType_t<S,C> H;//検査行列
 	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
 	std::array<std::pair<std::vector<fptype*>,std::vector<const fptype*>>,C-S> alphapbetap;
 
@@ -86,7 +63,7 @@ private:
 	auto alphabeta_init() const;
 	auto alphapbetap_init();
 public:
-	explicit I_LDPC_Decoding(decltype(H) H) noexcept;
+	explicit I_LDPC_Decoding(const CheckMatrixType_t<S,C> &H) noexcept;
 	virtual ~I_LDPC_Decoding(){}
 	void decode_init();//decodeで使用する変数の初期化
 	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR);
@@ -142,41 +119,6 @@ public:
 	void rowupdate() override;//alpha,betaを更新する(行処理)
 };
 
-
-////////////////////////////////////////////////////////////////
-//                                                            //
-//                     class CheckMatrix                      //
-//                                                            //
-////////////////////////////////////////////////////////////////
-
-template<std::size_t S, std::size_t C>
-CheckMatrix<S,C>::CheckMatrix(){
-	std::ifstream file(path, std::ios_base::in);
-	if(!file.is_open()) throw std::runtime_error("LDPC: cannot open file.");
-
-	std::string buf;
-	std::size_t colsize = 0u;
-	for(auto &row: pos1){
-		if(!std::getline(file, buf)) throw std::runtime_error("Conflict between index data and file content detected.");
-
-		const char *bi = &buf.front();
-		const char *const bend = &buf.back();
-		while(bi!=bend){
-			uint64_t val;
-			auto r = std::from_chars(bi, bend, val);
-			//読み込みに失敗した場合
-			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");
-			//行列の列数を記録
-			if(val>colsize) colsize=val;
-			row.push_back(val-1);
-			bi=r.ptr;
-			while(bi!=bend&&*bi==' ') bi++;//空白を読み飛ばす
-		}
-	}
-	if(std::getline(file, buf)||colsize!=C) throw std::runtime_error("Conflict between index data and file content detected.");
-	file.close();
-}
-
 ////////////////////////////////////////////////////////////////
 //                                                            //
 //                   class I_LDPC_Encoding                    //
@@ -230,7 +172,7 @@ auto I_LDPC_Encoding<S,C>::inverse_substitution(std::bitset<C> vec) const{
 ////////////////////////////////////////////////////////////////
 
 template<std::size_t S, std::size_t C>
-Generation_Matrix_Encoding<S,C>::Generation_Matrix_Encoding(const CheckMatrix<S,C> &H):
+Generation_Matrix_Encoding<S,C>::Generation_Matrix_Encoding(const CheckMatrixType_t<S,C> &H):
 	I_LDPC_Encoding<S,C>(),
 	GT(C-S)
 {
@@ -305,7 +247,7 @@ template<std::size_t S, std::size_t C>
 auto I_LDPC_Decoding<S,C>::alphabeta_init() const{
 	//HT(temporary variable)
 	std::array<std::size_t,C> Hheight{};
-	for(const auto &Hi: *H) for(auto j: Hi) ++Hheight[j];
+	for(const auto &Hi: H) for(auto j: Hi) ++Hheight[j];
 	return std::vector(std::ranges::max(Hheight), decltype(alphabeta)::value_type());
 }
 
@@ -315,10 +257,10 @@ auto I_LDPC_Decoding<S,C>::alphapbetap_init(){
 	decltype(alphapbetap) apbp{};
 	//HT(temporary variable)
 	std::array<std::vector<std::uint64_t>,C> HT{};
-	for(std::size_t i=0u, iend=isize; i<iend; ++i) for(auto j: (*H)[i]) HT[j].push_back(i);
+	for(std::size_t i=0u, iend=isize; i<iend; ++i) for(auto j: H[i]) HT[j].push_back(i);
 
 	for(std::size_t i=0u, iend=isize; i<iend; ++i){
-		auto &Hi = (*H)[i];
+		auto &Hi = H[i];
 		auto &[api, bpi] = apbp[i];
 		//Hとalphabetapの要素数を揃える
 		api.resize(Hi.size());
@@ -336,7 +278,7 @@ auto I_LDPC_Decoding<S,C>::alphapbetap_init(){
 }
 
 template<std::size_t S, std::size_t C>
-I_LDPC_Decoding<S,C>::I_LDPC_Decoding(decltype(H) H) noexcept:
+I_LDPC_Decoding<S,C>::I_LDPC_Decoding(const CheckMatrixType_t<S,C> &H) noexcept:
 	H(H),
 	alphabeta(alphabeta_init()),
 	alphapbetap(alphapbetap_init())
@@ -359,7 +301,7 @@ bool I_LDPC_Decoding<S,C>::iterate(std::array<fptype,C> &LPR, const std::array<f
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0u, jend=C; j<jend; ++j) bi[j] = LPR[j]-ai[j];
 	for(std::size_t j=0u, jend=C; j<jend; ++j) LPR[j] += LLR[j];
 	//parity check
-	for(const auto &Hi : *H){
+	for(const auto &Hi : H){
 		auto parity = false;
 		for(const auto &j : Hi) parity ^= LPR[j]<0;
 		if(parity) return false;

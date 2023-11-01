@@ -4,18 +4,6 @@ using code::LDPC::CheckMatrix, code::LDPC::func_Gallager_std, code::LDPC::func_G
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                     class CheckMatrix                      //
-//                                                            //
-////////////////////////////////////////////////////////////////
-
-const char *CheckMatrix<252,504>::path = "H.txt";
-const char *CheckMatrix<256,512>::path = "36_512.txt";
-const char *CheckMatrix<512,1024>::path = "36_1024.txt";
-const char *CheckMatrix<1024,2048>::path = "36_2048.txt";
-const char *CheckMatrix<5000,10000>::path = "H2.txt";
-
-////////////////////////////////////////////////////////////////
-//                                                            //
 //                  class func_Gallager_std                   //
 //                                                            //
 ////////////////////////////////////////////////////////////////
