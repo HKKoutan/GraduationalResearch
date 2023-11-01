@@ -1,6 +1,6 @@
 ﻿//Additive White Gaussian Noise
-#ifndef __channel_AWGN__
-#define __channel_AWGN__
+#ifndef INCLUDE_GUARD_ldpc_AWGN
+#define INCLUDE_GUARD_ldpc_AWGN
 
 #include <iostream>
 #include <vector>

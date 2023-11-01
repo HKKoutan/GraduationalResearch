@@ -1,5 +1,5 @@
-﻿#ifndef __code_LDPCBASE__
-#define __code_LDPCBASE__
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCbase
+#define INCLUDE_GUARD_ldpc_LDPCbase
 
 #include <iostream>
 #include <fstream>

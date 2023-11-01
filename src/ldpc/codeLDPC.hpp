@@ -1,5 +1,5 @@
-﻿#ifndef __code_CODELDPC__
-#define __code_CODELDPC__
+﻿#ifndef INCLUDE_GUARD_ldpc_codeLDPC
+#define INCLUDE_GUARD_ldpc_codeLDPC
 
 #include "LDPCbase.hpp"
 
