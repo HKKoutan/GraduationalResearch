@@ -1,5 +1,5 @@
-﻿#ifndef __util_RANDOMBITS__
-#define __util_RANDOMBITS__
+﻿#ifndef INCLUDE_GUARD_common_randombits
+#define INCLUDE_GUARD_common_randombits
 
 #include <random>
 #include <bitset>

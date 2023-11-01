@@ -1,5 +1,5 @@
-﻿#ifndef __util_TIMEKEEP__
-#define __util_TIMEKEEP__
+﻿#ifndef INCLUDE_GUARD_common_timekeep
+#define INCLUDE_GUARD_common_timekeep
 
 #include <iostream>
 #include <chrono>

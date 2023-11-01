@@ -1,5 +1,5 @@
-﻿#ifndef __util_FILEACCESS__
-#define __util_FILEACCESS__
+﻿#ifndef INCLUDE_GUARD_common_fileaccess
+#define INCLUDE_GUARD_common_fileaccess
 
 // #include <iostream>
 // #include <fstream>
