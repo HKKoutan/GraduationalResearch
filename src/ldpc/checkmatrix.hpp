@@ -27,15 +27,10 @@ concept CheckMatrix = requires(std::remove_reference_t<T>& x){
 
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class CheckMatrix_irregular{
-	static std::array<std::vector<std::uint64_t>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
+	inline static std::array<std::vector<std::uint64_t>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
 	static const char *path;
 	static void readCheckMatrix();
 public:
-	// using reference = typename decltype(pos1)::reference;
-	// using const_reference = typename decltype(pos1)::const_reference;
-	// using iterator = typename decltype(pos1)::iterator;
-	// using const_iterator = typename decltype(pos1)::const_iterator;
-	// using value_type = typename decltype(pos1)::value_type;
 	CheckMatrix_irregular();
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
@@ -49,15 +44,10 @@ public:
 
 template<std::size_t S, std::size_t C, std::size_t W>//S:Source length, C:Code length, W:row weight
 class CheckMatrix_regular{
-	static std::array<std::array<std::uint64_t,W>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
+	inline static std::array<std::array<std::uint64_t,W>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
 	static const char *path;
 	static void readCheckMatrix();
 public:
-	// using reference = typename decltype(pos1)::reference;
-	// using const_reference = typename decltype(pos1)::const_reference;
-	// using iterator = typename decltype(pos1)::iterator;
-	// using const_iterator = typename decltype(pos1)::const_iterator;
-	// using value_type = typename decltype(pos1)::value_type;
 	CheckMatrix_regular();
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
@@ -69,10 +59,22 @@ public:
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
-template<std::size_t S, std::size_t C> auto getCheckMatrix();//S,Cに応じて適切なCheckMatrixのインスタンスを返す
-
-template<std::size_t S, std::size_t C> struct CheckMatrixType {using type = std::invoke_result_t<getCheckMatrix>;};
+template<std::size_t S, std::size_t C> struct CheckMatrixType {using type = void;};
 template<std::size_t S, std::size_t C> using CheckMatrixType_t = CheckMatrixType<S,C>::type;//S,Cに応じて適切なCheckMatrixの型を返す
+
+//特殊化の定義
+#define SET_CheckMatrix_regular(P,S,C,W) const char *CheckMatrix_regular<S,C,W>::path = P; template<> struct CheckMatrixType<S,C> {using type = CheckMatrix_regular<S,C,W>;};
+#define SET_CheckMatrix_irregular(P,S,C) const char *CheckMatrix_irregular<S,C>::path = P; template<> struct CheckMatrixType<S,C> {using type = CheckMatrix_irregular<S,C>;};
+
+SET_CheckMatrix_regular("H.txt",252,504,6)
+SET_CheckMatrix_regular("36_512.txt",256,512,6)
+SET_CheckMatrix_regular("36_1024.txt",512,1024,6)
+SET_CheckMatrix_regular("36_2048.txt",1024,2048,6)
+SET_CheckMatrix_regular("H2.txt",5000,10000,6)
+SET_CheckMatrix_irregular("H3.txt",4999,10000)
+
+#undef SET_CheckMatrix_regular
+#undef SET_CheckMatrix_irregular
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
