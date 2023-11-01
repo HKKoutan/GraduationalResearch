@@ -37,7 +37,7 @@ int main(int argc, char* argv[]){
 	//符号化なし
 	auto plain = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
 		for(size_t n=0u; n<nsize; ++n){
-			channel::AWGN<float> ch(pow(10,-noise_factor[n]*0.1),t);
+			channel::AWGN ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
 			auto &bn = (*bt)[n];
@@ -45,7 +45,7 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; ++r){
 				rb.generate(info);
 
-				auto y = ch.noise(info);
+				auto y = ch.noise<float>(info);
 				auto est = ch.estimate(y);
 
 				bn += (est^info).count();
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]){
 	auto encoded = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt, auto decodertype){
 		const auto decoder = ldpc.make_decoder<decltype(decodertype)::type>();
 		for(size_t n=0u; n<nsize; ++n){
-			channel::AWGN<float> ch(pow(10,-noise_factor[n]*0.1),t);
+			channel::AWGN ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
 			auto &bn = (*bt)[n];
@@ -65,7 +65,7 @@ int main(int argc, char* argv[]){
 				rb.generate(info);
 
 				auto code = ldpc.encode(info);
-				auto y = ch.noise(code);
+				auto y = ch.noise<float>(code);
 				auto est = ldpc.decode(ch.LLR(y), decoder);
 
 				bn += (est^info).count();
