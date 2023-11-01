@@ -69,8 +69,10 @@ public:
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
-template<std::size_t S, std::size_t C>
-auto getCheckMatrix();//S,Cに応じて適切なCheckMatrixのインスタンスを返す関数
+template<std::size_t S, std::size_t C> auto getCheckMatrix();//S,Cに応じて適切なCheckMatrixのインスタンスを返す
+
+template<std::size_t S, std::size_t C> struct CheckMatrixType {using type = std::invoke_result_t<getCheckMatrix>;};
+template<std::size_t S, std::size_t C> using CheckMatrixType_t = CheckMatrixType<S,C>::type;//S,Cに応じて適切なCheckMatrixの型を返す
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
