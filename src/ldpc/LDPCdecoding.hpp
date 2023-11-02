@@ -15,7 +15,7 @@ namespace code::LDPC {
 
 template<class T>
 concept DecoderType = requires(std::remove_reference_t<T> &x){
-	x.rowupdate();
+	T::rowupdate();
 };
 
 template<CheckMatrix T>
