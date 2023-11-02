@@ -2,7 +2,7 @@
 #define INCLUDE_GUARD_ldpc_codeSystematicLDPC
 
 #include "LDPCbase.hpp"
-#include "LDPCGenerationMatrixencoding.hpp"
+#include "LDPCencoding.hpp"
 
 namespace code {
 

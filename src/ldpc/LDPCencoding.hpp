@@ -1,5 +1,5 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCGenerationMatrixencoding
-#define INCLUDE_GUARD_ldpc_LDPCGenerationMatrixencoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCencoding
+#define INCLUDE_GUARD_ldpc_LDPCencoding
 
 #include <iostream>
 #include <bitset>
