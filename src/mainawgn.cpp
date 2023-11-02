@@ -2,8 +2,8 @@
 #include <tuple>
 #include "common/timekeep.hpp"
 #include "common/randombits.hpp"
-#include "ldpc/codeLDPC.hpp"
-#include "ldpc/AWGN.hpp"
+#include "ldpc/codeSystematicLDPC.hpp"
+#include "ldpc/channelAWGN.hpp"
 
 using std::array, std::bitset, std::vector;
 using std::size_t, std::uint64_t;
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]){
 	//constexpr array noise_factor = {0.0};
 	constexpr size_t nsize = noise_factor.size();
 
-	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
+	code::SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
 	array<array<uint64_t,nsize>,3> biterror = {0};
 	array<array<uint64_t,nsize>,NUM_THREADS> biterrors = {0};
 

@@ -1,5 +1,5 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_checkmatrix
-#define INCLUDE_GUARD_ldpc_checkmatrix
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
+#define INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 
 #include <fstream>
 #include <charconv>

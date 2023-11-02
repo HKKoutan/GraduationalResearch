@@ -1,5 +1,5 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCencoding
-#define INCLUDE_GUARD_ldpc_LDPCencoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCGenerationMatrixencoding
+#define INCLUDE_GUARD_ldpc_LDPCGenerationMatrixencoding
 
 #include <iostream>
 #include <bitset>
@@ -9,7 +9,7 @@
 #include <cmath>
 #include <limits>
 #include <exception>
-#include "checkmatrix.hpp"
+#include "LDPCCheckMatrix.hpp"
 
 namespace code::LDPC {
 

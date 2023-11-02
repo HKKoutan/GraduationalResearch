@@ -10,7 +10,7 @@
 #include <cmath>
 #include <limits>
 #include <exception>
-#include "checkmatrix.hpp"
+#include "LDPCCheckMatrix.hpp"
 
 namespace code::LDPC {
 
