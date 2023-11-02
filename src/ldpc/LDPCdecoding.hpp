@@ -29,7 +29,7 @@ class Iterative_decoding {
 	static constexpr std::size_t Hsize = C-S;
 
 	inline static T H;//検査行列
-	//alphaとbetaを共有
+	//TODO: alphaとbetaを共有
 	inline static thread_local std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
 	inline static thread_local std::array<std::pair<std::vector<fptype*>,std::vector<const fptype*>>,C-S> alphapbetap;
 	//メンバ初期化関数
