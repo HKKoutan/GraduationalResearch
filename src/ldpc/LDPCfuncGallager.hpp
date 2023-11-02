@@ -29,8 +29,9 @@ class func_Gallager_table {
 	static bool read_values(std::vector<float> &vec);
 	static bool write_values(const std::vector<float> &vec);
 
-	inline static const std::vector<float> values = values_init();
+	inline static std::vector<float> values;
 public:
+	func_Gallager_table();
 	template<std::floating_point T>
 	T operator()(T x) const;
 };
@@ -92,6 +93,14 @@ bool func_Gallager_table::write_values(const std::vector<float> &vec){
 	file.close();
 	if(file.fail()) return false;
 	return true;
+}
+
+func_Gallager_table::func_Gallager_table(){
+	static bool init;
+	if(!init){
+		values = values_init();
+		init = true;
+	}
 }
 
 template<>
