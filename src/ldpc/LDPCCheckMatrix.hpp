@@ -14,7 +14,7 @@ namespace code::LDPC {
 
 //以下で定義するクラスが満たすべきconcept
 template<class T>
-concept CheckMatrix = requires(std::remove_reference_t<T>& x){
+concept CheckMatrix = requires(std::remove_reference_t<T> &x){
 	{T::codesize()} -> std::same_as<std::size_t>;
 	{T::sourcesize()} -> std::same_as<std::size_t>;
 	{x.size()} -> std::same_as<std::size_t>;
@@ -112,10 +112,10 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 
 template<std::size_t S, std::size_t C>
 CheckMatrix_irregular<S,C>::CheckMatrix_irregular(){
-	static bool read;
-	if(!read){
+	static bool init;
+	if(!init){
 		readCheckMatrix();
-		read = true;
+		init = true;
 	}
 }
 
@@ -157,10 +157,10 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 
 template<std::size_t S, std::size_t C, std::size_t W>
 CheckMatrix_regular<S,C,W>::CheckMatrix_regular(){
-	static bool read;
-	if(!read){
+	static bool init;
+	if(!init){
 		readCheckMatrix();
-		read = true;
+		init = true;
 	}
 }
 
