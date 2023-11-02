@@ -24,9 +24,11 @@ using fptype = float;
 
 //encorder class
 
-template<std::size_t S, std::size_t C>//S:Source length, C:Code length
+template<CheckMatrix T>
 class I_LDPC_Encoding {
 protected:
+	static constexpr std::size_t S = T::sourcesize();
+	static constexpr std::size_t C = T::codesize();
 	std::vector<std::pair<std::size_t,std::size_t>> Q;//行置換(組織符号にするため)
 public:
 	I_LDPC_Encoding(){}
@@ -38,22 +40,25 @@ public:
 	auto inverse_substitution(std::bitset<C> vec) const;//置換を戻す
 };
 
-template<std::size_t S, std::size_t C>//S:Source length, C:Code length
-class Generation_Matrix_Encoding : public I_LDPC_Encoding<S,C> {
+template<CheckMatrix T>
+class Generation_Matrix_Encoding : public I_LDPC_Encoding<T> {
+	static constexpr std::size_t S = T::sourcesize();
+	static constexpr std::size_t C = T::codesize();
 	std::vector<std::bitset<S>> GT;
-
-	auto GT_product(const std::bitset<S> &vec) const;//matpos1とvecの積を取る
+	auto GT_product(const std::bitset<T::sourcesize()> &vec) const;//matpos1とvecの積を取る
 public:
-	explicit Generation_Matrix_Encoding(const CheckMatrixType_t<S,C> &H);
-	std::bitset<C-S> systematic_redundancy(const std::bitset<S> &information) const override;
+	explicit Generation_Matrix_Encoding(const T &H);
+	std::bitset<T::codesize()-T::sourcesize()> systematic_redundancy(const std::bitset<T::sourcesize()> &information) const override;
 };
 
 //decoder class
 
-template<std::size_t S, std::size_t C>//S:Source length, C:Code length
+template<CheckMatrix T>
 class I_LDPC_Decoding {
 protected:
-	const CheckMatrixType_t<S,C> H;//検査行列
+	static constexpr std::size_t S = T::sourcesize();
+	static constexpr std::size_t C = T::codesize();
+	const T H;//検査行列
 	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
 	std::array<std::pair<std::vector<fptype*>,std::vector<const fptype*>>,C-S> alphapbetap;
 
@@ -63,7 +68,7 @@ private:
 	auto alphabeta_init() const;
 	auto alphapbetap_init();
 public:
-	explicit I_LDPC_Decoding(const CheckMatrixType_t<S,C> &H) noexcept;
+	explicit I_LDPC_Decoding(const T &H) noexcept;
 	virtual ~I_LDPC_Decoding(){}
 	void decode_init();//decodeで使用する変数の初期化
 	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR);
@@ -97,25 +102,25 @@ public:
 
 inline const std::vector<float> func_Gallager_table::values = func_Gallager_table::values_init();
 
-template<std::size_t S, std::size_t C>//S:Source length, C:Code length
-class SumProduct_Decoding : public I_LDPC_Decoding<S,C> {
+template<CheckMatrix T>
+class SumProduct_Decoding : public I_LDPC_Decoding<T> {
 	const func_Gallager_table fg;
 
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
 	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u);
 public:
-	explicit SumProduct_Decoding(decltype(I_LDPC_Decoding<S,C>::H) H): I_LDPC_Decoding<S,C>(H), fg(){}
+	explicit SumProduct_Decoding(const T &H): I_LDPC_Decoding<T>(H), fg(){}
 	void rowupdate() override;//alpha,betaを更新する(行処理)
 };
 
-template<std::size_t S, std::size_t C>//S:Source length, C:Code length
-class MinSum_Decoding : public I_LDPC_Decoding<S,C> {
+template<CheckMatrix T>
+class MinSum_Decoding : public I_LDPC_Decoding<T> {
 	using signtype = std::uint32_t;
 	static_assert(sizeof(fptype)==sizeof(signtype));
 	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u);
 public:
-	explicit MinSum_Decoding(decltype(I_LDPC_Decoding<S,C>::H) H): I_LDPC_Decoding<S,C>(H){}
+	explicit MinSum_Decoding(const T &H): I_LDPC_Decoding<T>(H){}
 	void rowupdate() override;//alpha,betaを更新する(行処理)
 };
 
@@ -125,8 +130,8 @@ public:
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::size_t S, std::size_t C>
-auto I_LDPC_Encoding<S,C>::substitution(std::array<fptype,C> vec) const{
+template<CheckMatrix T>
+auto I_LDPC_Encoding<T>::substitution(std::array<fptype,C> vec) const{
 	for(auto [qa, qb]: this->Q){
 		auto temp = vec[qa];
 		vec[qa] = vec[qb];
@@ -135,8 +140,8 @@ auto I_LDPC_Encoding<S,C>::substitution(std::array<fptype,C> vec) const{
 	return vec;
 }
 
-template<std::size_t S, std::size_t C>
-auto I_LDPC_Encoding<S,C>::substitution(std::bitset<C> vec) const{
+template<CheckMatrix T>
+auto I_LDPC_Encoding<T>::substitution(std::bitset<C> vec) const{
 	for(auto [qa, qb]: this->Q){
 		bool temp = vec[qa];
 		vec[qa] = vec[qb];
@@ -145,8 +150,8 @@ auto I_LDPC_Encoding<S,C>::substitution(std::bitset<C> vec) const{
 	return vec;
 }
 
-template<std::size_t S, std::size_t C>
-auto I_LDPC_Encoding<S,C>::inverse_substitution(std::array<fptype,C> vec) const{
+template<CheckMatrix T>
+auto I_LDPC_Encoding<T>::inverse_substitution(std::array<fptype,C> vec) const{
 	for(auto [qa, qb]: this->Q|std::views::reverse){
 		auto temp = vec[qa];
 		vec[qa] = vec[qb];
@@ -155,8 +160,8 @@ auto I_LDPC_Encoding<S,C>::inverse_substitution(std::array<fptype,C> vec) const{
 	return vec;
 }
 
-template<std::size_t S, std::size_t C>
-auto I_LDPC_Encoding<S,C>::inverse_substitution(std::bitset<C> vec) const{
+template<CheckMatrix T>
+auto I_LDPC_Encoding<T>::inverse_substitution(std::bitset<C> vec) const{
 	for(auto [qa, qb]: this->Q|std::views::reverse){
 		bool temp = vec[qa];
 		vec[qa] = vec[qb];
@@ -171,9 +176,9 @@ auto I_LDPC_Encoding<S,C>::inverse_substitution(std::bitset<C> vec) const{
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::size_t S, std::size_t C>
-Generation_Matrix_Encoding<S,C>::Generation_Matrix_Encoding(const CheckMatrixType_t<S,C> &H):
-	I_LDPC_Encoding<S,C>(),
+template<CheckMatrix T>
+Generation_Matrix_Encoding<T>::Generation_Matrix_Encoding(const T &H):
+	I_LDPC_Encoding<T>(),
 	GT(C-S)
 {
 	constexpr auto isize = H.size();
@@ -217,12 +222,12 @@ Generation_Matrix_Encoding<S,C>::Generation_Matrix_Encoding(const CheckMatrixTyp
 	for(std::size_t i=0u, iend=isize; i<iend; ++i){
 		auto &Hbi=Hb[i];
 		auto &GTi=GT[i];
-		for(std::size_t j=0u, jsize=S; j<jsize; ++j) GTi[j] = Hbi[j];
+		for(std::size_t j=0u, jsize=I_LDPC_Encoding<T>::S; j<jsize; ++j) GTi[j] = Hbi[j];
 	}
 }
 
-template<std::size_t S, std::size_t C>
-auto Generation_Matrix_Encoding<S,C>::GT_product(const std::bitset<S> &vec) const{
+template<CheckMatrix T>
+auto Generation_Matrix_Encoding<T>::GT_product(const std::bitset<T::sourcesize()> &vec) const{
 	std::bitset<C-S> sol;
 	for(std::size_t i=0u, iend=C-S; i<iend; ++i){
 		std::bitset<S> prod = vec&GT[i];
@@ -232,8 +237,8 @@ auto Generation_Matrix_Encoding<S,C>::GT_product(const std::bitset<S> &vec) cons
 	return sol;
 }
 
-template<std::size_t S, std::size_t C>
-std::bitset<C-S> Generation_Matrix_Encoding<S,C>::systematic_redundancy(const std::bitset<S> &information) const{
+template<CheckMatrix T>
+std::bitset<T::codesize()-T::sourcesize()> Generation_Matrix_Encoding<T>::systematic_redundancy(const std::bitset<T::sourcesize()> &information) const{
 	return GT_product(information);
 }
 
@@ -243,16 +248,16 @@ std::bitset<C-S> Generation_Matrix_Encoding<S,C>::systematic_redundancy(const st
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::size_t S, std::size_t C>
-auto I_LDPC_Decoding<S,C>::alphabeta_init() const{
+template<CheckMatrix T>
+auto I_LDPC_Decoding<T>::alphabeta_init() const{
 	//HT(temporary variable)
 	std::array<std::size_t,C> Hheight{};
 	for(const auto &Hi: H) for(auto j: Hi) ++Hheight[j];
 	return std::vector(std::ranges::max(Hheight), decltype(alphabeta)::value_type());
 }
 
-template<std::size_t S, std::size_t C>
-auto I_LDPC_Decoding<S,C>::alphapbetap_init(){
+template<CheckMatrix T>
+auto I_LDPC_Decoding<T>::alphapbetap_init(){
 	constexpr auto isize = C-S;
 	decltype(alphapbetap) apbp{};
 	//HT(temporary variable)
@@ -277,20 +282,20 @@ auto I_LDPC_Decoding<S,C>::alphapbetap_init(){
 	return apbp;
 }
 
-template<std::size_t S, std::size_t C>
-I_LDPC_Decoding<S,C>::I_LDPC_Decoding(const CheckMatrixType_t<S,C> &H) noexcept:
+template<CheckMatrix T>
+I_LDPC_Decoding<T>::I_LDPC_Decoding(const T &H) noexcept:
 	H(H),
 	alphabeta(alphabeta_init()),
 	alphapbetap(alphapbetap_init())
 {}
 
-template<std::size_t S, std::size_t C>
-void I_LDPC_Decoding<S,C>::decode_init(){
+template<CheckMatrix T>
+void I_LDPC_Decoding<T>::decode_init(){
 	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = 0;
 }
 
-template<std::size_t S, std::size_t C>
-bool I_LDPC_Decoding<S,C>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR){
+template<CheckMatrix T>
+bool I_LDPC_Decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR){
 	//apply LLR
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0u, jend=C; j<jend; ++j) bi[j] += LLR[j];
 	//row update
@@ -309,8 +314,8 @@ bool I_LDPC_Decoding<S,C>::iterate(std::array<fptype,C> &LPR, const std::array<f
 	return true;
 }
 
-template<std::size_t S, std::size_t C>
-auto I_LDPC_Decoding<S,C>::estimate(const std::array<fptype,C> &LEVR) const{
+template<CheckMatrix T>
+auto I_LDPC_Decoding<T>::estimate(const std::array<fptype,C> &LEVR) const{
 	std::bitset<S> est;
 	for(std::size_t j=0u, jend=S; j<jend; ++j) est[j] = LEVR[j]<0;
 	return est;
@@ -322,8 +327,8 @@ auto I_LDPC_Decoding<S,C>::estimate(const std::array<fptype,C> &LEVR) const{
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::size_t S, std::size_t C>
-void SumProduct_Decoding<S,C>::rowupdate(){
+template<CheckMatrix T>
+void SumProduct_Decoding<T>::rowupdate(){
 	for(auto &[ai, bi]: this->alphabeta) for(auto &bij: bi) bij = fg(bij);
 	for(auto &[api, bpi]: this->alphapbetap){
 		fptype abssum = 0;
@@ -348,8 +353,8 @@ void SumProduct_Decoding<S,C>::rowupdate(){
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::size_t S, std::size_t C>
-void MinSum_Decoding<S,C>::rowupdate(){
+template<CheckMatrix T>
+void MinSum_Decoding<T>::rowupdate(){
 	for(auto &[api, bpi]: this->alphapbetap){
 		signtype signprod = 0;
 		for(auto bpij: bpi){

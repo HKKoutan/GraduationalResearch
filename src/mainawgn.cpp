@@ -81,12 +81,12 @@ int main(int argc, char* argv[]){
 	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, std::type_identity<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>());
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::SumProduct());
 	for(auto &t: threads) t.join();
 	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, std::type_identity<code::LDPC::MinSum_Decoding<SOURCE_LENGTH,CODE_LENGTH>>());
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::MinSum());
 	for(auto &t: threads) t.join();
 	for(auto &bs = biterror[2]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	tk.stop();
