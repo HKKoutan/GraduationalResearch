@@ -29,16 +29,16 @@ template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class CheckMatrix_irregular{
 	inline static std::array<std::vector<std::uint64_t>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
 	static const char *path;
-	static void readCheckMatrix();
+	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
 	CheckMatrix_irregular();
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
 	static constexpr auto size() noexcept{return C-S;}
-	static constexpr auto begin() noexcept{return pos1.cbegin();}
-	static constexpr auto cbegin() noexcept{return pos1.cbegin();}
-	static constexpr auto end() noexcept{return pos1.cend();}
-	static constexpr auto cend() noexcept{return pos1.cend();}
+	constexpr auto begin() noexcept{return pos1.cbegin();}
+	constexpr auto cbegin() noexcept{return pos1.cbegin();}
+	constexpr auto end() noexcept{return pos1.cend();}
+	constexpr auto cend() noexcept{return pos1.cend();}
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
@@ -46,16 +46,16 @@ template<std::size_t S, std::size_t C, std::size_t W>//S:Source length, C:Code l
 class CheckMatrix_regular{
 	inline static std::array<std::array<std::uint64_t,W>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
 	static const char *path;
-	static void readCheckMatrix();
+	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
 	CheckMatrix_regular();
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
 	static constexpr auto size() noexcept{return C-S;}
-	static constexpr auto begin() noexcept{return pos1.cbegin();}
-	static constexpr auto cbegin() noexcept{return pos1.cbegin();}
-	static constexpr auto end() noexcept{return pos1.cend();}
-	static constexpr auto cend() noexcept{return pos1.cend();}
+	constexpr auto begin() noexcept{return pos1.cbegin();}
+	constexpr auto cbegin() noexcept{return pos1.cbegin();}
+	constexpr auto end() noexcept{return pos1.cend();}
+	constexpr auto cend() noexcept{return pos1.cend();}
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 

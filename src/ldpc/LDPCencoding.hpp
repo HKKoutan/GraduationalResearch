@@ -55,7 +55,7 @@ void GenerationMatrix_encoding<T>::G_init(const T &H){
 			}while(Hi==Hend && --j<C);
 
 			//1が見つからなかった場合ランク落ちで不適格
-			if(Hi==Hend) [[unlikely]] throw std::invalid_argument("LDPC_encoding: invalid check matrix.");
+			if(Hi==Hend) throw std::invalid_argument("LDPC_encoding: invalid check matrix.");
 
 			if(Hp!=Hi){//1が見つかった行とpivot行を交換
 				auto temp = *Hp;
