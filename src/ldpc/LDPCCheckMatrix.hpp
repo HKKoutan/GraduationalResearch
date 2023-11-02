@@ -35,10 +35,10 @@ public:
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
 	static constexpr auto size() noexcept{return C-S;}
-	constexpr auto begin() noexcept{return pos1.cbegin();}
-	constexpr auto cbegin() noexcept{return pos1.cbegin();}
-	constexpr auto end() noexcept{return pos1.cend();}
-	constexpr auto cend() noexcept{return pos1.cend();}
+	constexpr auto begin() const noexcept{return pos1.cbegin();}
+	constexpr auto cbegin() const noexcept{return pos1.cbegin();}
+	constexpr auto end() const noexcept{return pos1.cend();}
+	constexpr auto cend() const noexcept{return pos1.cend();}
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
@@ -52,10 +52,10 @@ public:
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
 	static constexpr auto size() noexcept{return C-S;}
-	constexpr auto begin() noexcept{return pos1.cbegin();}
-	constexpr auto cbegin() noexcept{return pos1.cbegin();}
-	constexpr auto end() noexcept{return pos1.cend();}
-	constexpr auto cend() noexcept{return pos1.cend();}
+	constexpr auto begin() const noexcept{return pos1.cbegin();}
+	constexpr auto cbegin() const noexcept{return pos1.cbegin();}
+	constexpr auto end() const noexcept{return pos1.cend();}
+	constexpr auto cend() const noexcept{return pos1.cend();}
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
