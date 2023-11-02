@@ -1,7 +1,6 @@
 ﻿#include <thread>
 #include <tuple>
-#include "common/timekeep.hpp"
-#include "common/randombits.hpp"
+#include "common/util.hpp"
 #include "ldpc/codeSystematicLDPC.hpp"
 #include "ldpc/channelAWGN.hpp"
 
