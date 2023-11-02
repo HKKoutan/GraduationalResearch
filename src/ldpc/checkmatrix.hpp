@@ -15,8 +15,8 @@ namespace code::LDPC {
 //以下で定義するクラスが満たすべきconcept
 template<class T>
 concept CheckMatrix = requires(std::remove_reference_t<T>& x){
-	{x.codesize()} -> std::same_as<std::size_t>;
-	{x.sourcesize()} -> std::same_as<std::size_t>;
+	{T::codesize()} -> std::same_as<std::size_t>;
+	{T::sourcesize()} -> std::same_as<std::size_t>;
 	{x.size()} -> std::same_as<std::size_t>;
 	{x.begin()} -> std::random_access_iterator;
 	{x.cbegin()} -> std::random_access_iterator;
@@ -59,12 +59,12 @@ public:
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
-template<std::size_t S, std::size_t C> struct CheckMatrixType {using type = void;};
-template<std::size_t S, std::size_t C> using CheckMatrixType_t = CheckMatrixType<S,C>::type;//S,Cに応じて適切なCheckMatrixの型を返す
+template<std::size_t S, std::size_t C> struct validCheckMatrixType {using type = void;};
+template<std::size_t S, std::size_t C> using validCheckMatrixType_t = validCheckMatrixType<S,C>::type;//S,Cに応じて適切なCheckMatrixの型を返す
 
 //特殊化の定義
-#define SET_CheckMatrix_regular(P,S,C,W) const char *CheckMatrix_regular<S,C,W>::path = P; template<> struct CheckMatrixType<S,C> {using type = CheckMatrix_regular<S,C,W>;};
-#define SET_CheckMatrix_irregular(P,S,C) const char *CheckMatrix_irregular<S,C>::path = P; template<> struct CheckMatrixType<S,C> {using type = CheckMatrix_irregular<S,C>;};
+#define SET_CheckMatrix_regular(P,S,C,W) const char *CheckMatrix_regular<S,C,W>::path = P; template<> struct validCheckMatrixType<S,C> {using type = CheckMatrix_regular<S,C,W>;};
+#define SET_CheckMatrix_irregular(P,S,C) const char *CheckMatrix_irregular<S,C>::path = P; template<> struct validCheckMatrixType<S,C> {using type = CheckMatrix_irregular<S,C>;};
 
 SET_CheckMatrix_regular("H.txt",252,504,6)
 SET_CheckMatrix_regular("36_512.txt",256,512,6)
