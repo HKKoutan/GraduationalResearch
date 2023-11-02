@@ -1,7 +1,6 @@
 ﻿#include <thread>
 #include <tuple>
-#include "common/timekeep.hpp"
-#include "common/randombits.hpp"
+#include "common/util.hpp"
 #include "ldpc/codeSystematicLDPC.hpp"
 #include "ldpc/channelAWGN.hpp"
 
@@ -54,7 +53,6 @@ int main(int argc, char* argv[]){
 	};
 	//符号化あり
 	auto encoded = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt, auto decodertype){
-		const auto decoder = ldpc.make_decoder<decltype(decodertype)::type>();
 		for(size_t n=0u; n<nsize; ++n){
 			channel::AWGN ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
@@ -66,7 +64,7 @@ int main(int argc, char* argv[]){
 
 				auto code = ldpc.encode(info);
 				auto y = ch.noise<float>(code);
-				auto est = ldpc.decode(ch.LLR(y), decoder);
+				auto est = ldpc.decode<decltype(decodertype)::type>(ch.LLR(y));
 
 				bn += (est^info).count();
 			}

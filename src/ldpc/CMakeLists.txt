@@ -1,4 +1,4 @@
 
-add_library(ldpc STATIC
-    LDPCbase.cpp
-)
+# add_library(ldpc STATIC
+#     LDPCbase.cpp
+# )

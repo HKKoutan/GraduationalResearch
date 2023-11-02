@@ -1,5 +1,5 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCGenerationMatrixencoding
-#define INCLUDE_GUARD_ldpc_LDPCGenerationMatrixencoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCencoding
+#define INCLUDE_GUARD_ldpc_LDPCencoding
 
 #include <iostream>
 #include <bitset>
@@ -26,6 +26,7 @@ class GenerationMatrix_encoding {
 public:
 	explicit GenerationMatrix_encoding(const T &H);
 	auto systematic_redundancy(const std::bitset<S> &information) const;
+	auto systematic_encode(const std::bitset<S> &information) const;
 
 	auto substitution(std::bitset<C> vec) const;//非組織符号->組織符号
 	template<typename U>
@@ -34,6 +35,12 @@ public:
 	template<typename U>
 	auto inverse_substitution(std::array<U,C> vec) const;//組織符号->非組織符号
 };
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//              class GenerationMatrix_encoding               //
+//                                                            //
+////////////////////////////////////////////////////////////////
 
 template<CheckMatrix T>
 void GenerationMatrix_encoding<T>::G_init(const T &H){
@@ -98,16 +105,25 @@ auto GenerationMatrix_encoding<T>::GT_product(const std::bitset<S> &vec) const{
 
 template<CheckMatrix T>
 GenerationMatrix_encoding<T>::GenerationMatrix_encoding(const T &H){
-	static bool made;
-	if(!made){
+	static bool init;
+	if(!init){
 		G_init(H);
-		made = true;
+		init = true;
 	}
 }
 
 template<CheckMatrix T>
 auto GenerationMatrix_encoding<T>::systematic_redundancy(const std::bitset<S> &information) const{
 	return GT_product(information);
+}
+
+template<CheckMatrix T>
+auto GenerationMatrix_encoding<T>::systematic_encode(const std::bitset<S> &information) const{
+	std::bitset<C> code;
+	auto parity = GT_product(information);
+	for(std::size_t i=0, iend=S; i<iend; ++i) code[i]=information[i];
+	for(std::size_t i=S, iend=C; i<iend; ++i) code[i]=parity[i-S];
+	return code;
 }
 
 template<CheckMatrix T>

@@ -1,13 +1,47 @@
-﻿#include "LDPCbase.hpp"
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCfuncGallager
+#define INCLUDE_GUARD_ldpc_LDPCfuncGallager
 
-using code::LDPC::CheckMatrix, code::LDPC::func_Gallager_std, code::LDPC::func_Gallager_table;
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <cstdint>
+#include <bit>
+#include <cmath>
+
+namespace code::LDPC {
+
+class func_Gallager_std {
+	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
+	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
+public:
+	template<std::floating_point T>
+	T operator()(T x) const;
+};
+
+class func_Gallager_table {
+	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
+	static constexpr auto FG_LOWER_BOUND_U = std::bit_cast<uint32_t>(0x1p-16f);// FG_LOWER_BOUND_Fの内部表現
+	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
+	static constexpr auto FG_UPPER_BOUND_U = std::bit_cast<uint32_t>(0x1p6f);// FG_UPPER_BOUND_Fの内部表現
+	static constexpr auto FG_FILENAME = "gallager_float.bin";
+
+	static std::vector<float> values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
+	static bool read_values(std::vector<float> &vec);
+	static bool write_values(const std::vector<float> &vec);
+
+	inline static const std::vector<float> values = values_init();
+public:
+	template<std::floating_point T>
+	T operator()(T x) const;
+};
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                  class func_Gallager_std                   //
+//                   class funcGallager_std                   //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
+template<>
 float func_Gallager_std::operator()(float x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
@@ -20,7 +54,7 @@ float func_Gallager_std::operator()(float x) const{
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                 class func_Gallager_table                  //
+//                  class funcGallager_table                  //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
@@ -60,13 +94,7 @@ bool func_Gallager_table::write_values(const std::vector<float> &vec){
 	return true;
 }
 
-// double func_Gallager_table::operator()(double x) const{
-// 	auto xf = std::fabs(static_cast<float>(x));
-// 	if(xf<FG_LOWER_BOUND_F) return FG_MAX_VALUE;//定義域を限定
-// 	else if(xf>=FG_UPPER_BOUND_F) return FG_MIN_VALUE;
-// 	else return values[reinterpret_cast<uint32_t&>(xf) - FG_LOWER_BOUND_U];
-// }
-
+template<>
 float func_Gallager_table::operator()(float x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
@@ -76,3 +104,7 @@ float func_Gallager_table::operator()(float x) const{
 	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
 	return y;
 }
+
+}
+
+#endif

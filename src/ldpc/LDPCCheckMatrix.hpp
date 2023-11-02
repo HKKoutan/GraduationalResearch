@@ -14,7 +14,7 @@ namespace code::LDPC {
 
 //以下で定義するクラスが満たすべきconcept
 template<class T>
-concept CheckMatrix = requires(std::remove_reference_t<T>& x){
+concept CheckMatrix = requires(std::remove_reference_t<T> &x){
 	{T::codesize()} -> std::same_as<std::size_t>;
 	{T::sourcesize()} -> std::same_as<std::size_t>;
 	{x.size()} -> std::same_as<std::size_t>;
@@ -35,10 +35,10 @@ public:
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
 	static constexpr auto size() noexcept{return C-S;}
-	constexpr auto begin() noexcept{return pos1.cbegin();}
-	constexpr auto cbegin() noexcept{return pos1.cbegin();}
-	constexpr auto end() noexcept{return pos1.cend();}
-	constexpr auto cend() noexcept{return pos1.cend();}
+	constexpr auto begin() const noexcept{return pos1.cbegin();}
+	constexpr auto cbegin() const noexcept{return pos1.cbegin();}
+	constexpr auto end() const noexcept{return pos1.cend();}
+	constexpr auto cend() const noexcept{return pos1.cend();}
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
@@ -52,10 +52,10 @@ public:
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
 	static constexpr auto size() noexcept{return C-S;}
-	constexpr auto begin() noexcept{return pos1.cbegin();}
-	constexpr auto cbegin() noexcept{return pos1.cbegin();}
-	constexpr auto end() noexcept{return pos1.cend();}
-	constexpr auto cend() noexcept{return pos1.cend();}
+	constexpr auto begin() const noexcept{return pos1.cbegin();}
+	constexpr auto cbegin() const noexcept{return pos1.cbegin();}
+	constexpr auto end() const noexcept{return pos1.cend();}
+	constexpr auto cend() const noexcept{return pos1.cend();}
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
 };
 
@@ -112,10 +112,10 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 
 template<std::size_t S, std::size_t C>
 CheckMatrix_irregular<S,C>::CheckMatrix_irregular(){
-	static bool read;
-	if(!read){
+	static bool init;
+	if(!init){
 		readCheckMatrix();
-		read = true;
+		init = true;
 	}
 }
 
@@ -157,10 +157,10 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 
 template<std::size_t S, std::size_t C, std::size_t W>
 CheckMatrix_regular<S,C,W>::CheckMatrix_regular(){
-	static bool read;
-	if(!read){
+	static bool init;
+	if(!init){
 		readCheckMatrix();
-		read = true;
+		init = true;
 	}
 }
 

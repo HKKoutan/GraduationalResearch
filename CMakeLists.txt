@@ -44,13 +44,13 @@ add_executable(dddb ${PROJECT_SOURCE_DIR}/src/maindddb.cpp)
 # add_executable(dpbe ${PROJECT_SOURCE_DIR}/src/maindpbe.cpp)
 # add_executable(dpbn ${PROJECT_SOURCE_DIR}/src/maindpbn.cpp)
 
-target_link_libraries(awgn PRIVATE ldpc)
+# target_link_libraries(awgn PRIVATE ldpc)
 target_link_libraries(mids PRIVATE idec)
 target_link_libraries(lids PRIVATE ldpcidec)
 
-target_link_libraries(dvfb PRIVATE ldpc)
-target_link_libraries(ddnb PRIVATE ldpc)
-target_link_libraries(dddb PRIVATE ldpc)
+# target_link_libraries(dvfb PRIVATE ldpc)
+# target_link_libraries(ddnb PRIVATE ldpc)
+# target_link_libraries(dddb PRIVATE ldpc)
 # target_link_libraries(dpbe PRIVATE ldpc)
 # target_link_libraries(dpbn PRIVATE ldpc)
 
