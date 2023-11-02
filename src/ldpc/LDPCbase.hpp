@@ -2,16 +2,10 @@
 #define INCLUDE_GUARD_ldpc_LDPCbase
 
 #include <iostream>
-#include <fstream>
-#include <charconv>
-#include <array>
 #include <bitset>
-#include <vector>
-#include <string>
 #include <cstdint>
 #include <bit>
 #include <algorithm>
-#include <ranges>
 #include <memory>
 #include <cmath>
 #include <limits>
@@ -21,35 +15,6 @@
 namespace code::LDPC {
 
 using fptype = float;
-
-//encorder class
-
-template<CheckMatrix T>
-class I_LDPC_Encoding {
-protected:
-	static constexpr std::size_t S = T::sourcesize();
-	static constexpr std::size_t C = T::codesize();
-	std::vector<std::pair<std::size_t,std::size_t>> Q;//行置換(組織符号にするため)
-public:
-	I_LDPC_Encoding(){}
-	virtual ~I_LDPC_Encoding(){}
-	virtual std::bitset<C-S> systematic_redundancy(const std::bitset<S> &information) const = 0;//return parity bits
-	auto substitution(std::array<fptype,C> vec) const;//Qに従って置換
-	auto substitution(std::bitset<C> vec) const;//Qに従って置換
-	auto inverse_substitution(std::array<fptype,C> vec) const;//置換を戻す
-	auto inverse_substitution(std::bitset<C> vec) const;//置換を戻す
-};
-
-template<CheckMatrix T>
-class Generation_Matrix_Encoding : public I_LDPC_Encoding<T> {
-	static constexpr std::size_t S = T::sourcesize();
-	static constexpr std::size_t C = T::codesize();
-	std::vector<std::bitset<S>> GT;
-	auto GT_product(const std::bitset<T::sourcesize()> &vec) const;//matpos1とvecの積を取る
-public:
-	explicit Generation_Matrix_Encoding(const T &H);
-	std::bitset<T::codesize()-T::sourcesize()> systematic_redundancy(const std::bitset<T::sourcesize()> &information) const override;
-};
 
 //decoder class
 
@@ -123,124 +88,6 @@ public:
 	explicit MinSum_Decoding(const T &H): I_LDPC_Decoding<T>(H){}
 	void rowupdate() override;//alpha,betaを更新する(行処理)
 };
-
-////////////////////////////////////////////////////////////////
-//                                                            //
-//                   class I_LDPC_Encoding                    //
-//                                                            //
-////////////////////////////////////////////////////////////////
-
-template<CheckMatrix T>
-auto I_LDPC_Encoding<T>::substitution(std::array<fptype,C> vec) const{
-	for(auto [qa, qb]: this->Q){
-		auto temp = vec[qa];
-		vec[qa] = vec[qb];
-		vec[qb] = temp;
-	}
-	return vec;
-}
-
-template<CheckMatrix T>
-auto I_LDPC_Encoding<T>::substitution(std::bitset<C> vec) const{
-	for(auto [qa, qb]: this->Q){
-		bool temp = vec[qa];
-		vec[qa] = vec[qb];
-		vec[qb] = temp;
-	}
-	return vec;
-}
-
-template<CheckMatrix T>
-auto I_LDPC_Encoding<T>::inverse_substitution(std::array<fptype,C> vec) const{
-	for(auto [qa, qb]: this->Q|std::views::reverse){
-		auto temp = vec[qa];
-		vec[qa] = vec[qb];
-		vec[qb] = temp;
-	}
-	return vec;
-}
-
-template<CheckMatrix T>
-auto I_LDPC_Encoding<T>::inverse_substitution(std::bitset<C> vec) const{
-	for(auto [qa, qb]: this->Q|std::views::reverse){
-		bool temp = vec[qa];
-		vec[qa] = vec[qb];
-		vec[qb] = temp;
-	}
-	return vec;
-}
-
-////////////////////////////////////////////////////////////////
-//                                                            //
-//              class Generation_Matrix_Encoding              //
-//                                                            //
-////////////////////////////////////////////////////////////////
-
-template<CheckMatrix T>
-Generation_Matrix_Encoding<T>::Generation_Matrix_Encoding(const T &H):
-	I_LDPC_Encoding<T>(),
-	GT(C-S)
-{
-	constexpr auto isize = H.size();
-	//Hをbitset形式に変換
-	std::vector<std::bitset<C>> Hb(isize);
-	for(std::size_t i=0u, iend=isize; i<iend; ++i) for(const auto &j: H[i]) Hb[i].set(j);
-
-	//Hbを掃き出し、右側を単位行列にする
-	auto Hp = Hb.rbegin();
-	const auto Hend = Hb.rend();
-	for(std::size_t pivot=C-1; Hp!=Hend; --pivot,++Hp){
-		std::size_t j=pivot;
-		auto Hi=Hp;
-
-		do{//pivotとその左を捜索
-			for(Hi=Hp; Hi!=Hend && !Hi->test(j); ++Hi);//同じ行に無かったら上の行から探す
-		}while(--j<C && Hi==Hend);
-
-		if(Hi!=Hend){//最後まで走査する前に1を見つけられた場合
-			if(Hp!=Hi){//1が見つかった行とpivot行を交換
-				auto temp = *Hp;
-				*Hp = *Hi;
-				*Hi = temp;
-			}
-			if(++j!=pivot){//1が見つかった列とpivot列が異なる場合　++はdo-while内の--jとの辻褄合わせ
-				for(auto &Hk: Hb){//1が見つかった列とpivot列を交換
-					bool temp = Hk[pivot];
-					Hk[pivot] = Hk[j];
-					Hk[j] = temp;
-				}
-				this->Q.push_back({pivot,j});
-			}
-			//掃き出し
-			for(auto Hk=Hb.rbegin(); Hk!=Hend; ++Hk) if(Hk->test(pivot) && Hk!=Hp) *Hk^=*Hp;
-		}else{//1が見つからなかった場合ランク落ちで不適格
-			throw std::runtime_error("LDPC: invalid check matrix.");
-		}
-	}
-
-	//単位行列部分は省略して生成行列を作成　Hbの左側の転置=生成行列の右側
-	for(std::size_t i=0u, iend=isize; i<iend; ++i){
-		auto &Hbi=Hb[i];
-		auto &GTi=GT[i];
-		for(std::size_t j=0u, jsize=I_LDPC_Encoding<T>::S; j<jsize; ++j) GTi[j] = Hbi[j];
-	}
-}
-
-template<CheckMatrix T>
-auto Generation_Matrix_Encoding<T>::GT_product(const std::bitset<T::sourcesize()> &vec) const{
-	std::bitset<C-S> sol;
-	for(std::size_t i=0u, iend=C-S; i<iend; ++i){
-		std::bitset<S> prod = vec&GT[i];
-		auto num = prod.count();
-		sol.set(i,static_cast<bool>(num&1));
-	}
-	return sol;
-}
-
-template<CheckMatrix T>
-std::bitset<T::codesize()-T::sourcesize()> Generation_Matrix_Encoding<T>::systematic_redundancy(const std::bitset<T::sourcesize()> &information) const{
-	return GT_product(information);
-}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
