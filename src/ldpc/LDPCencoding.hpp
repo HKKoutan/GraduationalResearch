@@ -36,6 +36,12 @@ public:
 	auto inverse_substitution(std::array<U,C> vec) const;//組織符号->非組織符号
 };
 
+////////////////////////////////////////////////////////////////
+//                                                            //
+//              class GenerationMatrix_encoding               //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
 template<CheckMatrix T>
 void GenerationMatrix_encoding<T>::G_init(const T &H){
 	//Hをbitset形式に変換
@@ -99,10 +105,10 @@ auto GenerationMatrix_encoding<T>::GT_product(const std::bitset<S> &vec) const{
 
 template<CheckMatrix T>
 GenerationMatrix_encoding<T>::GenerationMatrix_encoding(const T &H){
-	static bool made;
-	if(!made){
+	static bool init;
+	if(!init){
 		G_init(H);
-		made = true;
+		init = true;
 	}
 }
 
