@@ -26,6 +26,7 @@ class GenerationMatrix_encoding {
 public:
 	explicit GenerationMatrix_encoding(const T &H);
 	auto systematic_redundancy(const std::bitset<S> &information) const;
+	auto systematic_encode(const std::bitset<S> &information) const;
 
 	auto substitution(std::bitset<C> vec) const;//非組織符号->組織符号
 	template<typename U>
@@ -108,6 +109,15 @@ GenerationMatrix_encoding<T>::GenerationMatrix_encoding(const T &H){
 template<CheckMatrix T>
 auto GenerationMatrix_encoding<T>::systematic_redundancy(const std::bitset<S> &information) const{
 	return GT_product(information);
+}
+
+template<CheckMatrix T>
+auto GenerationMatrix_encoding<T>::systematic_encode(const std::bitset<S> &information) const{
+	std::bitset<C> code;
+	auto parity = GT_product(information);
+	for(std::size_t i=0, iend=S; i<iend; ++i) code[i]=information[i];
+	for(std::size_t i=S, iend=C; i<iend; ++i) code[i]=parity[i-S];
+	return code;
 }
 
 template<CheckMatrix T>
