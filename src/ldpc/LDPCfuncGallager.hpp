@@ -14,7 +14,8 @@ class func_Gallager_std {
 	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
 	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
 public:
-	float operator()(float x) const;
+	template<std::floating_point T>
+	T operator()(T x) const;
 };
 
 class func_Gallager_table {
@@ -30,7 +31,8 @@ class func_Gallager_table {
 
 	inline static const std::vector<float> values = values_init();
 public:
-	float operator()(float x) const;
+	template<std::floating_point T>
+	T operator()(T x) const;
 };
 
 ////////////////////////////////////////////////////////////////
@@ -39,6 +41,7 @@ public:
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
+template<>
 float func_Gallager_std::operator()(float x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
@@ -91,6 +94,7 @@ bool func_Gallager_table::write_values(const std::vector<float> &vec){
 	return true;
 }
 
+template<>
 float func_Gallager_table::operator()(float x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
