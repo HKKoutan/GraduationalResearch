@@ -1,9 +1,8 @@
 ﻿#include <thread>
 #include <tuple>
-#include "common/timekeep.hpp"
-#include "common/randombits.hpp"
-#include "ldpc/codeLDPC.hpp"
-#include "ldpc/AWGN.hpp"
+#include "common/util.hpp"
+#include "ldpc/codeSystematicLDPC.hpp"
+#include "ldpc/channelAWGN.hpp"
 
 using std::array, std::bitset, std::vector;
 using std::size_t, std::uint64_t;
@@ -29,7 +28,7 @@ int main(int argc, char* argv[]){
 	//constexpr array noise_factor = {0.0};
 	constexpr size_t nsize = noise_factor.size();
 
-	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
+	code::SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
 	array<array<uint64_t,nsize>,3> biterror = {0};
 	array<array<uint64_t,nsize>,NUM_THREADS> biterrors = {0};
 
@@ -37,7 +36,7 @@ int main(int argc, char* argv[]){
 	//符号化なし
 	auto plain = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
 		for(size_t n=0u; n<nsize; ++n){
-			channel::AWGN<float> ch(pow(10,-noise_factor[n]*0.1),t);
+			channel::AWGN ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
 			auto &bn = (*bt)[n];
@@ -45,7 +44,7 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; ++r){
 				rb.generate(info);
 
-				auto y = ch.noise(info);
+				auto y = ch.noise<float>(info);
 				auto est = ch.estimate(y);
 
 				bn += (est^info).count();
@@ -54,9 +53,8 @@ int main(int argc, char* argv[]){
 	};
 	//符号化あり
 	auto encoded = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt, auto decodertype){
-		const auto decoder = ldpc.make_decoder<decltype(decodertype)::type>();
 		for(size_t n=0u; n<nsize; ++n){
-			channel::AWGN<float> ch(pow(10,-noise_factor[n]*0.1),t);
+			channel::AWGN ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
 			auto &bn = (*bt)[n];
@@ -65,8 +63,8 @@ int main(int argc, char* argv[]){
 				rb.generate(info);
 
 				auto code = ldpc.encode(info);
-				auto y = ch.noise(code);
-				auto est = ldpc.decode(ch.LLR(y), decoder);
+				auto y = ch.noise<float>(code);
+				auto est = ldpc.decode<decltype(decodertype)::type>(ch.LLR(y));
 
 				bn += (est^info).count();
 			}
@@ -81,12 +79,12 @@ int main(int argc, char* argv[]){
 	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, std::type_identity<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>());
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::SumProduct());
 	for(auto &t: threads) t.join();
 	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, std::type_identity<code::LDPC::MinSum_Decoding<SOURCE_LENGTH,CODE_LENGTH>>());
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::MinSum());
 	for(auto &t: threads) t.join();
 	for(auto &bs = biterror[2]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
 	tk.stop();
