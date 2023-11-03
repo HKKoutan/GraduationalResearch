@@ -82,7 +82,9 @@ auto Iterative_decoding<T>::alphabetap_init(){
 		for(std::size_t j=0u, jend=Hi.size(); j<jend; ++j){
 			auto &hij = Hi[j];
 			auto &Hj = HT[hij];
-			auto &[ai, bi] = alphabeta[std::ranges::find(Hj, i)-Hj.begin()];
+			std::size_t k=0;
+			while(Hj[k]!=i) ++k;
+			auto &[ai, bi] = alphabeta[k];
 			abpi[j] = std::make_pair(&ai[hij],&bi[hij]);
 		}
 	}
