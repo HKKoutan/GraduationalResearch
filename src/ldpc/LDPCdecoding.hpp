@@ -29,12 +29,26 @@ class Iterative_decoding {
 	static constexpr std::size_t Hsize = C-S;
 
 	inline static T H;//検査行列
-	//TODO: alphaとbetaを共有
-	inline static thread_local std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
-	inline static thread_local std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
-	//メンバ初期化関数
-	static auto alphabeta_size();
-	static auto alphabetap_init();
+
+	//alphabeta, alphabetapの型と初期化関数をTの型に応じて変える
+	template<CheckMatrix U>
+	struct decodingData {
+		static constexpr std::size_t S = U::sourcesize();
+		static constexpr std::size_t C = U::codesize();
+		using datatype = std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>>;
+		using pointertype = std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S>;
+		static void init();
+	};
+	template<std::size_t S, std::size_t C, std::size_t W>
+	struct decodingData<CheckMatrix_regular<S,C,W>> {
+		using datatype = std::array<std::pair<std::array<fptype,C>,std::array<fptype,C>>,W*S/C>;
+		using pointertype = std::array<std::array<std::pair<fptype*,const fptype*>,W>,C-S>;
+		static void init();
+	};
+
+	inline static thread_local decodingData<T>::datatype alphabeta;
+	inline static thread_local decodingData<T>::pointertype alphabetap;
+
 public:
 	explicit Iterative_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
@@ -59,23 +73,18 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template<CheckMatrix T>
-auto Iterative_decoding<T>::alphabeta_size(){
-	//HT(temporary variable)
+template<CheckMatrix U>
+void Iterative_decoding<T>::decodingData<U>::init(){
 	std::array<std::size_t,C> Hheight{};
 	for(const auto &Hi: H) for(auto j: Hi) ++Hheight[j];
-	return std::ranges::max(Hheight);
-}
+	alphabeta.resize(std::ranges::max(Hheight));
 
-template<CheckMatrix T>
-auto Iterative_decoding<T>::alphabetap_init(){
-	decltype(alphabetap) abp{};
-	//HT(temporary variable)
-	std::array<std::vector<std::uint64_t>,C> HT{};
+	std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
 
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
-		auto &abpi = abp[i];
+		auto &abpi = alphabetap[i];
 		//Hとalphabetapの要素数を揃える
 		abpi.resize(Hi.size());
 		//alpha<-alphap beta<-betap
@@ -88,7 +97,27 @@ auto Iterative_decoding<T>::alphabetap_init(){
 			abpi[j] = std::make_pair(&ai[hij],&bi[hij]);
 		}
 	}
-	return abp;
+}
+
+template<CheckMatrix T>
+template<std::size_t S, std::size_t C, std::size_t W>
+void Iterative_decoding<T>::decodingData<CheckMatrix_regular<S,C,W>>::init(){
+	std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
+	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
+
+	for(std::size_t i=0; i<Hsize; ++i){
+		auto &Hi = H[i];
+		auto &abpi = alphabetap[i];
+		//alpha<-alphap beta<-betap
+		for(std::size_t j=0u, jend=Hi.size(); j<jend; ++j){
+			auto &hij = Hi[j];
+			auto &Hj = HT[hij];
+			std::size_t k=0;
+			while(Hj[k]!=i) ++k;
+			auto &[ai, bi] = alphabeta[k];
+			abpi[j] = std::make_pair(&ai[hij],&bi[hij]);
+		}
+	}
 }
 
 template<CheckMatrix T>
@@ -104,8 +133,7 @@ template<CheckMatrix T>
 void Iterative_decoding<T>::decode_init(){
 	static thread_local bool init;
 	if(!init){
-		alphabeta.resize(alphabeta_size());
-		alphabetap = alphabetap_init();
+		decodingData<T>::init();
 		init = true;
 	}
 	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = 0;
