@@ -8,10 +8,10 @@ using std::array, std::bitset, std::vector;
 using std::size_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 
-constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000ul;
-constexpr size_t SOURCE_LENGTH = 5000u;
-constexpr size_t CODE_LENGTH = 10000u;
-constexpr size_t NUM_THREADS = 12u;
+constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
+constexpr size_t SOURCE_LENGTH = 252;
+constexpr size_t CODE_LENGTH = 504;
+constexpr size_t NUM_THREADS = 12;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]){
 	//スレッドで動かす関数オブジェクトを定義
 	//符号化なし
 	auto plain = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt){
-		for(size_t n=0u; n<nsize; ++n){
+		for(size_t n=0; n<nsize; ++n){
 			channel::AWGN ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]){
 	};
 	//符号化あり
 	auto encoded = [&ldpc, repeat_per_thread](size_t t, array<uint64_t,nsize> *bt, auto decodertype){
-		for(size_t n=0u; n<nsize; ++n){
+		for(size_t n=0; n<nsize; ++n){
 			channel::AWGN ch(pow(10,-noise_factor[n]*0.1),t);
 			util::RandomBits rb(t);
 			bitset<SOURCE_LENGTH> info;
@@ -76,17 +76,17 @@ int main(int argc, char* argv[]){
 	tk.split();
 	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(plain, threads.size(), &bt);
 	for(auto &t: threads) t.join();
-	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
+	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
 	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::SumProduct());
 	for(auto &t: threads) t.join();
-	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
+	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
 	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::MinSum());
 	for(auto &t: threads) t.join();
-	for(auto &bs = biterror[2]; auto &bt: biterrors) for(size_t n=0u, nend=nsize; n<nend; ++n) bs[n]+=bt[n];
+	for(auto &bs = biterror[2]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	tk.stop();
 
 	cout<<"S/N"
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]){
 	<<"\tMin-sum"
 	<<endl;
 
-	for(size_t n=0u; n<nsize; ++n){
+	for(size_t n=0; n<nsize; ++n){
 		cout<<noise_factor[n]
 		<<"\t"<<static_cast<double>(biterror[0][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
 		<<"\t"<<static_cast<double>(biterror[1][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
