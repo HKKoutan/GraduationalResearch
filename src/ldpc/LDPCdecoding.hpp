@@ -21,9 +21,9 @@ concept DecoderType = requires(std::remove_reference_t<T> &x){
 template<CheckMatrix T>
 class Iterative_decoding {
 	using fptype = float;
-	using masktype = std::uint32_t;
-	static_assert(sizeof(fptype)==sizeof(masktype));
-	static constexpr masktype signmask = 1u<<(sizeof(masktype)*8u-1u);
+	using signtype = std::uint32_t;
+	static_assert(sizeof(fptype)==sizeof(signtype));
+	static constexpr signtype signmask = 1u<<(sizeof(signtype)*8u-1u);
 	static constexpr std::size_t S = T::sourcesize();
 	static constexpr std::size_t C = T::codesize();
 	static constexpr std::size_t Hsize = C-S;
@@ -31,13 +31,10 @@ class Iterative_decoding {
 	inline static T H;//検査行列
 	//TODO: alphaとbetaを共有
 	inline static thread_local std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
-	inline static thread_local std::array<std::pair<std::vector<fptype*>,std::vector<const fptype*>>,C-S> alphabetap;
-	inline static thread_local std::vector<std::array<masktype,C>> alphabetamask;//alphabetaの有効な要素に対応する要素が1埋めされた配列
+	inline static thread_local std::array<std::pair<std::vector<fptype*>,std::vector<const fptype*>>,C-S> alphapbetap;
 	//メンバ初期化関数
 	static auto alphabeta_init();
-	static auto makeHT();
-	static auto alphabetap_init(std::array<std::vector<std::uint64_t>,C> &HT);
-	static auto alphabetamask_init(std::array<std::vector<std::uint64_t>,C> &HT);
+	static auto alphapbetap_init();
 public:
 	explicit Iterative_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
@@ -63,21 +60,19 @@ public:
 
 template<CheckMatrix T>
 auto Iterative_decoding<T>::alphabeta_init(){
+	//HT(temporary variable)
 	std::array<std::size_t,C> Hheight{};
 	for(const auto &Hi: H) for(auto j: Hi) ++Hheight[j];
-	return decltype(alphabeta)(std::ranges::max(Hheight));
+	return std::vector(std::ranges::max(Hheight), decltype(alphabeta)::value_type());
 }
 
 template<CheckMatrix T>
-auto Iterative_decoding<T>::makeHT(){
-	std::array<std::vector<std::uint64_t>,C> HT;
+auto Iterative_decoding<T>::alphapbetap_init(){
+	decltype(alphapbetap) apbp{};
+	//HT(temporary variable)
+	std::array<std::vector<std::uint64_t>,C> HT{};
 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
-	return HT;
-}
 
-template<CheckMatrix T>
-auto Iterative_decoding<T>::alphabetap_init(std::array<std::vector<std::uint64_t>,C> &HT){
-	decltype(alphabetap) apbp{};
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
 		auto &[api, bpi] = apbp[i];
@@ -97,13 +92,6 @@ auto Iterative_decoding<T>::alphabetap_init(std::array<std::vector<std::uint64_t
 }
 
 template<CheckMatrix T>
-auto Iterative_decoding<T>::alphabetamask_init(std::array<std::vector<std::uint64_t>,C> &HT){
-	decltype(alphabetamask) abm(alphabeta.size());
-	for(std::size_t j=0; j<C; ++j) for(std::size_t i=0, iend=HT[j].size(); i<iend; ++i) abm[i][j]=0xffffffff;
-	return abm;
-}
-
-template<CheckMatrix T>
 Iterative_decoding<T>::Iterative_decoding(const T &Hp){
 	static bool init;
 	if(!init){
@@ -117,9 +105,7 @@ void Iterative_decoding<T>::decode_init(){
 	static thread_local bool init;
 	if(!init){
 		alphabeta = alphabeta_init();
-		auto HT = makeHT();
-		alphabetap = alphabetap_init(HT);
-		alphabetamask = alphabetamask_init(HT);
+		alphapbetap = alphapbetap_init();
 		init = true;
 	}
 	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = 0;
@@ -157,29 +143,29 @@ auto Iterative_decoding<T>::estimate(const std::array<U,C> &LEVR) const{
 template<CheckMatrix T>
 void Iterative_decoding<T>::SumProduct::rowupdate(){
 	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = fg(bij);
-	for(auto &[api, bpi]: alphabetap){
+	for(auto &[api, bpi]: alphapbetap){
 		fptype abssum = 0;
-		masktype signprod = 0;
+		signtype signprod = 0;
 		for(auto bpij: bpi){
 			auto bij = *bpij;
 			abssum += std::fabs(bij);
-			signprod ^= std::bit_cast<masktype>(bij);
+			signprod ^= std::bit_cast<signtype>(bij);
 		}
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
 			auto bij = *bpi[j];
 			auto absval = fg(abssum-std::fabs(bij));
-			auto sign = (std::bit_cast<masktype>(bij)^signprod)&signmask;
-			*api[j] = std::bit_cast<fptype>(sign|std::bit_cast<masktype>(absval));
+			auto sign = (std::bit_cast<signtype>(bij)^signprod)&signmask;
+			*api[j] = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(absval));
 		}
 	}
 }
 
 template<CheckMatrix T>
 void Iterative_decoding<T>::MinSum::rowupdate(){
-	for(auto &[api, bpi]: alphabetap){
-		masktype signprod = 0;
+	for(auto &[api, bpi]: alphapbetap){
+		signtype signprod = 0;
 		for(auto bpij: bpi){
-			signprod ^= std::bit_cast<masktype>(*bpij);
+			signprod ^= std::bit_cast<signtype>(*bpij);
 		}
 		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
 			auto min = std::numeric_limits<fptype>::infinity();
@@ -187,8 +173,8 @@ void Iterative_decoding<T>::MinSum::rowupdate(){
 				auto temp = std::fabs(*bpi[k]);
 				if(temp<min) min = temp;
 			}
-			auto sign = (std::bit_cast<const masktype>(*bpi[j])^signprod)&signmask;
-			*api[j] = std::bit_cast<fptype>(sign|std::bit_cast<masktype>(min));
+			auto sign = (std::bit_cast<const signtype>(*bpi[j])^signprod)&signmask;
+			*api[j] = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(min));
 		}
 	}
 }
