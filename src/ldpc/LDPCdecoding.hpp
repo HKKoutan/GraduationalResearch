@@ -33,7 +33,7 @@ class Iterative_decoding {
 	inline static thread_local std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
 	inline static thread_local std::array<std::pair<std::vector<fptype*>,std::vector<const fptype*>>,C-S> alphapbetap;
 	//メンバ初期化関数
-	static auto alphabeta_init();
+	static auto alphabeta_size();
 	static auto alphapbetap_init();
 public:
 	explicit Iterative_decoding(const T &H);
@@ -59,11 +59,11 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template<CheckMatrix T>
-auto Iterative_decoding<T>::alphabeta_init(){
+auto Iterative_decoding<T>::alphabeta_size(){
 	//HT(temporary variable)
 	std::array<std::size_t,C> Hheight{};
 	for(const auto &Hi: H) for(auto j: Hi) ++Hheight[j];
-	return std::vector(std::ranges::max(Hheight), decltype(alphabeta)::value_type());
+	return std::ranges::max(Hheight);
 }
 
 template<CheckMatrix T>
@@ -104,7 +104,7 @@ template<CheckMatrix T>
 void Iterative_decoding<T>::decode_init(){
 	static thread_local bool init;
 	if(!init){
-		alphabeta = alphabeta_init();
+		alphabeta.resize(alphabeta_size());
 		alphapbetap = alphapbetap_init();
 		init = true;
 	}
@@ -115,14 +115,14 @@ template<CheckMatrix T>
 template<DecoderType D, std::floating_point U>
 bool Iterative_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR){
 	//apply LLR
-	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0u, jend=C; j<jend; ++j) bi[j] += LLR[j];
+	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	//row update
 	D::rowupdate();
 	//column update
 	for(auto &lpj: LPR) lpj = 0;
-	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0u, jend=C; j<jend; ++j) LPR[j] += ai[j];
-	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0u, jend=C; j<jend; ++j) bi[j] = LPR[j]-ai[j];
-	for(std::size_t j=0u, jend=C; j<jend; ++j) LPR[j] += LLR[j];
+	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
+	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] = LPR[j]-ai[j];
+	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	//parity check
 	for(const auto &Hi : H){
 		auto parity = false;
@@ -136,7 +136,7 @@ template<CheckMatrix T>
 template<std::floating_point U>
 auto Iterative_decoding<T>::estimate(const std::array<U,C> &LEVR) const{
 	std::bitset<S> est;
-	for(std::size_t j=0u, jend=S; j<jend; ++j) est[j] = LEVR[j]<0;
+	for(std::size_t j=0; j<S; ++j) est[j] = LEVR[j]<0;
 	return est;
 }
 
@@ -151,7 +151,7 @@ void Iterative_decoding<T>::SumProduct::rowupdate(){
 			abssum += std::fabs(bij);
 			signprod ^= std::bit_cast<signtype>(bij);
 		}
-		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
+		for(std::size_t j=0, jend=api.size(); j<jend; ++j){
 			auto bij = *bpi[j];
 			auto absval = fg(abssum-std::fabs(bij));
 			auto sign = (std::bit_cast<signtype>(bij)^signprod)&signmask;
@@ -167,7 +167,7 @@ void Iterative_decoding<T>::MinSum::rowupdate(){
 		for(auto bpij: bpi){
 			signprod ^= std::bit_cast<signtype>(*bpij);
 		}
-		for(std::size_t j=0u, jend=api.size(); j<jend; ++j){
+		for(std::size_t j=0, jend=api.size(); j<jend; ++j){
 			auto min = std::numeric_limits<fptype>::infinity();
 			for(std::size_t k=0u, kend=api.size(); k<kend; ++k) if(j != k){
 				auto temp = std::fabs(*bpi[k]);
