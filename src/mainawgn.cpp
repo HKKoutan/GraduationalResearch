@@ -9,8 +9,8 @@ using std::size_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 
 constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000ul;
-constexpr size_t SOURCE_LENGTH = 252u;
-constexpr size_t CODE_LENGTH = 504u;
+constexpr size_t SOURCE_LENGTH = 5000u;
+constexpr size_t CODE_LENGTH = 10000u;
 constexpr size_t NUM_THREADS = 12u;
 
 int main(int argc, char* argv[]){
