@@ -1,5 +1,5 @@
-﻿#ifndef __channel_SEQUENCER__
-#define __channel_SEQUENCER__
+﻿#ifndef INCLUDE_GUARD_dnas_channelsequencer
+#define INCLUDE_GUARD_dnas_channelsequencer
 
 #include <array>
 #include <cmath>

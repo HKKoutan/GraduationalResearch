@@ -1,5 +1,5 @@
-﻿#ifndef __code_CODEDNAS__
-#define __code_CODEDNAS__
+﻿#ifndef INCLUDE_GUARD_dnas_codeDNAS
+#define INCLUDE_GUARD_dnas_codeDNAS
 
 #include <array>
 #include <bitset>

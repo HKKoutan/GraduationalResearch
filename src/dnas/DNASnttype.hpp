@@ -1,5 +1,5 @@
-﻿#ifndef __DNASMYTYPE__
-#define __DNASMYTYPE__
+﻿#ifndef INCLUDE_GUARD_dnas_DNASnttype
+#define INCLUDE_GUARD_dnas_DNASnttype
 
 #include <cstdint>
 
