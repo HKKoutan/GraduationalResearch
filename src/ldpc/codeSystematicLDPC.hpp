@@ -30,8 +30,8 @@ public:
 	template<LDPC::DecoderType U, std::floating_point F>
 	auto decode(const std::array<F,C> &LLR);
 
-	auto sourcesize() const{return S;}
-	auto codesize() const{return C;}
+	static constexpr auto sourcesize(){return S;}
+	static constexpr auto codesize(){return C;}
 };
 
 //ヘルパ関数
