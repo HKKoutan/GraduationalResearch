@@ -28,7 +28,7 @@ int main(int argc, char* argv[]){
 	//constexpr array noise_factor = {0.0};
 	constexpr size_t nsize = noise_factor.size();
 
-	code::SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
+	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	array<array<uint64_t,nsize>,3> biterror = {0};
 	array<array<uint64_t,nsize>,NUM_THREADS> biterrors = {0};
 
