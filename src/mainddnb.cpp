@@ -2,12 +2,10 @@
 #include <tuple>
 #include <thread>
 #include <numeric>
-#include "dnas/DNASnttype.hpp"
 #include "dnas/codeDNAS.hpp"
-#include "dnas/sequencer.hpp"
-#include "ldpc/codeLDPC.hpp"
-#include "common/randombits.hpp"
-#include "common/timekeep.hpp"
+#include "dnas/channelsequencer.hpp"
+#include "ldpc/codeSystematicLDPC.hpp"
+#include "common/util.hpp"
 
 using std::array, std::bitset, std::vector, std::tuple, std::pair;
 using std::size_t, std::uint8_t, std::uint64_t;
@@ -39,7 +37,7 @@ int main(int argc, char* argv[]){
 	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
 	constexpr size_t nsize = noise_factor.size();
 
-	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
+	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	// tuple: biterrors, nterrors, GCper(average,var)
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>>,4> stat = {};
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>>,NUM_THREADS> stats = {};
@@ -81,7 +79,6 @@ int main(int argc, char* argv[]){
 	auto encoded_ATGC = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &gcper = std::get<2>(*st);
-		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::Nanopore_Sequencing ch(noise_factor[n],t);
@@ -103,7 +100,7 @@ int main(int argc, char* argv[]){
 
 				auto LLR = ch.differential_LLR(rc);
 
-				auto mest = ldpc.decode(LLR, decoder);
+				auto mest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				{
 					uint64_t acc = 0u;
 					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (cc[i]!=rc[i]);
@@ -151,7 +148,6 @@ int main(int argc, char* argv[]){
 	auto encoded_AGTC = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &gcper = std::get<2>(*st);
-		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::Nanopore_Sequencing<AGTC> ch(noise_factor[n],t);
@@ -173,7 +169,7 @@ int main(int argc, char* argv[]){
 
 				auto LLR = ch.differential_LLR(rc);
 
-				auto mest = ldpc.decode(LLR, decoder);
+				auto mest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				{
 					uint64_t acc = 0u;
 					for(size_t i=0u, iend=cc.size(); i<iend; ++i) acc += (cc[i]!=rc[i]);
