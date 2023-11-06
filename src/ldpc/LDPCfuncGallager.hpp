@@ -11,8 +11,8 @@
 namespace code::LDPC {
 
 class func_Gallager_std {
-	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
-	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
+	static constexpr auto FG_LOWER_BOUND_F = 0x1p-10f;
+	static constexpr auto FG_UPPER_BOUND_F = 0x1p5f;
 public:
 	template<std::floating_point T>
 	T operator()(T x) const;
