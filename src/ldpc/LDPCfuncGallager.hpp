@@ -11,8 +11,8 @@
 namespace code::LDPC {
 
 class func_Gallager_std {
-	static constexpr auto FG_LOWER_BOUND_F = 0x1p-10f;
-	static constexpr auto FG_UPPER_BOUND_F = 0x1p5f;
+	static constexpr auto FG_LOWER_BOUND_F = 0x1p-16f;
+	static constexpr auto FG_UPPER_BOUND_F = 0x1p6f;
 public:
 	template<std::floating_point T>
 	T operator()(T x) const;
@@ -49,7 +49,7 @@ float func_Gallager_std::operator()(float x) const{
 	if(y<FG_LOWER_BOUND_F) y = FG_LOWER_BOUND_F;
 	if(y>FG_UPPER_BOUND_F) y = FG_UPPER_BOUND_F;
 	y = static_cast<float>(std::log1p(2.0f/std::expm1(y)));
-	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)&0x7ffffe00|std::bit_cast<uint32_t>(x)&0x80000000);
+	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
 	return y;
 }
 
