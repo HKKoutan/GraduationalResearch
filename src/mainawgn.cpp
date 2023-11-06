@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){
 
 				auto code = ldpc.encode(info);
 				auto y = ch.noise<float>(code);
-				auto est = ldpc.decode<decltype(decodertype)::type>(ch.LLR(y));
+				auto est = ldpc.decode<decltype(decodertype)>(ch.LLR(y));
 
 				bn += (est^info).count();
 			}
