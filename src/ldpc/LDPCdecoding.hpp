@@ -58,7 +58,7 @@ public:
 	auto estimate(const std::array<U,C> &LEVR) const;//推定符号語を求める
 	//rowupdate
 	struct SumProduct {
-		inline static const funcGallager_halftable fg;
+		inline static const funcGallager_table fg;
 		static void rowupdate();
 	};
 	struct MinSum {
