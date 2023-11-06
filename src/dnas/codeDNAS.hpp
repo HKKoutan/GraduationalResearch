@@ -3,42 +3,44 @@
 
 #include <array>
 #include <bitset>
-// #include <exception>
 #include "DNASnttype.hpp"
 
 namespace code::DNAS {
 
-namespace differential {
+struct differential {
 	template<std::uint8_t ATGC, std::size_t S>
-	auto encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
+	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::uint8_t ATGC, std::size_t S>
-	auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
-}
-namespace VLRLL {
+	static auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
+};
+
+struct VLRLL {
 	template<std::uint8_t ATGC=0x1B, std::size_t S>
-	auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
+	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::uint8_t ATGC, std::size_t S>
-	auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
-}
-namespace modified_VLRLL {
-	template<std::uint8_t ATGC, std::size_t S>
-	auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
-	template<std::uint8_t ATGC, std::size_t S>
-	auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state);
-}
-class flip_balancing {//ATGC=0x1B
-public:
-	template<std::uint8_t ATGC, std::size_t R>
-	auto balance(const std::array<nucleotide_t<ATGC>,R> &cr, std::size_t qty_AT=0, std::size_t qty_GC=0);
-	template<std::uint8_t ATGC, std::size_t R>
-	auto restore(const std::array<nucleotide_t<ATGC>,R> &crbar, const std::bitset<R> &flipinfo);
+	static auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
 };
+
+struct modifiedVLRLL {
+	template<std::uint8_t ATGC, std::size_t S>
+	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
+	template<std::uint8_t ATGC, std::size_t S>
+	static auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state);
+};
+
+struct flip_balancing {//ATGC=0x1B
+	template<std::uint8_t ATGC, std::size_t R>
+	static auto balance(const std::array<nucleotide_t<ATGC>,R> &cr, std::size_t qty_AT=0, std::size_t qty_GC=0);
+	template<std::uint8_t ATGC, std::size_t R>
+	static auto restore(const std::array<nucleotide_t<ATGC>,R> &crbar, const std::bitset<R> &flipinfo);
+};
+
 template<std::size_t BS=0>//ATGC=0x37
-class division_balancing {
-public:
+struct division_balancing {
 	template<std::uint8_t ATGC, std::size_t S>
-	auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
 };
+
 template<std::uint8_t ATGC, std::size_t S>
 auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source);
 template<std::uint8_t ATGC=0x1B, std::size_t S>
@@ -46,11 +48,14 @@ auto binary_to_quarternary(const std::bitset<S> &source);
 template<std::uint8_t ATGC, std::size_t L>
 auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c, std::uint64_t qty_AT_init=0);
 
-
-namespace differential {
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                     class differential                     //
+//                                                            //
+////////////////////////////////////////////////////////////////
 
 template<std::uint8_t ATGC, std::size_t S>
-auto encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
+auto differential::encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::array<nucleotide_t<ATGC>,S> code;
 	nucleotide_t current_state = initial_state;
 
@@ -62,7 +67,7 @@ auto encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> i
 }
 
 template<std::uint8_t ATGC, std::size_t S>
-auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
+auto differential::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::array<nucleotide_t<ATGC>,S> decode;
 	nucleotide_t prev = initial_state;
 
@@ -73,12 +78,14 @@ auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> i
 	return decode;
 }
 
-}
-
-namespace VLRLL {
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                        class VLRLL                         //
+//                                                            //
+////////////////////////////////////////////////////////////////
 
 template<std::uint8_t ATGC, std::size_t S>
-auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
+auto VLRLL::encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
 	static_assert(S%2==0);
 	std::array<nucleotide_t<ATGC>,S/2> code;
 	std::size_t processing = 0u;
@@ -139,7 +146,7 @@ auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
 }
 
 template<std::uint8_t ATGC, std::size_t S>
-auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
+auto VLRLL::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::bitset<S*2> decode;
 	nucleotide_t previous = initial_state;
 	std::size_t zeros = 0u;
@@ -175,12 +182,14 @@ auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> i
 	return decode;
 }
 
-}
-
-namespace modified_VLRLL {
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                     class modifiedVLRLL                    //
+//                                                            //
+////////////////////////////////////////////////////////////////
 
 template<std::uint8_t ATGC, std::size_t S>
-auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
+auto modifiedVLRLL::encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
 	static_assert(S%2==0);
 	std::array<nucleotide_t<ATGC>,S/2> code; 
 	std::size_t processing = 0u;
@@ -228,7 +237,7 @@ auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
 }
 
 template<std::uint8_t ATGC, std::size_t S>
-auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
+auto modifiedVLRLL::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::bitset<S*2> decode;
 	nucleotide_t previous = initial_state;
 
@@ -259,7 +268,11 @@ auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> i
 	return decode;
 }
 
-}
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                    class flip_balancing                    //
+//                                                            //
+////////////////////////////////////////////////////////////////
 
 template<std::uint8_t ATGC, std::size_t S>
 auto flip_balancing::balance(const std::array<nucleotide_t<ATGC>,S> &source, std::size_t qty_AT, std::size_t qty_GC){
@@ -300,6 +313,12 @@ auto flip_balancing::restore(const std::array<nucleotide_t<ATGC>,S> &source, con
 	return restored;
 }
 
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                  class division_balancing                  //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
 template<std::size_t BS>
 template<std::uint8_t ATGC, std::size_t S>
 auto division_balancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
@@ -330,6 +349,12 @@ auto division_balancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &sou
 	}
 	return balanced;
 }
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                       miscellaneous                        //
+//                                                            //
+////////////////////////////////////////////////////////////////
 
 template<std::uint8_t ATGC, std::size_t S>
 auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source){
