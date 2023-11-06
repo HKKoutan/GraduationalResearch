@@ -11,7 +11,7 @@
 
 namespace code::LDPC {
 
-class func_Gallager_double {
+class funcGallager_double {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto UPPER_BOUND = 0x1p6f;
 public:
@@ -19,7 +19,7 @@ public:
 	T operator()(T x) const;
 };
 
-class func_Gallager_single {
+class funcGallager_single {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto UPPER_BOUND = 0x1p6f;
 public:
@@ -27,7 +27,7 @@ public:
 	T operator()(T x) const;
 };
 
-class func_Gallager_table {
+class funcGallager_table {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto LOWER_BOUND_U = std::bit_cast<uint32_t>(LOWER_BOUND);
 	static constexpr auto UPPER_BOUND = 0x1p6f;
@@ -40,29 +40,29 @@ class func_Gallager_table {
 	static bool read_values(decltype(values) &vec);
 	static bool write_values(const decltype(values) &vec);
 public:
-	func_Gallager_table();
+	funcGallager_table();
 	template<std::floating_point T>
 	T operator()(T x) const;
 };
 
-class func_Gallager_halftable {
+class funcGallager_halftable {
 	static constexpr auto LOWER_BOUND = 0x1p-10f;
-	static constexpr auto LOWER_BOUND_U = 0x0000;
-	static constexpr auto UPPER_BOUND = 0x1p5f;
-	static constexpr auto UPPER_BOUND_U = 0xffff;
-	static constexpr auto EXPONENT_BIAS = 11<<23;//指数の内部表現の差
-	static constexpr auto EXPONENT_ONE = 0x40000000;//指数の内部表現の差
+	static constexpr auto LOWER_BOUND_U = 0x00000000;
+	static constexpr auto UPPER_BOUND = 0x1.ffdp4f;
+	static constexpr auto UPPER_BOUND_U = 0x0000ffff;
+	static constexpr auto EXPONENT_BIAS = (11+0x00000080)<<23;//指数の内部表現の差
 	static constexpr auto SHIFT_HALF_FLOAT = 11;//仮数部の長さの差
 	static constexpr auto CACHE_FILENAME = "gallager_half.bin";
 
-	inline static std::vector<float> values;//符号なし 指数4bits(-10~+5)+仮数12bits(ケチ表現)
+	inline static std::vector<float> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
 
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(decltype(values) &vec);
 	static bool write_values(const decltype(values) &vec);
-
+	template<std::floating_point T>
+	static T interpolate(T x);
 public:
-	func_Gallager_halftable();
+	funcGallager_halftable();
 	template<std::floating_point T>
 	T operator()(T x) const;
 };
@@ -74,7 +74,7 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template<>
-float func_Gallager_double::operator()(float x) const{
+float funcGallager_double::operator()(float x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
 	if(y<LOWER_BOUND) y = LOWER_BOUND;
@@ -91,7 +91,7 @@ float func_Gallager_double::operator()(float x) const{
 ////////////////////////////////////////////////////////////////
 
 template<>
-float func_Gallager_single::operator()(float x) const{
+float funcGallager_single::operator()(float x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
 	if(y<LOWER_BOUND) y = LOWER_BOUND;
@@ -107,24 +107,24 @@ float func_Gallager_single::operator()(float x) const{
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(func_Gallager_table::values) func_Gallager_table::values_init(){
+decltype(funcGallager_table::values) funcGallager_table::values_init(){
 	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	decltype(values) val(FG_VALUE_RANGE);
 
 	if(!read_values(val)){
-		std::cerr<<"func_Gallager_table: Cache file not found."<<std::endl;
+		std::cerr<<"funcGallager_table: Cache file not found."<<std::endl;
 		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
 			auto iu = i+LOWER_BOUND_U;
 			val[i] = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(std::bit_cast<float>(iu)))));
 		}
 		if(!write_values(val)){
-			std::cerr<<"func_Gallager_table: Caching failed."<<std::endl;
+			std::cerr<<"funcGallager_table: Caching failed."<<std::endl;
 		}
 	}
 	return val;
 }
 
-bool func_Gallager_table::read_values(decltype(values) &vec){
+bool funcGallager_table::read_values(decltype(values) &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
@@ -134,7 +134,7 @@ bool func_Gallager_table::read_values(decltype(values) &vec){
 	return true;
 }
 
-bool func_Gallager_table::write_values(const decltype(values) &vec){
+bool funcGallager_table::write_values(const decltype(values) &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
 	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
@@ -143,7 +143,7 @@ bool func_Gallager_table::write_values(const decltype(values) &vec){
 	return true;
 }
 
-func_Gallager_table::func_Gallager_table(){
+funcGallager_table::funcGallager_table(){
 	static bool init;
 	if(!init){
 		values = values_init();
@@ -152,13 +152,13 @@ func_Gallager_table::func_Gallager_table(){
 }
 
 template<>
-float func_Gallager_table::operator()(float x) const{
-	auto y = std::fabs(x);
+float funcGallager_table::operator()(float x) const{
+	auto xa = std::fabs(x);
 	//定義域を限定
-	if(y<LOWER_BOUND) y = LOWER_BOUND;
-	if(y>UPPER_BOUND) y = UPPER_BOUND;
-	y = values[std::bit_cast<uint32_t>(y) - LOWER_BOUND_U];
-	return std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
+	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
+	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
+	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -167,26 +167,26 @@ float func_Gallager_table::operator()(float x) const{
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(func_Gallager_halftable::values) func_Gallager_halftable::values_init(){
+decltype(funcGallager_halftable::values) funcGallager_halftable::values_init(){
 	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	decltype(values) val(FG_VALUE_RANGE);
 
 	if(!read_values(val)){
-		std::cerr<<"func_Gallager_table: Cache file not found."<<std::endl;
+		std::cerr<<"funcGallager_halftable: Cache file not found."<<std::endl;
 		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
-			auto x = std::bit_cast<float>((((i<<SHIFT_HALF_FLOAT)|EXPONENT_ONE)-EXPONENT_BIAS)&0x7fffffff);
+			auto x = std::bit_cast<float>(((i<<SHIFT_HALF_FLOAT)-EXPONENT_BIAS)&0x7fffffff);
 			auto y = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(x))));
 			// auto value = static_cast<decltype(values)::value_type>((std::bit_cast<uint32_t>(y)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT);
 			val[i] = y;
 		}
 		if(!write_values(val)){
-			std::cerr<<"func_Gallager_table: Caching failed."<<std::endl;
+			std::cerr<<"funcGallager_halftable: Caching failed."<<std::endl;
 		}
 	}
 	return val;
 }
 
-bool func_Gallager_halftable::read_values(decltype(values) &vec){
+bool funcGallager_halftable::read_values(decltype(values) &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
@@ -196,7 +196,7 @@ bool func_Gallager_halftable::read_values(decltype(values) &vec){
 	return true;
 }
 
-bool func_Gallager_halftable::write_values(const decltype(values) &vec){
+bool funcGallager_halftable::write_values(const decltype(values) &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
 	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
@@ -205,7 +205,16 @@ bool func_Gallager_halftable::write_values(const decltype(values) &vec){
 	return true;
 }
 
-func_Gallager_halftable::func_Gallager_halftable(){
+template<>
+float funcGallager_halftable::interpolate(float x){
+	auto xu = ((std::bit_cast<std::uint32_t>(x)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&0x0000ffff;
+	auto ratio = static_cast<float>(std::bit_cast<std::uint32_t>(x)&0x000007ff)*0x1p-11f;
+	auto y1 = values[xu];
+	auto y2 = values[xu+1];
+	return y1 + (y1-y2)*ratio;
+}
+
+funcGallager_halftable::funcGallager_halftable(){
 	static bool init;
 	if(!init){
 		values = values_init();
@@ -214,14 +223,15 @@ func_Gallager_halftable::func_Gallager_halftable(){
 }
 
 template<>
-float func_Gallager_halftable::operator()(float x) const{
-	auto y = std::fabs(x);
+float funcGallager_halftable::operator()(float x) const{
+	auto xa = std::fabs(x);
 	//定義域を限定
-	if(y<LOWER_BOUND) y = LOWER_BOUND;
-	if(y>UPPER_BOUND) y = UPPER_BOUND;
-	auto xu = ((std::bit_cast<std::uint32_t>(y)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&0x0000ffff;
-	auto yu = values[xu];
-	return std::bit_cast<float>(std::bit_cast<uint32_t>(yu)|std::bit_cast<uint32_t>(x)&0x80000000);
+	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
+	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	// auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&0x0000ffff;
+	// auto ya = values[xu];
+	auto ya = interpolate(xa);
+	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
 
 }
