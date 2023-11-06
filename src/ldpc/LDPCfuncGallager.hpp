@@ -49,7 +49,7 @@ float func_Gallager_std::operator()(float x) const{
 	if(y<FG_LOWER_BOUND_F) y = FG_LOWER_BOUND_F;
 	if(y>FG_UPPER_BOUND_F) y = FG_UPPER_BOUND_F;
 	y = static_cast<float>(std::log1p(2.0f/std::expm1(y)));
-	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
+	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)&0x7ffffe00|std::bit_cast<uint32_t>(x)&0x80000000);
 	return y;
 }
 
