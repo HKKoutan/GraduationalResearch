@@ -1,6 +1,7 @@
 ﻿#include <thread>
 #include <tuple>
 #include "common/util.hpp"
+#include "common/codecommon.hpp"
 #include "ldpc/codeSystematicLDPC.hpp"
 #include "ldpc/channelAWGN.hpp"
 
@@ -45,7 +46,7 @@ int main(int argc, char* argv[]){
 				rb.generate(info);
 
 				auto y = ch.noise<float>(info);
-				auto est = ch.estimate(y);
+				auto est = code::estimate(y);
 
 				bn += (est^info).count();
 			}
@@ -64,7 +65,9 @@ int main(int argc, char* argv[]){
 
 				auto code = ldpc.encode(info);
 				auto y = ch.noise<float>(code);
-				auto est = ldpc.decode<decltype(decodertype)>(ch.LLR(y));
+				auto LLR = ch.LLR(y);
+				LLR = ldpc.decode<decltype(decodertype)>(LLR);
+				auto est = code::estimate_crop<SOURCE_LENGTH>(LLR);
 
 				bn += (est^info).count();
 			}

@@ -54,11 +54,9 @@ public:
 	void decode_init();//decodeで使用する変数の初期化
 	template<DecoderType D, std::floating_point U>
 	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR);
-	template<std::floating_point U>
-	auto estimate(const std::array<U,C> &LEVR) const;//推定符号語を求める
 	//rowupdate
 	struct SumProduct {
-		inline static const func_Gallager_table fg;
+		inline static const funcGallager_table fg;
 		static void rowupdate();
 	};
 	struct MinSum {
@@ -158,14 +156,6 @@ bool Iterative_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> 
 		if(parity) return false;
 	}
 	return true;
-}
-
-template<CheckMatrix T>
-template<std::floating_point U>
-auto Iterative_decoding<T>::estimate(const std::array<U,C> &LEVR) const{
-	std::bitset<S> est;
-	for(std::size_t j=0; j<S; ++j) est[j] = LEVR[j]<0;
-	return est;
 }
 
 template<CheckMatrix T>
