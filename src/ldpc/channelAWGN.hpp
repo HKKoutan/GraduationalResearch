@@ -2,8 +2,8 @@
 #ifndef INCLUDE_GUARD_ldpc_channelAWGN
 #define INCLUDE_GUARD_ldpc_channelAWGN
 
+#include <array>
 #include <bitset>
-#include <vector>
 #include <concepts>
 #include <cstdint>
 #include <cmath>
