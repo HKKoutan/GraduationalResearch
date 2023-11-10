@@ -1,6 +1,8 @@
 ﻿#ifndef INCLUDE_GUARD_dnas_DNASnttype
 #define INCLUDE_GUARD_dnas_DNASnttype
 
+#include <array>
+#include <concepts>
 #include <cstdint>
 
 namespace code::DNAS {
@@ -40,10 +42,20 @@ constexpr bool nucleotide_t<0x27>::is_GC() const{return static_cast<bool>(val&1)
 
 template<std::floating_point T, std::uint8_t ATGC=0x1B>
 class nucleotide_p{
-	static_assert((((ATGC>>6)&3)!=((ATGC>>4)&3))&&(((ATGC>>6)&3)!=((ATGC>>2)&3))&&(((ATGC>>6)&3)!=(ATGC&3))&&(((ATGC>>4)&3)!=((ATGC>>2)&3))&&(((ATGC>>4)&3)!=(ATGC&3))&&(((ATGC>>2)&3)!=(ATGC&3)));//ATGCに重複がない
+	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
+	static_assert(nA!=nT && nA!=nG && nA!=nC && nT!=nG && nT!=nC && nG!=nC);//ATGCに重複がない
 	std::array<T,4> prob;
 public:
-	auto operator[](std::size_t i){return prob[i];}
+	auto &probA(){return prob[nA];}
+	auto &probT(){return prob[nT];}
+	auto &probG(){return prob[nG];}
+	auto &probC(){return prob[nC];}
+	const auto &probA() const{return prob[nA];}
+	const auto &probT() const{return prob[nT];}
+	const auto &probG() const{return prob[nG];}
+	const auto &probC() const{return prob[nC];}
+	auto &operator[](std::size_t i){return prob[i];}
+	const auto &operator[](std::size_t i) const{return prob[i];}
 };
 
 }
