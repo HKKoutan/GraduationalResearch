@@ -78,7 +78,7 @@ auto SystematicLDPC<T>::decode(const std::array<F,C> &LLR){
 	decoder.decode_init();
 	for(auto iter=0ui64; !decoder.iterate<U::type>(QLPR, QLLR) && iter<iterationlimit; ++iter);
 
-	return decoder.estimate(encoder.substitution(QLPR));
+	return encoder.substitution(QLPR);
 }
 
 }
