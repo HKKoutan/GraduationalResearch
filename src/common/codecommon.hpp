@@ -8,7 +8,7 @@
 namespace code {
 
 template<std::size_t R, std::floating_point T, std::size_t L>
-auto estimate(std::array<T,L> LLR){
+auto estimate_crop(std::array<T,L> LLR){
 	std::bitset<R> est;
 	for(std::size_t i=0; i<R; ++i) est[i] = LLR[i]<static_cast<T>(0);
 	return est;
