@@ -38,6 +38,14 @@ constexpr bool nucleotide_t<0x1B>::is_GC() const{return static_cast<bool>(val>>1
 constexpr bool nucleotide_t<0x27>::is_AT() const{return !static_cast<bool>(val&1);}
 constexpr bool nucleotide_t<0x27>::is_GC() const{return static_cast<bool>(val&1);}
 
+template<std::floating_point T, std::uint8_t ATGC=0x1B>
+class nucleotide_p{
+	static_assert((((ATGC>>6)&3)!=((ATGC>>4)&3))&&(((ATGC>>6)&3)!=((ATGC>>2)&3))&&(((ATGC>>6)&3)!=(ATGC&3))&&(((ATGC>>4)&3)!=((ATGC>>2)&3))&&(((ATGC>>4)&3)!=(ATGC&3))&&(((ATGC>>2)&3)!=(ATGC&3)));//ATGCに重複がない
+	std::array<T,4> prob;
+public:
+	auto operator[](std::size_t i){return prob[i];}
+};
+
 }
 
 #endif
