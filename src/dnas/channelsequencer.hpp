@@ -14,8 +14,9 @@ template<std::uint8_t ATGC=0x1B, std::floating_point FPTYPE = float>
 class Nanopore_Sequencing{
 	std::mt19937_64 mt;
 	std::uniform_real_distribution<> uniform;
-	static constexpr std::uint8_t A = (ATGC>>6)&3, T = (ATGC>>4)&3, G = (ATGC>>2)&3, C = ATGC&3;
-	static constexpr double A0 = (A>>1?-1.0:1.0), A1 = (A&1?-1.0:1.0), T0 = (T>>1?-1.0:1.0), T1 = (T&1?-1.0:1.0), G0 = (G>>1?-1.0:1.0), G1 = (G&1?-1.0:1.0), C0 = (C>>1?-1.0:1.0), C1 = (C&1?-1.0:1.0); 
+	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
+	static_assert(nA!=nT && nA!=nG && nA!=nC && nT!=nG && nT!=nC && nG!=nC);//ATGCに重複がない
+	static constexpr double A0 = (nA>>1?-1.0:1.0), A1 = (nA&1?-1.0:1.0), T0 = (nT>>1?-1.0:1.0), T1 = (nT&1?-1.0:1.0), G0 = (nG>>1?-1.0:1.0), G1 = (nG&1?-1.0:1.0), C0 = (nC>>1?-1.0:1.0), C1 = (nC&1?-1.0:1.0); 
 	const std::array<double,4> error_rate;//error_rate[0]~error_rate[3] = p1~p4
 	const std::array<double,4> non_error_rate;//ATGCそれぞれ誤らない確率
 	const std::array<std::array<double,4>,4> condprob;//condprob[a][b] P(a|b) 条件付き確率
@@ -40,8 +41,8 @@ template<std::uint8_t ATGC>
 class Nanopore_Sequencing<ATGC, float>{
 	std::mt19937_64 mt;
 	std::uniform_real_distribution<> uniform;
-	static constexpr std::uint8_t A = (ATGC>>6)&3, T = (ATGC>>4)&3, G = (ATGC>>2)&3, C = ATGC&3;
-	static constexpr double A0 = (A>>1?-1.0:1.0), A1 = (A&1?-1.0:1.0), T0 = (T>>1?-1.0:1.0), T1 = (T&1?-1.0:1.0), G0 = (G>>1?-1.0:1.0), G1 = (G&1?-1.0:1.0), C0 = (C>>1?-1.0:1.0), C1 = (C&1?-1.0:1.0); 
+	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
+	static constexpr double A0 = (nA>>1?-1.0:1.0), A1 = (nA&1?-1.0:1.0), T0 = (nT>>1?-1.0:1.0), T1 = (nT&1?-1.0:1.0), G0 = (nG>>1?-1.0:1.0), G1 = (nG&1?-1.0:1.0), C0 = (nC>>1?-1.0:1.0), C1 = (nC&1?-1.0:1.0); 
 	const std::array<double,4> error_rate;//error_rate[0]~error_rate[3] = p1~p4
 	const std::array<double,4> non_error_rate;//ATGCそれぞれ誤らない確率
 	const std::array<std::array<double,4>,4> condprob;//condprob[a][b] P(a|b) 条件付き確率
@@ -93,7 +94,7 @@ Nanopore_Sequencing<ATGC,float>::Nanopore_Sequencing(double alpha, std::int64_t 
 	non_error_rate{1.0-error_rate[1]-error_rate[2]-error_rate[3], 1.0-error_rate[0]-error_rate[1]-error_rate[2], 1.0-error_rate[1]-error_rate[2]-error_rate[3], 1.0-error_rate[0]-error_rate[1]-error_rate[2]},//ATGCそれぞれの誤らない確率
 	condprob(condprob_init())
 {
-	static_assert((A!=T)&&(A!=G)&&(A!=C)&&(T!=G)&&(T!=C)&&(G!=C));
+	static_assert((nA!=nT)&&(nA!=nG)&&(nA!=nC)&&(nT!=nG)&&(nT!=nC)&&(nG!=nC));
 	if(alpha>0.198||alpha<0) throw std::out_of_range("alpha out of range");
 }
 
@@ -121,22 +122,22 @@ auto Nanopore_Sequencing<ATGC,float>::VLRLL_LLR(const std::array<code::DNAS::nuc
 	//情報部
 	for(const auto &current: cm){
 		switch(current){
-		case A:
+		case nA:
 			LLR[j++] = static_cast<float>(A0*std::log(non_error_rate[0]+error_rate[1])-std::log(error_rate[3]+error_rate[2]));
 			LLR[j++] = static_cast<float>(A1*std::log(non_error_rate[0]+error_rate[3])-std::log(error_rate[1]+error_rate[2]));
 			break;
 
-		case T:
+		case nT:
 			LLR[j++] = static_cast<float>(T0*std::log(non_error_rate[1]+error_rate[1])-std::log(error_rate[0]+error_rate[2]));
 			LLR[j++] = static_cast<float>(T1*std::log(non_error_rate[1]+error_rate[0])-std::log(error_rate[1]+error_rate[2]));
 			break;
 
-		case G:
+		case nG:
 			LLR[j++] = static_cast<float>(G0*std::log(non_error_rate[2]+error_rate[1])-std::log(error_rate[3]+error_rate[2]));
 			LLR[j++] = static_cast<float>(G1*std::log(non_error_rate[2]+error_rate[3])-std::log(error_rate[1]+error_rate[2]));
 			break;
 
-		case C:
+		case nC:
 			LLR[j++] = static_cast<float>(C0*std::log(non_error_rate[3]+error_rate[1])-std::log(error_rate[0]+error_rate[2]));
 			LLR[j++] = static_cast<float>(C1*std::log(non_error_rate[3]+error_rate[0])-std::log(error_rate[1]+error_rate[2]));
 			break;
