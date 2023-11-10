@@ -29,8 +29,8 @@ public:
 
 AWGN::AWGN(double sigmasq, std::uint64_t seed):
 	mt(seed),
-	norm(0.0, std::sqrt(std::abs(sigmasq))),
-	llrcoefficient(2.0/std::abs(sigmasq))
+	norm(0.0, std::sqrt(std::fabs(sigmasq))),
+	llrcoefficient(2.0/std::fabs(sigmasq))
 {}
 
 template<std::floating_point T, std::size_t L>
