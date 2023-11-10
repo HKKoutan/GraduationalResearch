@@ -23,8 +23,6 @@ public:
 	auto noise(const std::bitset<L> &in);
 	template<std::floating_point T, std::size_t L>
 	auto LLR(const std::array<T,L> &y) const;
-	template<std::floating_point T, std::size_t L>
-	auto estimate(const std::array<T,L> &y) const;
 };
 
 AWGN::AWGN(double sigmasq, std::uint64_t seed):
@@ -45,13 +43,6 @@ auto AWGN::LLR(const std::array<T,L> &y) const{
 	std::array<T,L> LLR;
 	for(std::size_t i=0; i<L; ++i) LLR[i] = y[i]*static_cast<T>(llrcoefficient);
 	return LLR;
-}
-
-template<std::floating_point T, std::size_t L>
-auto AWGN::estimate(const std::array<T,L> &y) const{
-	std::bitset<L> est;
-	for(std::size_t i=0; i<L; ++i) est[i] = y[i]<0.0;
-	return est;
 }
 
 }
