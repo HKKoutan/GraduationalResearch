@@ -40,7 +40,7 @@ constexpr bool nucleotide_t<0x1B>::is_GC() const{return static_cast<bool>(val>>1
 constexpr bool nucleotide_t<0x27>::is_AT() const{return !static_cast<bool>(val&1);}
 constexpr bool nucleotide_t<0x27>::is_GC() const{return static_cast<bool>(val&1);}
 
-template<std::floating_point T, std::uint8_t ATGC=0x1B>
+template<std::uint8_t ATGC=0x1B, std::floating_point T = double>
 class nucleotide_p{
 	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
 	static_assert(nA!=nT && nA!=nG && nA!=nC && nT!=nG && nT!=nC && nG!=nC);//ATGCに重複がない
