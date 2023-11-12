@@ -46,16 +46,16 @@ class nucleotide_p{
 	static_assert(nA!=nT && nA!=nG && nA!=nC && nT!=nG && nT!=nC && nG!=nC);//ATGCに重複がない
 	std::array<T,4> likelihood;
 public:
-	auto &lhA(){return likelihood[nA];}
-	auto &lhT(){return likelihood[nT];}
-	auto &lhG(){return likelihood[nG];}
-	auto &lhC(){return likelihood[nC];}
-	auto &lh(std::size_t i){return likelihood[i];}
-	const auto &lhA() const{return likelihood[nA];}
-	const auto &lhT() const{return likelihood[nT];}
-	const auto &lhG() const{return likelihood[nG];}
-	const auto &lhC() const{return likelihood[nC];}
-	const auto &lh(std::size_t i) const{return likelihood[i];}
+	auto &lhA(){return likelihood[nA];}//likelihood of nucleotide A
+	auto &lhT(){return likelihood[nT];}//likelihood of nucleotide T
+	auto &lhG(){return likelihood[nG];}//likelihood of nucleotide G
+	auto &lhC(){return likelihood[nC];}//likelihood of nucleotide C
+	auto &lh(nucleotide_t<ATGC> i){return likelihood[i.val];}//likelihood of i
+	const auto &lhA() const{return likelihood[nA];}//likelihood of nucleotide A
+	const auto &lhT() const{return likelihood[nT];}//likelihood of nucleotide T
+	const auto &lhG() const{return likelihood[nG];}//likelihood of nucleotide G
+	const auto &lhC() const{return likelihood[nC];}//likelihood of nucleotide C
+	const auto &lh(nucleotide_t<ATGC> i) const{return likelihood[i.val];}//likelihood of i
 };
 
 }
