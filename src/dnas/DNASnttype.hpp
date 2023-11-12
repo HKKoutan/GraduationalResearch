@@ -44,18 +44,18 @@ template<std::floating_point T, std::uint8_t ATGC=0x1B>
 class nucleotide_p{
 	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
 	static_assert(nA!=nT && nA!=nG && nA!=nC && nT!=nG && nT!=nC && nG!=nC);//ATGCに重複がない
-	std::array<T,4> prob;
+	std::array<T,4> likelihood;
 public:
-	auto &probA(){return prob[nA];}
-	auto &probT(){return prob[nT];}
-	auto &probG(){return prob[nG];}
-	auto &probC(){return prob[nC];}
-	const auto &probA() const{return prob[nA];}
-	const auto &probT() const{return prob[nT];}
-	const auto &probG() const{return prob[nG];}
-	const auto &probC() const{return prob[nC];}
-	auto &operator[](std::size_t i){return prob[i];}
-	const auto &operator[](std::size_t i) const{return prob[i];}
+	auto &lhA(){return likelihood[nA];}
+	auto &lhT(){return likelihood[nT];}
+	auto &lhG(){return likelihood[nG];}
+	auto &lhC(){return likelihood[nC];}
+	auto &lh(std::size_t i){return likelihood[i];}
+	const auto &lhA() const{return likelihood[nA];}
+	const auto &lhT() const{return likelihood[nT];}
+	const auto &lhG() const{return likelihood[nG];}
+	const auto &lhC() const{return likelihood[nC];}
+	const auto &lh(std::size_t i) const{return likelihood[i];}
 };
 
 }
