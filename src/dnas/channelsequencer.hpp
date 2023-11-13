@@ -96,8 +96,8 @@ auto Nanopore_Sequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleoti
 	std::array<code::DNAS::nucleotide_p<ATGC>,L> likelihoods;
 	for(std::size_t i=0; i<L; ++i){
 		auto &li = likelihoods[i];
-		auto &ii = in[i];
-		for(std::uint8_t n=0; n<4; ++n) li.lh(code::DNAS::nucleotide_t<ATGC>(n)) = condprob[ii][n];
+		auto &ci = condprob[in[i]];
+		for(std::uint8_t n=0; n<4; ++n) li[n] = ci[n];
 	}
 	return likelihoods;
 }

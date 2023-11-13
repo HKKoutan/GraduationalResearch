@@ -50,12 +50,14 @@ public:
 	auto &lhT(){return likelihood[nT];}//likelihood of nucleotide T
 	auto &lhG(){return likelihood[nG];}//likelihood of nucleotide G
 	auto &lhC(){return likelihood[nC];}//likelihood of nucleotide C
-	auto &lh(nucleotide_t<ATGC> i){return likelihood[i.val];}//likelihood of i
+	auto &operator[](nucleotide_t<ATGC> i){return likelihood[i.val];}//likelihood of i
+	auto &operator[](std::uint8_t i){return likelihood[i&3ui8];}//likelihood of i
 	const auto &lhA() const{return likelihood[nA];}//likelihood of nucleotide A
 	const auto &lhT() const{return likelihood[nT];}//likelihood of nucleotide T
 	const auto &lhG() const{return likelihood[nG];}//likelihood of nucleotide G
 	const auto &lhC() const{return likelihood[nC];}//likelihood of nucleotide C
-	const auto &lh(nucleotide_t<ATGC> i) const{return likelihood[i.val];}//likelihood of i
+	const auto &operator[](nucleotide_t<ATGC> i) const{return likelihood[i.val];}//likelihood of i
+	const auto &operator[](std::uint8_t i) const{return likelihood[i&3ui8];}//likelihood of i
 };
 
 }
