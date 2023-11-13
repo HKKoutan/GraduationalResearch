@@ -46,9 +46,17 @@ struct flip_balancing {//ATGC=0x1B
 };
 
 template<std::size_t BS=0>//ATGC=0x37
-struct division_balancing {
+struct DivisionBalancing {
 	template<std::uint8_t ATGC, std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
+};
+
+template<std::uint8_t ATGC, std::size_t BS> struct recordedDivisionBalancing;
+
+template<std::uint8_t ATGC>
+struct recordedDivisionBalancing<ATGC,8> {
+	template<std::size_t S>
+	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source);
 };
 
 template<std::uint8_t ATGC, std::size_t S>
@@ -331,7 +339,7 @@ auto flip_balancing::restore(const std::array<nucleotide_t<ATGC>,S> &source, con
 
 template<std::size_t BS>
 template<std::uint8_t ATGC, std::size_t S>
-auto division_balancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
+auto DivisionBalancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	static_assert(block_size%2==0&&S%block_size==0);
