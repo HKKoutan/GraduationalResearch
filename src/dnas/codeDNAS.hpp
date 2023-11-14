@@ -7,10 +7,14 @@
 
 namespace code::DNAS {
 
-struct differential {
-	template<std::uint8_t ATGC, std::size_t S>
+template<std::uint8_t ATGC> struct differential;
+
+template<>
+struct differential<0x1B> {
+	static constexpr std::uint8_t ATGC = 0x1B;
+	template<std::size_t S>
 	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
-	template<std::uint8_t ATGC, std::size_t S>
+	template<std::size_t S>
 	static auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
 };
 
@@ -72,8 +76,8 @@ auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c, std::uint64_t qty_AT_in
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::uint8_t ATGC, std::size_t S>
-auto differential::encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
+template<std::size_t S>
+auto differential<0x1B>::encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::array<nucleotide_t<ATGC>,S> code;
 	nucleotide_t current_state = initial_state;
 
@@ -84,8 +88,8 @@ auto differential::encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleo
 	return code;
 }
 
-template<std::uint8_t ATGC, std::size_t S>
-auto differential::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
+template<std::size_t S>
+auto differential<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::array<nucleotide_t<ATGC>,S> decode;
 	nucleotide_t prev = initial_state;
 
