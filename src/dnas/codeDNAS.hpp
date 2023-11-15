@@ -13,9 +13,11 @@ template<>
 struct differential<0x1B> {
 	static constexpr std::uint8_t ATGC = 0x1B;
 	template<std::size_t S>
-	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
+	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>
-	static auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
+	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state = 0);
+	// template<std::floating_point T, std::size_t S>
+	// static auto decode(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_t<ATGC> initial_state = 0);
 };
 
 template<std::uint8_t ATGC> struct VLRLL;
@@ -26,7 +28,7 @@ struct VLRLL<0x1B> {
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>
-	static auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
+	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state = 0);
 };
 
 template<std::uint8_t ATGC> struct modifiedVLRLL;
@@ -37,9 +39,9 @@ struct modifiedVLRLL<0x1B> {
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>
-	static auto decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state);
+	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state);
 	// template<std::floating_point T, std::size_t S>
-	// static auto decode(const std::array<nucleotide_p<ATGC,T>,S> &source, nucleotide_t<ATGC> initial_state);
+	// static auto decode(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_t<ATGC> initial_state);
 };
 
 struct flip_balancing {//ATGC=0x1B
@@ -77,25 +79,29 @@ auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c, std::uint64_t qty_AT_in
 ////////////////////////////////////////////////////////////////
 
 template<std::size_t S>
-auto differential<0x1B>::encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
-	std::array<nucleotide_t<ATGC>,S> code;
+auto differential<0x1B>::encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
+	static_assert(S%2==0);
+	std::array<nucleotide_t<ATGC>,S/2> code;
 	nucleotide_t current_state = initial_state;
 
-	for(std::size_t i=0u, iend=S; i<iend; ++i){
-		current_state += source[i];
-		code[i] = current_state;
+	for(std::size_t i=0; i<S; i+=2){
+		current_state += (static_cast<int>(source.test(i))<<1)+static_cast<int>(source.test(i+1));
+		code[i>>1] = current_state;
 	}
 	return code;
 }
 
 template<std::size_t S>
-auto differential<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
-	std::array<nucleotide_t<ATGC>,S> decode;
+auto differential<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state){
+	std::bitset<S*2> decode;
 	nucleotide_t prev = initial_state;
 
-	for(std::size_t i=0u, iend=S; i<iend; ++i){
-		decode[i] = source[i]-prev;
-		prev = source[i];
+	for(std::size_t i=0; i<S; ++i){
+		auto j=i<<1;
+		auto current = code[i]-prev;
+		decode[j] = current.msb();
+		decode[j+1] = current.lsb();
+		prev = code[i];
 	}
 	return decode;
 }
