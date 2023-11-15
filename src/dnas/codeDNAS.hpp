@@ -65,10 +65,14 @@ struct recordedDivisionBalancing<ATGC,8> {
 	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source);
 };
 
-template<std::uint8_t ATGC, std::size_t S>
-auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source);
-template<std::uint8_t ATGC=0x1B, std::size_t S>
-auto binary_to_quarternary(const std::bitset<S> &source);
+template<std::uint8_t ATGC>
+struct convert {
+	template<std::size_t S>
+	static auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source);
+	template<std::size_t S>
+	static auto binary_to_quarternary(const std::bitset<S> &source);
+};
+
 template<std::uint8_t ATGC, std::size_t L>
 auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c);
 template<std::uint8_t ATGC, std::size_t L>
@@ -345,7 +349,7 @@ auto flip_balancing::restore(const std::array<nucleotide_t<ATGC>,S> &source, con
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                  class division_balancing                  //
+//                  class DivisionBalancing                   //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
@@ -382,12 +386,13 @@ auto DivisionBalancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &sour
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                       miscellaneous                        //
+//                       class convert                        //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::uint8_t ATGC, std::size_t S>
-auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source){
+template<std::uint8_t ATGC>
+template<std::size_t S>
+auto convert<ATGC>::quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source){
 	std::bitset<S*2> code;
 	for(std::size_t i=0u; const auto &j: source){
 		code[i++]=j.msb();
@@ -396,8 +401,9 @@ auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source){
 	return code;
 }
 
-template<std::uint8_t ATGC, std::size_t S>
-auto binary_to_quarternary(const std::bitset<S> &source){
+template<std::uint8_t ATGC>
+template<std::size_t S>
+auto convert<ATGC>::binary_to_quarternary(const std::bitset<S> &source){
 	static_assert(S%2==0);
 	std::array<nucleotide_t<ATGC>,S/2> code;
 	for(std::size_t i=0u; auto &j: code){
@@ -406,6 +412,12 @@ auto binary_to_quarternary(const std::bitset<S> &source){
 	}
 	return code;
 }
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                       miscellaneous                        //
+//                                                            //
+////////////////////////////////////////////////////////////////
 
 template<std::uint8_t ATGC, std::size_t L>
 auto countAT(const std::array<nucleotide_t<ATGC>,L> &c){
