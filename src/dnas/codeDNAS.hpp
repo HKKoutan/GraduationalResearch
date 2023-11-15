@@ -71,6 +71,8 @@ template<std::uint8_t ATGC=0x1B, std::size_t S>
 auto binary_to_quarternary(const std::bitset<S> &source);
 template<std::uint8_t ATGC, std::size_t L>
 auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c);
+template<std::uint8_t ATGC, std::size_t L>
+auto count_Runlength(const std::array<nucleotide_t<ATGC>,L> &c);
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -406,10 +408,25 @@ auto binary_to_quarternary(const std::bitset<S> &source){
 }
 
 template<std::uint8_t ATGC, std::size_t L>
-auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c){
+auto countAT(const std::array<nucleotide_t<ATGC>,L> &c){
 	std::uint64_t qty_AT=0;
 	for(const auto &i: c) qty_AT+=i.is_AT();
 	return qty_AT;
+}
+
+template<std::uint8_t ATGC, std::size_t L>
+auto countRunlength(const std::array<nucleotide_t<ATGC>,L> &c){
+	std::size_t rlmax=0, rl=0;
+	nucleotide_t<ATGC> prev;
+	for(const auto &i: c){
+		if(i!=prev){
+			rlmax = (rl>rlmax)?rl:rlmax;
+			rl=0;
+		}else{
+			++rl;
+		}
+	}
+	return (rl>rlmax)?rl:rlmax;
 }
 
 }
