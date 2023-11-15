@@ -70,7 +70,7 @@ auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source);
 template<std::uint8_t ATGC=0x1B, std::size_t S>
 auto binary_to_quarternary(const std::bitset<S> &source);
 template<std::uint8_t ATGC, std::size_t L>
-auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c, std::uint64_t qty_AT_init=0);
+auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c);
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -406,8 +406,8 @@ auto binary_to_quarternary(const std::bitset<S> &source){
 }
 
 template<std::uint8_t ATGC, std::size_t L>
-auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c, std::uint64_t qty_AT_init){
-	auto qty_AT=qty_AT_init;
+auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c){
+	std::uint64_t qty_AT=0;
 	for(const auto &i: c) qty_AT+=i.is_AT();
 	return qty_AT;
 }
