@@ -44,7 +44,7 @@ struct modifiedVLRLL<0x1B> {
 	// static auto decode(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_t<ATGC> initial_state);
 };
 
-struct flip_balancing {//ATGC=0x1B
+struct FlipBalancing {//ATGC=0x1B
 	template<std::uint8_t ATGC, std::size_t R>
 	static auto balance(const std::array<nucleotide_t<ATGC>,R> &cr, std::size_t qty_AT=0, std::size_t qty_GC=0);
 	template<std::uint8_t ATGC, std::size_t R>
@@ -74,9 +74,9 @@ struct convert {
 };
 
 template<std::uint8_t ATGC, std::size_t L>
-auto count_AT(const std::array<nucleotide_t<ATGC>,L> &c);
+auto countAT(const std::array<nucleotide_t<ATGC>,L> &c);
 template<std::uint8_t ATGC, std::size_t L>
-auto count_Runlength(const std::array<nucleotide_t<ATGC>,L> &c);
+auto countRunlength(const std::array<nucleotide_t<ATGC>,L> &c);
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -309,7 +309,7 @@ auto modifiedVLRLL<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source,
 ////////////////////////////////////////////////////////////////
 
 template<std::uint8_t ATGC, std::size_t S>
-auto flip_balancing::balance(const std::array<nucleotide_t<ATGC>,S> &source, std::size_t qty_AT, std::size_t qty_GC){
+auto FlipBalancing::balance(const std::array<nucleotide_t<ATGC>,S> &source, std::size_t qty_AT, std::size_t qty_GC){
 	static_assert(ATGC==0x1B);
 	std::array<nucleotide_t<ATGC>,S> balanced;
 	std::bitset<S> flipinfo; 
@@ -335,7 +335,7 @@ auto flip_balancing::balance(const std::array<nucleotide_t<ATGC>,S> &source, std
 }
 
 template<std::uint8_t ATGC, std::size_t S>
-auto flip_balancing::restore(const std::array<nucleotide_t<ATGC>,S> &source, const std::bitset<S> &flipinfo){
+auto FlipBalancing::restore(const std::array<nucleotide_t<ATGC>,S> &source, const std::bitset<S> &flipinfo){
 	static_assert(ATGC==0x1B);
 	std::array<nucleotide_t<ATGC>,S> restored;
 	nucleotide_t diff = 0;
