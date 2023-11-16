@@ -3,6 +3,7 @@
 
 #include <array>
 #include <bitset>
+#include <limits>
 #include "DNASnttype.hpp"
 
 namespace code::DNAS {
@@ -71,7 +72,7 @@ template<>
 struct DivisionBalancing<0x27,8,0x03> {
 	static constexpr std::uint8_t ATGC = 0x27;
 	template<std::size_t S>
-	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source);
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
 };
 
 template<std::uint8_t ATGC>
@@ -436,7 +437,7 @@ template<std::uint8_t ATGC>
 template<std::size_t S>
 auto convert<ATGC>::nttype_to_binary(const std::array<nucleotide_t<ATGC>,S> &source){
 	std::bitset<S*2> code;
-	for(std::size_t i=0u; const auto &j: source){
+	for(std::size_t i=0; const auto &j: source){
 		code[i++]=j.msb();
 		code[i++]=j.lsb();
 	}
@@ -444,11 +445,31 @@ auto convert<ATGC>::nttype_to_binary(const std::array<nucleotide_t<ATGC>,S> &sou
 }
 
 template<std::uint8_t ATGC>
+template<std::floating_point T, std::size_t S>
+auto convert<ATGC>::nttype_to_binary_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
+	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
+	static constexpr double A0 = (nA>>1?-1.0:1.0), A1 = (nA&1?-1.0:1.0), T0 = (nT>>1?-1.0:1.0), T1 = (nT&1?-1.0:1.0), G0 = (nG>>1?-1.0:1.0), G1 = (nG&1?-1.0:1.0), C0 = (nC>>1?-1.0:1.0), C1 = (nC&1?-1.0:1.0); 
+	std::array<T,S*2> LLR;
+	for(std::size_t i=0; const auto &j: source){
+		auto PX0 = j[0]+j[2], PX1 = j[1]+j[3], P0X = j[0]+j[1], P1X = j[2]+j[3];
+		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else LLR[i] = std::log(PX0)-std::log(PX1);
+		++i;
+		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else LLR[i] = std::log(P0X)-std::log(P1X);
+		++i;
+	}
+	return LLR;
+}
+
+template<std::uint8_t ATGC>
 template<std::size_t S>
 auto convert<ATGC>::binary_to_nttype(const std::bitset<S> &source){
 	static_assert(S%2==0);
 	std::array<nucleotide_t<ATGC>,S/2> code;
-	for(std::size_t i=0u; auto &j: code){
+	for(std::size_t i=0; auto &j: code){
 		j = static_cast<int>(source.test(i++))<<1;
 		j += static_cast<int>(source.test(i++));
 	}
