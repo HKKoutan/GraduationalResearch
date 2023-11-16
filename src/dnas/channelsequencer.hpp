@@ -28,7 +28,7 @@ public:
 
 	template<std::size_t L>
 	auto noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in);
-	template<std::size_t L>
+	template<std::floating_point T=double, std::size_t L>
 	auto likelihood(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in);
 
 	// template<std::size_t S, std::size_t R>
@@ -91,9 +91,9 @@ auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t<
 }
 
 template<std::uint8_t ATGC>
-template<std::size_t L>
+template<std::floating_point T, std::size_t L>
 auto Nanopore_Sequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in){
-	std::array<code::DNAS::nucleotide_p<ATGC>,L> likelihoods;
+	std::array<code::DNAS::nucleotide_p<ATGC,T>,L> likelihoods;
 	for(std::size_t i=0; i<L; ++i){
 		auto &li = likelihoods[i];
 		auto &ci = condprob[in[i]];
