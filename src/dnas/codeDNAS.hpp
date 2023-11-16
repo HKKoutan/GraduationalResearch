@@ -41,8 +41,8 @@ struct modifiedVLRLL<0x1B> {
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>
 	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state);
-	// template<std::floating_point T, std::size_t S>
-	// static auto decode(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_t<ATGC> initial_state);
+	template<std::floating_point T, std::size_t S>
+	static auto decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state);
 };
 
 struct FlipBalancing {//ATGC=0x1B
@@ -314,6 +314,32 @@ auto modifiedVLRLL<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source,
 	return decode;
 }
 
+template<std::floating_point T, std::size_t S>
+auto modifiedVLRLL<0x1B>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &source, nucleotide_p<ATGC,T> initial_state){
+	constexpr T p3_to_11 = 1.0/22.0;
+	constexpr T p3_to_10 = 21.0/22.0;
+	std::array<T,S*2> LLR;
+	auto previous = initial_state;
+
+	for(std::size_t i=0; const auto &current: source){
+		T PX0 = 0, PX1 = 0, P0X = 0, P1X = 0;
+		for(auto i=0; i<4; ++i) P0X += previous[i] * (current[i+1] + current[i+2]); //上位ビットが0: 遷移語が1 or 2になる組み合わせ
+		for(auto i=0; i<4; ++i) P1X += previous[i] * (current[i] + current[i+3]); //上位ビットが1: 遷移語が0 or 3になる組み合わせ
+		for(auto i=0; i<4; ++i) PX0 += previous[i] * (current[i+1] + p3_to_10*current[i+3]); //下位ビットが0: 遷移語が1 or 3(*p3_to_10)になる組み合わせ
+		for(auto i=0; i<4; ++i) PX1 += previous[i] * (current[i] + current[i+2] + p3_to_11*current[i+3]); //下位ビットが1: 遷移語が0 or 2 or 3(*p3_to_11)になる組み合わせ
+		previous = current;
+		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
+		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else LLR[i] = std::log(P0X)-std::log(P1X);
+		++i;
+		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else LLR[i] = std::log(PX0)-std::log(PX1);
+		++i;
+	}
+	return LLR;
+}
+
 ////////////////////////////////////////////////////////////////
 //                                                            //
 //                    class flip_balancing                    //
@@ -452,13 +478,13 @@ auto convert<ATGC>::nttype_to_binary_p(const std::array<nucleotide_p<ATGC,T>,S> 
 	std::array<T,S*2> LLR;
 	for(std::size_t i=0; const auto &j: source){
 		auto PX0 = j[0]+j[2], PX1 = j[1]+j[3], P0X = j[0]+j[1], P1X = j[2]+j[3];
+		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
+		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else LLR[i] = std::log(P0X)-std::log(P1X);
+		++i;
 		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(PX0)-std::log(PX1);
-		++i;
-		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
-		else LLR[i] = std::log(P0X)-std::log(P1X);
 		++i;
 	}
 	return LLR;
