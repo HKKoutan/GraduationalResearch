@@ -4,10 +4,10 @@
 #include <numeric>
 #include "dnas/DNASnttype.hpp"
 #include "dnas/codeDNAS.hpp"
-#include "dnas/sequencer.hpp"
-#include "ldpc/codeLDPC.hpp"
-#include "common/randombits.hpp"
-#include "common/timekeep.hpp"
+#include "dnas/channelsequencer.hpp"
+#include "ldpc/codeSystematicLDPC.hpp"
+#include "common/util.hpp"
+#include "common/codecommon.hpp"
 
 using std::array, std::bitset, std::vector, std::tuple, std::pair;
 using std::size_t, std::uint64_t;
@@ -18,6 +18,8 @@ constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000u;
 constexpr size_t SOURCE_LENGTH = 512u;
 constexpr size_t CODE_LENGTH = 1024u;
 constexpr size_t NUM_THREADS = 12u;
+
+constexpr std::uint8_t ATGC = 0x1B;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -36,7 +38,7 @@ int main(int argc, char* argv[]){
 	constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
 	constexpr size_t nsize = noise_factor.size();
 
-	code::Systematic_LDPC<SOURCE_LENGTH,CODE_LENGTH> ldpc;
+	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	// tuple: biterrors, bitcounts, nterrors, GCper(average,var)
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>>,2> stat = {};
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>>,NUM_THREADS> stats = {};
@@ -53,15 +55,15 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask] = code::DNAS::VLRLL::encode(m);
+				auto [cm, mmask] = code::DNAS::VLRLL<ATGC>::encode(m);
 
-				auto qty_AT = code::DNAS::count_AT(cm);
+				auto qty_AT = code::DNAS::countAT(cm);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size());
 
 				auto rm = ch.noise(cm);
 				// auto rm=cm;
 
-				auto mest = code::DNAS::VLRLL::decode(rm);
+				auto mest = code::DNAS::VLRLL<ATGC>::decode(rm);
 				{
 					uint64_t acc = 0u;
 					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
@@ -76,7 +78,6 @@ int main(int argc, char* argv[]){
 	auto encoded = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &gcper = std::get<3>(*st);
-		auto decoder = ldpc.make_decoder<code::LDPC::SumProduct_Decoding<SOURCE_LENGTH,CODE_LENGTH>>();
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::Nanopore_Sequencing ch(noise_factor[n],t);
@@ -86,12 +87,12 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask] = code::DNAS::VLRLL::encode(m);
-				auto tm = code::DNAS::quarternary_to_binary(cm);
+				auto [cm, mmask] = code::DNAS::VLRLL<ATGC>::encode(m);
+				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cm);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto cr = code::DNAS::modified_VLRLL::encode(tr, cm[cm.size()-1]);
+				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm[cm.size()-1]);
 
-				auto qty_AT = code::DNAS::count_AT(cm, code::DNAS::count_AT(cr));
+				auto qty_AT = code::DNAS::countAT(cm) + code::DNAS::countAT(cr);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size()+cr.size());
 
 				auto rm = ch.noise(cm);
@@ -100,11 +101,16 @@ int main(int argc, char* argv[]){
 				// auto rr=cr;
 				// auto test = tm;
 
-				auto LLR = ch.VLRLL_LLR(rm, rr, rm[rm.size()-1]);
+				auto LLRrm = ch.likelihood<float>(rm);
+				auto LLRrr = ch.likelihood<float>(rr);
 
-				auto test = ldpc.decode(LLR, decoder);
-				auto cest = code::DNAS::binary_to_quarternary(test);
-				auto mest = code::DNAS::VLRLL::decode(cest);
+				// auto LLR = ch.VLRLL_LLR(rm, rr, rm[rm.size()-1]);
+				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(LLRrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(LLRrr, LLRrm.back()));
+
+				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
+				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
+				auto cest = code::DNAS::convert<ATGC>::binary_to_nttype(test);
+				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
 				{
 					uint64_t acc = 0u;
 					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=cest[i]);
