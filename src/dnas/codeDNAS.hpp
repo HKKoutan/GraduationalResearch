@@ -3,6 +3,7 @@
 
 #include <array>
 #include <bitset>
+#include <cmath>
 #include <limits>
 #include "DNASnttype.hpp"
 
@@ -316,17 +317,17 @@ auto modifiedVLRLL<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source,
 
 template<std::floating_point T, std::size_t S>
 auto modifiedVLRLL<0x1B>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &source, nucleotide_p<ATGC,T> initial_state){
-	constexpr T p3_to_11 = 1.0/22.0;
-	constexpr T p3_to_10 = 21.0/22.0;
+	constexpr auto p3_to_11 = static_cast<T>(1.0/22.0);
+	constexpr auto p3_to_10 = static_cast<T>(21.0/22.0);
 	std::array<T,S*2> LLR;
 	auto previous = initial_state;
 
 	for(std::size_t i=0; const auto &current: source){
 		T PX0 = 0, PX1 = 0, P0X = 0, P1X = 0;
-		for(auto i=0; i<4; ++i) P0X += previous[i] * (current[i+1] + current[i+2]); //上位ビットが0: 遷移語が1 or 2になる組み合わせ
-		for(auto i=0; i<4; ++i) P1X += previous[i] * (current[i] + current[i+3]); //上位ビットが1: 遷移語が0 or 3になる組み合わせ
-		for(auto i=0; i<4; ++i) PX0 += previous[i] * (current[i+1] + p3_to_10*current[i+3]); //下位ビットが0: 遷移語が1 or 3(*p3_to_10)になる組み合わせ
-		for(auto i=0; i<4; ++i) PX1 += previous[i] * (current[i] + current[i+2] + p3_to_11*current[i+3]); //下位ビットが1: 遷移語が0 or 2 or 3(*p3_to_11)になる組み合わせ
+		for(auto j=0ui8; j<4; ++j) P0X += previous[j] * (current[j+1] + current[j+2]); //上位ビットが0: 遷移語が1 or 2になる組み合わせ
+		for(auto j=0ui8; j<4; ++j) P1X += previous[j] * (current[j] + current[j+3]); //上位ビットが1: 遷移語が0 or 3になる組み合わせ
+		for(auto j=0ui8; j<4; ++j) PX0 += previous[j] * (current[j+1] + p3_to_10*current[j+3]); //下位ビットが0: 遷移語が1 or 3(*p3_to_10)になる組み合わせ
+		for(auto j=0ui8; j<4; ++j) PX1 += previous[j] * (current[j] + current[j+2] + p3_to_11*current[j+3]); //下位ビットが1: 遷移語が0 or 2 or 3(*p3_to_11)になる組み合わせ
 		previous = current;
 		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
