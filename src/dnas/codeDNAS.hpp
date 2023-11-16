@@ -77,9 +77,11 @@ struct DivisionBalancing<0x27,8,0x03> {
 template<std::uint8_t ATGC>
 struct convert {
 	template<std::size_t S>
-	static auto quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source);
+	static auto nttype_to_binary(const std::array<nucleotide_t<ATGC>,S> &source);
+	template<std::floating_point T, std::size_t S>
+	static auto nttype_to_binary_p(const std::array<nucleotide_p<ATGC,T>,S> &source);
 	template<std::size_t S>
-	static auto binary_to_quarternary(const std::bitset<S> &source);
+	static auto binary_to_nttype(const std::bitset<S> &source);
 };
 
 template<std::uint8_t ATGC, std::size_t L>
@@ -432,7 +434,7 @@ auto DivisionBalancing<0x27,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::uint8_t ATGC>
 template<std::size_t S>
-auto convert<ATGC>::quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S> &source){
+auto convert<ATGC>::nttype_to_binary(const std::array<nucleotide_t<ATGC>,S> &source){
 	std::bitset<S*2> code;
 	for(std::size_t i=0u; const auto &j: source){
 		code[i++]=j.msb();
@@ -443,7 +445,7 @@ auto convert<ATGC>::quarternary_to_binary(const std::array<nucleotide_t<ATGC>,S>
 
 template<std::uint8_t ATGC>
 template<std::size_t S>
-auto convert<ATGC>::binary_to_quarternary(const std::bitset<S> &source){
+auto convert<ATGC>::binary_to_nttype(const std::bitset<S> &source){
 	static_assert(S%2==0);
 	std::array<nucleotide_t<ATGC>,S/2> code;
 	for(std::size_t i=0u; auto &j: code){
