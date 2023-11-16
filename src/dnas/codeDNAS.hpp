@@ -51,16 +51,25 @@ struct FlipBalancing {//ATGC=0x1B
 	static auto restore(const std::array<nucleotide_t<ATGC>,R> &crbar, const std::bitset<R> &flipinfo);
 };
 
-template<std::size_t BS=0>//ATGC=0x37
-struct DivisionBalancing {
-	template<std::uint8_t ATGC, std::size_t S>
+template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:操作情報を記録するかのビットフラグ LPBxxxxx L:位置 P:偶奇 B:境界
+
+template<std::size_t BS>
+struct DivisionBalancing<0x1B,BS,0> {
+	static constexpr std::uint8_t ATGC = 0x1B;
+	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
 };
 
-template<std::uint8_t ATGC, std::size_t BS> struct recordedDivisionBalancing;
+template<std::size_t BS>
+struct DivisionBalancing<0x27,BS,0> {
+	static constexpr std::uint8_t ATGC = 0x27;
+	template<std::size_t S>
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
+};
 
-template<std::uint8_t ATGC>
-struct recordedDivisionBalancing<ATGC,8> {
+template<>
+struct DivisionBalancing<0x27,8,0x03> {
+	static constexpr std::uint8_t ATGC = 0x27;
 	template<std::size_t S>
 	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source);
 };
@@ -354,8 +363,8 @@ auto FlipBalancing::restore(const std::array<nucleotide_t<ATGC>,S> &source, cons
 ////////////////////////////////////////////////////////////////
 
 template<std::size_t BS>
-template<std::uint8_t ATGC, std::size_t S>
-auto DivisionBalancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
+template<std::size_t S>
+auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	static_assert(block_size%2==0&&S%block_size==0);
@@ -375,11 +384,42 @@ auto DivisionBalancing<BS>::balance(const std::array<nucleotide_t<ATGC>,S> &sour
 			qtyATdiv += source[div_tail++].is_AT();
 			++qtyAThalf;
 		}
-		while(qtyATdiv!=qtyAThalf&&div_tail<block_tail){
+		while(qtyATdiv!=qtyAThalf && div_tail<block_tail){
 			qtyATdiv -= source[div_head++].is_AT();
 			qtyATdiv += source[div_tail++].is_AT();
 		}
-		for(std::size_t j=div_head, jend=div_tail; j<jend; ++j) balanced[j]+=(ATGC==0x1B?2:ATGC==0x27?1:0);
+		for(std::size_t j=div_head; j<div_tail; ++j) balanced[j]+=2;
+	}
+	return balanced;
+}
+
+template<std::size_t BS>
+template<std::size_t S>
+auto DivisionBalancing<0x27,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
+	constexpr std::size_t block_size = BS==0?S:BS;
+	constexpr std::size_t div_size = block_size>>1;
+	static_assert(block_size%2==0&&S%block_size==0);
+	auto balanced = source;
+
+	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
+		std::size_t block_head=i*block_size, block_tail=block_head+block_size;
+		std::uint64_t qtyATblock=0, qtyATdiv, qtyAThalf;
+
+		for(std::size_t j=block_head, jend=block_head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
+		qtyATdiv = qtyATblock;
+		for(std::size_t j=block_head+div_size, jend=block_tail; j<jend; ++j) qtyATblock += source[j].is_AT();
+		qtyAThalf = qtyATblock>>1;
+
+		std::size_t div_head=block_head, div_tail=div_head+div_size;
+		if(qtyATblock&1){
+			qtyATdiv += source[div_tail++].is_AT();
+			++qtyAThalf;
+		}
+		while(qtyATdiv!=qtyAThalf && div_tail<block_tail){
+			qtyATdiv -= source[div_head++].is_AT();
+			qtyATdiv += source[div_tail++].is_AT();
+		}
+		for(std::size_t j=div_head; j<div_tail; ++j) balanced[j]+=1;
 	}
 	return balanced;
 }
