@@ -14,10 +14,10 @@ using std::size_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
-constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000u;
-constexpr size_t SOURCE_LENGTH = 512u;
-constexpr size_t CODE_LENGTH = 1024u;
-constexpr size_t NUM_THREADS = 12u;
+constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
+constexpr size_t SOURCE_LENGTH = 512;
+constexpr size_t CODE_LENGTH = 1024;
+constexpr size_t NUM_THREADS = 12;
 
 constexpr std::uint8_t ATGC = 0x1B;
 
@@ -100,12 +100,9 @@ int main(int argc, char* argv[]){
 				auto rr = ch.noise(cr);
 				// auto rm=cm;
 				// auto rr=cr;
-				// auto test = tm;
 
 				auto LLRrm = ch.likelihood<float>(rm);
 				auto LLRrr = ch.likelihood<float>(rr);
-
-				// auto LLR = ch.VLRLL_LLR(rm, rr, rm[rm.size()-1]);
 				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(LLRrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(LLRrr, LLRrm.back()));
 
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
