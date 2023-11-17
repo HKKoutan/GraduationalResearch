@@ -25,7 +25,7 @@ int main(int argc, char* argv[]){
 	util::Timekeep tk;
 	tk.start();
 
-	cout<<"Title: DNA storage simulation on nanopore sequencing channel with VLRLL encoding and flip balancing."<<endl;
+	cout<<"Title: DNA storage simulation on nanopore sequencing channel with VLRLL encoding"<<endl;
 
 	auto temp = DEFAULT_REPEAT_PER_THREAD;
 	if(argc>1) temp = std::stoull(argv[1]);
@@ -36,6 +36,7 @@ int main(int argc, char* argv[]){
 
 	// constexpr array noise_factor = {0};
 	constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
+	// constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
 	constexpr size_t nsize = noise_factor.size();
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
@@ -69,7 +70,7 @@ int main(int argc, char* argv[]){
 					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
 					nterror[n] += acc;
 				}
-				biterror[n] += (mest^(m&mmask)).count();
+				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
 		}
@@ -108,6 +109,7 @@ int main(int argc, char* argv[]){
 				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(LLRrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(LLRrr, LLRrm.back()));
 
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
+				// auto LLRest = LLR;
 				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 				auto cest = code::DNAS::convert<ATGC>::binary_to_nttype(test);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
@@ -116,7 +118,7 @@ int main(int argc, char* argv[]){
 					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=cest[i]);
 					nterror[n] += acc;
 				}
-				biterror[n] += (mest^(m&mmask)).count();
+				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
 		}
@@ -139,7 +141,7 @@ int main(int argc, char* argv[]){
 		std::get<3>(stat[dest]).second = sqsum/num - average*average;
 	};
 
-	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t channel_size){
+	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t info_size){
 		cout<<"GCper var: "<<std::get<3>(stat[target]).second<<", ave: "<<std::get<3>(stat[target]).first<<endl;
 		cout<<"Noise factor"
 		<<"\tBER"
@@ -148,7 +150,7 @@ int main(int argc, char* argv[]){
 		for(size_t n=0; n<noise_factor.size(); n++){
 			cout<<noise_factor[n]
 			<<"\t"<<static_cast<double>(std::get<0>(stat[target])[n])/static_cast<double>(std::get<1>(stat[target])[n])
-			<<"\t"<<static_cast<double>(std::get<2>(stat[target])[n])/static_cast<double>(channel_size/2*NUM_THREADS*repeat_per_thread)
+			<<"\t"<<static_cast<double>(std::get<2>(stat[target])[n])/static_cast<double>(info_size/2*NUM_THREADS*repeat_per_thread)
 			<<endl;
 		}
 	};
@@ -171,7 +173,7 @@ int main(int argc, char* argv[]){
 
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(no balancing)"<<endl;
-	result(1,CODE_LENGTH);
+	result(1,SOURCE_LENGTH);
 
 	return 0;
 }
