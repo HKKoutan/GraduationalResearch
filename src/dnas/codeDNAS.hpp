@@ -135,10 +135,10 @@ template<std::size_t S>
 auto VLRLL<0x1B>::encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
 	static_assert(S%2==0);
 	std::array<nucleotide_t<ATGC>,S/2> code;
-	std::size_t processing = 0u;
+	std::size_t processing = 0;
 	nucleotide_t current_state = initial_state;
 
-	std::size_t i=0u ,j=0u;
+	std::size_t i=0 ,j=0;
 	while(j<S/2){
 		++processing;
 		switch(processing){
@@ -196,9 +196,9 @@ template<std::size_t S>
 auto VLRLL<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::bitset<S*2> decode;
 	nucleotide_t previous = initial_state;
-	std::size_t zeros = 0u;
+	std::size_t zeros = 0;
 
-	for(std::size_t i=0u, iend=S, j=0u; i<iend; ++i){
+	for(std::size_t i=0, j=0; i<S; ++i){
 		switch(source[i]-previous){
 		case 0:
 			decode.set(j++);
@@ -242,7 +242,7 @@ auto modifiedVLRLL<0x1B>::encode(const std::bitset<S> &source, nucleotide_t<ATGC
 	std::size_t processing = 0u;
 	nucleotide_t current_state = initial_state;
 
-	std::size_t i=0u, j=0u;
+	std::size_t i=0, j=0;
 	while(j<S/2){
 		++processing;
 		switch(processing){
@@ -288,7 +288,7 @@ auto modifiedVLRLL<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source,
 	std::bitset<S*2> decode;
 	nucleotide_t previous = initial_state;
 
-	for(std::size_t i=0u, iend=S/2, j=0u; i<iend; ++i){
+	for(std::size_t i=0, j=0; i<S; ++i){
 		switch(source[i]-previous){
 		case 0:
 			decode.set(j++);
@@ -431,7 +431,7 @@ auto DivisionBalancing<0x27,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 	static_assert(block_size%2==0&&S%block_size==0);
 	auto balanced = source;
 
-	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
+	for(std::size_t i=0; i<S/block_size; ++i){
 		std::size_t block_head=i*block_size, block_tail=block_head+block_size;
 		std::uint64_t qtyATblock=0, qtyATdiv, qtyAThalf;
 
@@ -474,8 +474,6 @@ auto convert<ATGC>::nttype_to_binary(const std::array<nucleotide_t<ATGC>,S> &sou
 template<std::uint8_t ATGC>
 template<std::floating_point T, std::size_t S>
 auto convert<ATGC>::nttype_to_binary_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
-	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
-	static constexpr double A0 = (nA>>1?-1.0:1.0), A1 = (nA&1?-1.0:1.0), T0 = (nT>>1?-1.0:1.0), T1 = (nT&1?-1.0:1.0), G0 = (nG>>1?-1.0:1.0), G1 = (nG&1?-1.0:1.0), C0 = (nC>>1?-1.0:1.0), C1 = (nC&1?-1.0:1.0); 
 	std::array<T,S*2> LLR;
 	for(std::size_t i=0; const auto &j: source){
 		auto PX0 = j[0]+j[2], PX1 = j[1]+j[3], P0X = j[0]+j[1], P1X = j[2]+j[3];
