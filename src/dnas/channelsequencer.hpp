@@ -79,10 +79,10 @@ template<std::size_t L>
 auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in){
 	auto out = in;
 	for(auto &i: out){
-		code::DNAS::nucleotide_t<ATGC> j=0;
+		int j=0;
 		double rand = uniform(mt)-condprob[i][j];
 		while(rand>=0){
-			j+=1;
+			++j;
 			rand-=condprob[i][j];
 		}
 		i=j;
