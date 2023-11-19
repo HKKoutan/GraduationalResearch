@@ -53,7 +53,7 @@ struct FlipBalancing {//ATGC=0x1B
 	static auto restore(const std::array<nucleotide_t<ATGC>,R> &crbar, const std::bitset<R> &flipinfo);
 };
 
-template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:操作情報を記録するかのビットフラグ LPBxxxxx L:位置 P:偶奇 B:境界
+template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[0:default 1:minchange 3:runlength]
 
 template<std::size_t BS>
 struct DivisionBalancing<0x1B,BS,0> {
@@ -70,7 +70,7 @@ struct DivisionBalancing<0x27,BS,0> {
 };
 
 template<>
-struct DivisionBalancing<0x27,8,0x03> {
+struct DivisionBalancing<0x27,6,0x03> {
 	static constexpr std::uint8_t ATGC = 0x27;
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
@@ -317,8 +317,8 @@ auto modifiedVLRLL<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source,
 
 template<std::floating_point T, std::size_t S>
 auto modifiedVLRLL<0x1B>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &source, nucleotide_p<ATGC,T> initial_state){
-	constexpr auto p3_to_11 = static_cast<T>(1.0/22.0);
-	constexpr auto p3_to_10 = static_cast<T>(21.0/22.0);
+	constexpr auto p3_to_11 = static_cast<T>(1.0/17.0);
+	constexpr auto p3_to_10 = static_cast<T>(16.0/17.0);
 	std::array<T,S*2> LLR;
 	auto previous = initial_state;
 
