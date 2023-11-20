@@ -60,6 +60,12 @@ public:
 	const auto &operator[](std::uint8_t i) const{return likelihood[i&3ui8];}//likelihood of i
 };
 
+struct section{
+	std::size_t head;
+	std::size_t tail;
+	section(std::size_t head, std::size_t length):head(head),tail(head+length){}
+};
+
 }
 
 #endif

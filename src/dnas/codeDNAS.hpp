@@ -401,24 +401,24 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 	auto balanced = source;
 
 	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
-		std::size_t block_head=i*block_size, block_tail=block_head+block_size;
+		section block(i*block_size, block_size);
 		std::uint64_t qtyATblock=0, qtyATdiv, qtyAThalf;
 
-		for(std::size_t j=block_head, jend=block_head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
+		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyATdiv = qtyATblock;
-		for(std::size_t j=block_head+div_size, jend=block_tail; j<jend; ++j) qtyATblock += source[j].is_AT();
+		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyAThalf = qtyATblock>>1;
 
-		std::size_t div_head=block_head, div_tail=div_head+div_size;
+		section div(block.head, div_size);
 		if(qtyATblock&1){
-			qtyATdiv += source[div_tail++].is_AT();
+			qtyATdiv += source[div.tail++].is_AT();
 			++qtyAThalf;
 		}
 		while(qtyATdiv!=qtyAThalf && div_tail<block_tail){
-			qtyATdiv -= source[div_head++].is_AT();
-			qtyATdiv += source[div_tail++].is_AT();
+			qtyATdiv -= source[div.head++].is_AT();
+			qtyATdiv += source[div.tail++].is_AT();
 		}
-		for(std::size_t j=div_head; j<div_tail; ++j) balanced[j]+=2;
+		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=2;
 	}
 	return balanced;
 }
@@ -432,24 +432,24 @@ auto DivisionBalancing<0x27,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 	auto balanced = source;
 
 	for(std::size_t i=0; i<S/block_size; ++i){
-		std::size_t block_head=i*block_size, block_tail=block_head+block_size;
+		section block(i*block_size, block_size);
 		std::uint64_t qtyATblock=0, qtyATdiv, qtyAThalf;
 
-		for(std::size_t j=block_head, jend=block_head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
+		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyATdiv = qtyATblock;
-		for(std::size_t j=block_head+div_size, jend=block_tail; j<jend; ++j) qtyATblock += source[j].is_AT();
+		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyAThalf = qtyATblock>>1;
 
-		std::size_t div_head=block_head, div_tail=div_head+div_size;
+		section div(block.head, div_size);
 		if(qtyATblock&1){
-			qtyATdiv += source[div_tail++].is_AT();
+			qtyATdiv += source[div.tail++].is_AT();
 			++qtyAThalf;
 		}
 		while(qtyATdiv!=qtyAThalf && div_tail<block_tail){
-			qtyATdiv -= source[div_head++].is_AT();
-			qtyATdiv += source[div_tail++].is_AT();
+			qtyATdiv -= source[div.head++].is_AT();
+			qtyATdiv += source[div.tail++].is_AT();
 		}
-		for(std::size_t j=div_head; j<div_tail; ++j) balanced[j]+=1;
+		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=1;
 	}
 	return balanced;
 }
