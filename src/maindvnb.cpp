@@ -50,7 +50,7 @@ int main(int argc, char* argv[]){
 		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing ch(noise_factor[n],t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]){
 		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing ch(noise_factor[n],t);
+			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
