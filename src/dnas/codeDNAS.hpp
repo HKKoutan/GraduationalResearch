@@ -409,7 +409,7 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 			qtyATdiv += source[div.tail++].is_AT();
 			++qtyAThalf;
 		}
-		while(qtyATdiv!=qtyAThalf && div_tail<block_tail){
+		while(qtyATdiv!=qtyAThalf && div.tail<block.tail){
 			qtyATdiv -= source[div.head++].is_AT();
 			qtyATdiv += source[div.tail++].is_AT();
 		}
@@ -444,7 +444,7 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 			++qtyAThalf;
 		}
 		//分割区間を探す
-		while(qtyATdiv!=qtyAThalf && div_tail<block_tail){
+		while(qtyATdiv!=qtyAThalf && div.tail<block.tail){
 			qtyATdiv -= source[div.head++].is_AT();
 			qtyATdiv += source[div.tail++].is_AT();
 		}
