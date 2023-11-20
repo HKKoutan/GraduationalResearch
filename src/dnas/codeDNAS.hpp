@@ -237,7 +237,7 @@ auto modifiedVLRLL<0x1B>::encode(const std::bitset<S> &source, nucleotide_t<ATGC
 	std::size_t processing = initial_runlength<<1;
 	nucleotide_t current_state = initial_state;
 
-	std::size_t i=0, j=0;
+	std::size_t i=(~processing)+1, j=0;
 	while(j<S/2){
 		++processing;
 		switch(processing){
