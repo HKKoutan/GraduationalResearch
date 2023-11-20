@@ -64,6 +64,7 @@ struct section{
 	std::size_t head;
 	std::size_t tail;
 	section(std::size_t head, std::size_t length):head(head),tail(head+length){}
+	std::size_t size(){return tail-head;}
 };
 
 }
