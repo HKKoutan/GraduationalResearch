@@ -10,7 +10,7 @@
 
 namespace channel{
 
-template<std::uint8_t ATGC=0x1B>
+template<std::uint8_t ATGC>
 class Nanopore_Sequencing{
 	std::mt19937_64 mt;
 	std::uniform_real_distribution<> uniform;
