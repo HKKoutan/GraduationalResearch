@@ -39,7 +39,7 @@ template<>
 struct modifiedVLRLL<0x1B> {
 	static constexpr std::uint8_t ATGC = 0x1B;
 	template<std::size_t S>
-	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
+	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state, std::size_t initial_runlength);
 	template<std::size_t S>
 	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state);
 	template<std::floating_point T, std::size_t S>
@@ -179,17 +179,12 @@ auto VLRLL<0x1B>::encode(const std::bitset<S> &source, nucleotide_t<ATGC> initia
 			break;
 		}
 	}
-	//端数処理(0パディング)
-	if(processing%2 != 0){
-		current_state = current_state+(source.test(i+processing-1)?3:1);
-		code[j++] = current_state;
-	}
 
 	std::bitset<S> used;
 	used.set();
 	used >>= S-(i+processing);
 
-	return std::make_pair(code,used);
+	return std::make_tuple(code,used,processing>>1);
 }
 
 template<std::size_t S>
@@ -236,10 +231,10 @@ auto VLRLL<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &source, nucleot
 ////////////////////////////////////////////////////////////////
 
 template<std::size_t S>
-auto modifiedVLRLL<0x1B>::encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state){
+auto modifiedVLRLL<0x1B>::encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state, std::size_t initial_runlength){
 	static_assert(S%2==0);
 	std::array<nucleotide_t<ATGC>,S/2> code; 
-	std::size_t processing = 0u;
+	std::size_t processing = initial_runlength<<1;
 	nucleotide_t current_state = initial_state;
 
 	std::size_t i=0, j=0;
