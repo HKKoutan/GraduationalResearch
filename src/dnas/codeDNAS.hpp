@@ -668,16 +668,16 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 			qtyATdiv += source[div.tail++].is_AT();
 		}
 		//分割位置の連長を調べる
-		if(source[div.head-1]==source[div.head]+1){
-			section run(block.head-1, 1);
-			while(source[run.head-1]==source[run.head]) --run.head;
-			while(source[run.tail]==source[run.tail+1]) ++run.tail;
+		if(div.head!=0&&source[div.head-1]==source[div.head]+1){
+			section run(div.head-1, 1);
+			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
+			while(run.tail!=source.size()-1&&source[run.tail]==source[run.tail+1]) ++run.tail;
 			if(run.size()>3) change.first = 3;
 		}
-		if(source[div.tail-1]==source[div.tail]+3){
-			section run(block.head-1, 1);
-			while(source[run.head-1]==source[run.head]) --run.head;
-			while(source[run.tail]==source[run.tail+1]) ++run.tail;
+		if(div.tail!=source.size()&&source[div.tail-1]==source[div.tail]+3){
+			section run(div.tail-1, 1);
+			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
+			while(run.tail!=source.size()-1&&source[run.tail]==source[run.tail+1]) ++run.tail;
 			if(run.size()>3) change.second = 1;
 		}
 		//適用
