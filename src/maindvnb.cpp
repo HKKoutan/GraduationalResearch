@@ -40,13 +40,14 @@ int main(int argc, char* argv[]){
 	constexpr size_t nsize = noise_factor.size();
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
-	// tuple: biterrors, bitcounts, nterrors, GCper(average,var)
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>>,2> stat = {};
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>>,NUM_THREADS> stats = {};
+	// tuple: biterrors, bitcounts, nterrors, GCper(average,var), maxrunlength
+	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>,std::size_t>,2> stat = {};
+	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t>,NUM_THREADS> stats = {};
 
-	auto plain = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+	auto plain = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t> *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &gcper = std::get<3>(*st);
+		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::Nanopore_Sequencing ch(noise_factor[n],t);
@@ -56,10 +57,12 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask] = code::DNAS::VLRLL<ATGC>::encode(m);
+				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 
 				auto qty_AT = code::DNAS::countAT(cm);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size());
+				auto runlength = code::DNAS::countRunlength(cm);
+				if(maxrunlength<runlength) maxrunlength = runlength;
 
 				auto rm = ch.noise(cm);
 				// auto rm=cm;
@@ -76,9 +79,10 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>> *st){
+	auto encoded = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t> *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &gcper = std::get<3>(*st);
+		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::Nanopore_Sequencing ch(noise_factor[n],t);
@@ -88,13 +92,15 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask] = code::DNAS::VLRLL<ATGC>::encode(m);
+				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cm);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm[cm.size()-1]);
+				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
 
 				auto qty_AT = code::DNAS::countAT(cm) + code::DNAS::countAT(cr);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size()+cr.size());
+				auto runlength = code::DNAS::countRunlength(code::concatenate(cm,cr));
+				if(maxrunlength<runlength) maxrunlength = runlength;
 
 				auto rm = ch.noise(cm);
 				auto rr = ch.noise(cr);
@@ -126,6 +132,7 @@ int main(int argc, char* argv[]){
 			std::get<0>(stat[dest])[n] += std::get<0>(st)[n];
 			std::get<1>(stat[dest])[n] += std::get<1>(st)[n];
 			std::get<2>(stat[dest])[n] += std::get<2>(st)[n];
+			if(std::get<4>(stat[dest])<std::get<4>(st)) std::get<4>(stat[dest])=std::get<4>(st);
 		}
 		auto sum = 0.0, sqsum = 0.0;
 		for(auto &st: stats) for(auto &pn: std::get<3>(st)) for(auto &pr: pn){
@@ -140,6 +147,7 @@ int main(int argc, char* argv[]){
 
 	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t info_size){
 		cout<<"GCper var: "<<std::get<3>(stat[target]).second<<", ave: "<<std::get<3>(stat[target]).first<<endl;
+		cout<<"Run length: "<<std::get<4>(stat[target])<<endl;
 		cout<<"Noise factor"
 		<<"\tBER"
 		<<"\tNER"
