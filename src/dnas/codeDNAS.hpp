@@ -53,7 +53,7 @@ struct FlipBalancing {//ATGC=0x1B
 	static auto restore(const std::array<nucleotide_t<ATGC>,R> &crbar, const std::bitset<R> &flipinfo);
 };
 
-template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[0:default 1:minchange 3:runlength]
+template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[0:default 1:runlength 2:minchange 3:runlength]
 
 template<std::size_t BS>
 struct DivisionBalancing<0x1B,BS,0> {
@@ -63,7 +63,7 @@ struct DivisionBalancing<0x1B,BS,0> {
 };
 
 template<std::size_t BS>
-struct DivisionBalancing<0x27,BS,0> {
+struct DivisionBalancing<0x27,BS,1> {
 	static constexpr std::uint8_t ATGC = 0x27;
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
@@ -425,11 +425,12 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::size_t BS>
 template<std::size_t S>
-auto DivisionBalancing<0x27,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
+auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	static_assert(block_size%2==0&&S%block_size==0);
 	auto balanced = source;
+	nucleotide_t<ATGC> diff = 0;
 
 	for(std::size_t i=0; i<S/block_size; ++i){
 		section block(i*block_size, block_size);
@@ -441,15 +442,35 @@ auto DivisionBalancing<0x27,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 		qtyAThalf = qtyATblock>>1;
 
 		section div(block.head, div_size);
+		std::pair<nucleotide_t<ATGC>,nucleotide_t<ATGC>> change = {1,3};
+		//奇数の場合の処理
 		if(qtyATblock&1){
 			qtyATdiv += source[div.tail++].is_AT();
 			++qtyAThalf;
 		}
+		//分割区間を探す
 		while(qtyATdiv!=qtyAThalf && div_tail<block_tail){
 			qtyATdiv -= source[div.head++].is_AT();
 			qtyATdiv += source[div.tail++].is_AT();
 		}
-		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=1;
+		//分割位置の連長を調べる
+		if(source[div.head-1]==source[div.head]+1){
+			section run(block.head-1, 1);
+			while(source[run.head-1]==source[run.head]) --run.head;
+			while(source[run.tail]==source[run.tail+1]) ++run.tail;
+			if(run.size()>3) change.first = 3;
+		}
+		if(source[div.tail-1]==source[div.tail]+3){
+			section run(block.head-1, 1);
+			while(source[run.head-1]==source[run.head]) --run.head;
+			while(source[run.tail]==source[run.tail+1]) ++run.tail;
+			if(run.size()>3) change.second = 1;
+		}
+		//適用
+		for(std::size_t j=block.head; j<div.head; ++j) balanced[j]+=diff;
+		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=diff+change.first;
+		diff += change.first+change.second;
+		for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j]+=diff;
 	}
 	return balanced;
 }
