@@ -60,6 +60,7 @@ int main(int argc, char* argv[]){
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 
 				auto bm = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cm);
+				// auto bm = cm;
 
 				auto qty_AT = code::DNAS::countAT(bm);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(bm.size());
@@ -70,11 +71,7 @@ int main(int argc, char* argv[]){
 				// auto rm=cm;
 
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(rm);
-				{
-					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
-					nterror[n] += acc;
-				}
+				nterror[n] += code::DNAS::countDifferenceError(cm, rm);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
@@ -110,9 +107,9 @@ int main(int argc, char* argv[]){
 				if(maxrunlength<runlength) maxrunlength = runlength;
 
 				auto rm = ch.noise(bm);
-				// auto rr = ch.noise(br);
+				auto rr = ch.noise(br);
 				// auto rm=bm;
-				auto rr=br;
+				// auto rr=br;
 
 				auto Lrm = ch.likelihood<float>(rm);
 				auto Lrr = ch.likelihood<float>(rr);
@@ -123,11 +120,7 @@ int main(int argc, char* argv[]){
 				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 				auto cest = code::DNAS::differential<ATGC>::encode(test);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
-				{
-					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=cest[i]);
-					nterror[n] += acc;
-				}
+				nterror[n] += code::DNAS::countDifferenceError(cm, cest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
@@ -157,7 +150,7 @@ int main(int argc, char* argv[]){
 		cout<<"Run length: "<<std::get<4>(stat[target])<<endl;
 		cout<<"Noise factor"
 		<<"\tBER"
-		<<"\tNER"
+		<<"\tDER"
 		<<endl;
 		for(size_t n=0; n<noise_factor.size(); n++){
 			cout<<noise_factor[n]
