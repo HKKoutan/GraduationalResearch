@@ -19,7 +19,7 @@ struct differential<0x1B> {
 	template<std::size_t S>
 	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state = 0);
 	template<std::floating_point T, std::size_t S>
-	static auto decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state = {{1,0,0,0}});
+	static auto decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state = {1,0,0,0});
 };
 
 template<>
@@ -30,7 +30,7 @@ struct differential<0x27> {
 	template<std::size_t S>
 	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state = 0);
 	template<std::floating_point T, std::size_t S>
-	static auto decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state = {{1,0,0,0}});
+	static auto decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state = {1,0,0,0});
 };
 
 template<std::uint8_t ATGC> struct VLRLL;
@@ -159,9 +159,9 @@ auto differential<0x1B>::decode(const std::array<nucleotide_t<ATGC>,S> &code, nu
 template<std::floating_point T ,std::size_t S>
 auto differential<0x1B>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state){
 	std::array<T,S*2> LLR;
-	auto prev = initial_state;
+	auto previous = initial_state;
 
-	for(std::size_t i=0; const auto &current: source){
+	for(std::size_t i=0; const auto &current: code){
 		T PX0 = 0, PX1 = 0, P0X = 0, P1X = 0;
 		for(auto j=0ui8; j<4; ++j) P0X += previous[j] * (current[j] + current[j+1]); //上位ビットが0: 遷移語が0 or 1になる組み合わせ
 		for(auto j=0ui8; j<4; ++j) P1X += previous[j] * (current[j+2] + current[j+3]); //上位ビットが1: 遷移語が2 or 3になる組み合わせ
@@ -213,9 +213,9 @@ auto differential<0x27>::decode(const std::array<nucleotide_t<ATGC>,S> &code, nu
 template<std::floating_point T ,std::size_t S>
 auto differential<0x27>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state){
 	std::array<T,S*2> LLR;
-	auto prev = initial_state;
+	auto previous = initial_state;
 
-	for(std::size_t i=0; const auto &current: source){
+	for(std::size_t i=0; const auto &current: code){
 		T PX0 = 0, PX1 = 0, P0X = 0, P1X = 0;
 		for(auto j=0ui8; j<4; ++j) P0X += previous[j] * (current[j] + current[j+1]); //上位ビットが0: 遷移語が0 or 1になる組み合わせ
 		for(auto j=0ui8; j<4; ++j) P1X += previous[j] * (current[j+2] + current[j+3]); //上位ビットが1: 遷移語が2 or 3になる組み合わせ
