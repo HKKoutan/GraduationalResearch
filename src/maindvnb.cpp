@@ -107,9 +107,9 @@ int main(int argc, char* argv[]){
 				// auto rm=cm;
 				// auto rr=cr;
 
-				auto LLRrm = ch.likelihood<float>(rm);
-				auto LLRrr = ch.likelihood<float>(rr);
-				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(LLRrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(LLRrr, LLRrm.back()));
+				auto Lrm = ch.likelihood<float>(rm);
+				auto Lrr = ch.likelihood<float>(rr);
+				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(Lrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(Lrr, Lrm.back()));
 
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				// auto LLRest = LLR;
