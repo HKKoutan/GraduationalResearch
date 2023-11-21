@@ -95,12 +95,14 @@ int main(int argc, char* argv[]){
 				rb.generate(m);
 
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
-				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cm);
+				auto tm = code::DNAS::differential<ATGC>::decode(cm);
 				auto tr = ldpc.encode_redundancy(tm);
 				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
 
-				auto bm = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cm);
-				auto br = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cr);//前半の調整の影響を無視している
+				// auto bm = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cm);
+				// auto br = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cr, bm.back()-cm.back());
+				auto bm = cm;
+				auto br = cr;
 
 				auto qty_AT = code::DNAS::countAT(bm) + code::DNAS::countAT(br);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(bm.size()+br.size());
@@ -108,18 +110,18 @@ int main(int argc, char* argv[]){
 				if(maxrunlength<runlength) maxrunlength = runlength;
 
 				auto rm = ch.noise(bm);
-				auto rr = ch.noise(br);
-				// auto rm=cm;
-				// auto rr=cr;
+				// auto rr = ch.noise(br);
+				// auto rm=bm;
+				auto rr=br;
 
-				auto LLRrm = ch.likelihood<float>(rm);
-				auto LLRrr = ch.likelihood<float>(rr);
-				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(LLRrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(LLRrr, LLRrm.back()));
+				auto Lrm = ch.likelihood<float>(rm);
+				auto Lrr = ch.likelihood<float>(rr);
+				auto LLR = code::concatenate(code::DNAS::differential<ATGC>::decode_p(Lrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(Lrr, Lrm.back()));
 
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				// auto LLRest = LLR;
 				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
-				auto cest = code::DNAS::convert<ATGC>::binary_to_nttype(test);
+				auto cest = code::DNAS::differential<ATGC>::encode(test);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
 				{
 					uint64_t acc = 0u;
@@ -182,7 +184,7 @@ int main(int argc, char* argv[]){
 	result(0,SOURCE_LENGTH);
 
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
-	cout<<"encoded(no balancing)"<<endl;
+	cout<<"encoded"<<endl;
 	result(1,SOURCE_LENGTH);
 
 	return 0;
