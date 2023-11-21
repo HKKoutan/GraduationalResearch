@@ -46,6 +46,9 @@ class nucleotide_p{
 	static_assert(nA!=nT && nA!=nG && nA!=nC && nT!=nG && nT!=nC && nG!=nC);//ATGCに重複がない
 	std::array<T,4> likelihood;
 public:
+	nucleotide_p(): likelihood{}{}
+	nucleotide_p(T i0, T i1, T i2, T i3): likelihood(i0,i1,i2,i3){}
+	void operator=(std::initializer_list<T> &&rhs){likelihood = rhs;}
 	auto &lhA(){return likelihood[nA];}//likelihood of nucleotide A
 	auto &lhT(){return likelihood[nT];}//likelihood of nucleotide T
 	auto &lhG(){return likelihood[nG];}//likelihood of nucleotide G
