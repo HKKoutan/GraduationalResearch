@@ -121,6 +121,8 @@ template<std::uint8_t ATGC, std::size_t L>
 auto countAT(const std::array<nucleotide_t<ATGC>,L> &c);
 template<std::uint8_t ATGC, std::size_t L>
 auto countRunlength(const std::array<nucleotide_t<ATGC>,L> &c);
+template<std::uint8_t ATGC, std::size_t L>
+auto countDifferenceError(const std::array<nucleotide_t<ATGC>,L> &c1, const std::array<nucleotide_t<ATGC>,L> &c2);
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -854,6 +856,19 @@ auto countRunlength(const std::array<nucleotide_t<ATGC>,L> &c){
 		}
 	}
 	return (rl>rlmax)?rl:rlmax;
+}
+
+template<std::uint8_t ATGC, std::size_t L>
+auto countDifferenceError(const std::array<nucleotide_t<ATGC>,L> &c1, const std::array<nucleotide_t<ATGC>,L> &c2){
+	std::uint64_t errorcount = 0;
+	nucleotide_t<ATGC> prev1=0, prev2=0;
+	for(std::size_t i=0; i<L; ++i){
+		auto current1 = c1[i], current2 = c2[i];
+		if(current1-prev1!=current2-prev2) ++errorcount;
+		prev1 = current1;
+		prev2 = current2;
+	}
+	return errorcount;
 }
 
 }
