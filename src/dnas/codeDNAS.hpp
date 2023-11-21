@@ -745,7 +745,7 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 		qtyAThalf = qtyATblock>>1;
 
 		section div(block.head, div_size);
-		std::pair<nucleotide_t<ATGC>,nucleotide_t<ATGC>> change = {1,3};
+		std::pair<nucleotide_t<ATGC>,nucleotide_t<ATGC>> change = {1,(diff==0?3:1)};
 		//奇数の場合の処理
 		if(qtyATblock&1){
 			qtyATdiv += source[div.tail++].is_AT();
@@ -761,13 +761,16 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 			section run(div.head-1, 2);
 			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
 			while(run.tail!=source.size()&&source[run.tail-1]==source[run.tail]) ++run.tail;
-			if(run.size()>3) change.first = 3;
+			if(run.size()>3){
+				change.first += 2;
+				change.second += 2;
+			}
 		}
-		if(div.tail!=source.size()&&source[div.tail-1]==source[div.tail]+3){
+		if(div.tail!=source.size()&&source[div.tail-1]==source[div.tail]+change.second){
 			section run(div.tail-1, 2);
 			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
 			while(run.tail!=source.size()&&source[run.tail-1]==source[run.tail]) ++run.tail;
-			if(run.size()>3) change.second = 1;
+			if(run.size()>3) change.second += 2;
 		}
 		//適用
 		for(std::size_t j=block.head; j<div.head; ++j) balanced[j]+=diff;
