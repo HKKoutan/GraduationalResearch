@@ -5,7 +5,7 @@
 #include <bitset>
 #include <cmath>
 // #include <limits>
-#include <exception>
+#include <stdexcept>
 #include "DNASnttype.hpp"
 
 namespace code::DNAS {
@@ -186,7 +186,7 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 	if(tolerance>0.5||tolerance<0) throw std::invalid_argument("invalid tolerance value");
 	const std::uint64_t qtyhalflow = static_cast<std::uint64_t>(std::floor(static_cast<double>(block_size)*(0.5-tolerance)));
 	const std::uint64_t qtyhalfhigh = static_cast<std::uint64_t>(std::ceil(static_cast<double>(block_size)*(0.5+tolerance)));
-	const std::size_t division_pitch=block_size*tolerance+1;//分割位置の候補の間隔
+	const std::size_t division_pitch = static_cast<std::size_t>(static_cast<double>(block_size)*tolerance)+1;//分割位置の候補の間隔
 	auto balanced = source;
 
 	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
@@ -196,7 +196,7 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyATdiv = qtyATblock;
 		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
-		if(qtyATblock>qtyhalfhigh||qtyATblock<qtyhalfhigh){//許容範囲に収まってたらスキップ
+		if(qtyATblock>qtyhalfhigh||qtyATblock<qtyhalflow){//許容範囲に収まってたらスキップ
 			qtyATlow = static_cast<std::uint64_t>(std::floor(static_cast<double>(qtyATblock)*(0.5-tolerance)));
 			qtyAThigh = static_cast<std::uint64_t>(std::ceil(static_cast<double>(qtyATblock)*(0.5+tolerance)));
 
@@ -207,7 +207,7 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 				++qtyAThigh;
 			}
 			while(div.tail<block.tail &&(qtyATdiv<qtyATlow || qtyAThigh>qtyAThigh)){
-				for(std::size_t i=0; i<division_pitch; ++i){
+				for(std::size_t k=0; k<division_pitch; ++k){
 					qtyATdiv -= source[div.head++].is_AT();
 					qtyATdiv += source[div.tail++].is_AT();
 				}
