@@ -117,7 +117,7 @@ int main(int argc, char* argv[]){
 				auto cest = code::DNAS::convert<ATGC>::binary_to_nttype(test);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
 
-				nterror[n] += code::DNAS::countDifferentialError(cm,cest);
+				nterror[n] += code::DNAS::countError(cm,cest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
@@ -214,7 +214,7 @@ int main(int argc, char* argv[]){
 	aggregate(1);
 	threads.clear();
 	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_conv, threads.size(), &st);
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_diff, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(2);
 	tk.stop();
@@ -229,7 +229,7 @@ int main(int argc, char* argv[]){
 
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(diff)"<<endl;
-	result(1,SOURCE_LENGTH);
+	result(2,SOURCE_LENGTH);
 
 	return 0;
 }
