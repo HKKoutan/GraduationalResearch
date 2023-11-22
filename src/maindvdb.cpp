@@ -3,7 +3,10 @@
 #include <thread>
 #include <numeric>
 #include "dnas/DNASnttype.hpp"
-#include "dnas/codeDNAS.hpp"
+#include "dnas/codeDNASadapter.hpp"
+#include "dnas/codeDNASbalancing.hpp"
+#include "dnas/codeDNASRLL.hpp"
+#include "dnas/codeDNASstats.hpp"
 #include "dnas/channelsequencer.hpp"
 #include "ldpc/codeSystematicLDPC.hpp"
 #include "common/util.hpp"
@@ -35,8 +38,8 @@ int main(int argc, char* argv[]){
 	cout<<repeat_per_thread<<"*"<<NUM_THREADS<<endl;
 
 	// constexpr array noise_factor = {0};
-	constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
-	// constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
+	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
+	constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
 	constexpr size_t nsize = noise_factor.size();
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
@@ -71,7 +74,7 @@ int main(int argc, char* argv[]){
 				// auto rm=cm;
 
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(rm);
-				nterror[n] += code::DNAS::countDifferenceError(cm, rm);
+				nterror[n] += code::DNAS::countDifferentialError(cm, rm);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
@@ -96,10 +99,10 @@ int main(int argc, char* argv[]){
 				auto tr = ldpc.encode_redundancy(tm);
 				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
 
-				// auto bm = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cm);
-				// auto br = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cr, bm.back()-cm.back());
-				auto bm = cm;
-				auto br = cr;
+				auto bm = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cm);
+				auto br = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cr, bm.back()-cm.back());
+				// auto bm = cm;
+				// auto br = cr;
 
 				auto qty_AT = code::DNAS::countAT(bm) + code::DNAS::countAT(br);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(bm.size()+br.size());
@@ -120,7 +123,7 @@ int main(int argc, char* argv[]){
 				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 				auto cest = code::DNAS::differential<ATGC>::encode(test);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
-				nterror[n] += code::DNAS::countDifferenceError(cm, cest);
+				nterror[n] += code::DNAS::countDifferentialError(cm, cest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}

@@ -3,7 +3,9 @@
 #include <thread>
 #include <numeric>
 #include "dnas/DNASnttype.hpp"
-#include "dnas/codeDNAS.hpp"
+#include "dnas/codeDNASadapter.hpp"
+#include "dnas/codeDNASRLL.hpp"
+#include "dnas/codeDNASstats.hpp"
 #include "dnas/channelsequencer.hpp"
 #include "ldpc/codeSystematicLDPC.hpp"
 #include "common/util.hpp"
