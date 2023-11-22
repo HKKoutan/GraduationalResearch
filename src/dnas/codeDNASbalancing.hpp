@@ -4,7 +4,8 @@
 #include <array>
 #include <bitset>
 #include <cmath>
-#include <limits>
+// #include <limits>
+#include <exception>
 #include "DNASnttype.hpp"
 
 namespace code::DNAS {
@@ -16,7 +17,7 @@ struct FlipBalancing {//ATGC=0x1B
 	static auto restore(const std::array<nucleotide_t<ATGC>,R> &crbar, const std::bitset<R> &flipinfo);
 };
 
-template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[0:default 1:runlength 2:minchange 3:runlength]
+template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[0:default 1:runlength 2:minchange]
 
 template<std::size_t BS>
 struct DivisionBalancing<0x1B,BS,0> {
@@ -32,11 +33,11 @@ struct DivisionBalancing<0x27,BS,1> {
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> diff_init = 0);
 };
 
-template<>
-struct DivisionBalancing<0x27,6,0x03> {
-	static constexpr std::uint8_t ATGC = 0x27;
+template<std::size_t BS>
+struct DivisionBalancing<0x1B,BS,2> {
+	static constexpr std::uint8_t ATGC = 0x1B;
 	template<std::size_t S>
-	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance=0);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -172,6 +173,47 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=diff+change.first;
 		diff += change.first+change.second;
 		for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j]+=diff;
+	}
+	return balanced;
+}
+
+template<std::size_t BS>
+template<std::size_t S>
+auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance){
+	constexpr std::size_t block_size = BS==0?S:BS;
+	constexpr std::size_t div_size = block_size>>1;
+	static_assert(block_size%2==0&&S%block_size==0);
+	if(tolerance>0.5||tolerance<0) throw std::invalid_argument("invalid tolerance value");
+	const std::uint64_t qtyhalflow = static_cast<std::uint64_t>(std::floor(static_cast<double>(block_size)*(0.5-tolerance)));
+	const std::uint64_t qtyhalfhigh = static_cast<std::uint64_t>(std::ceil(static_cast<double>(block_size)*(0.5+tolerance)));
+	const std::size_t division_pitch=block_size*tolerance+1;//分割位置の候補の間隔
+	auto balanced = source;
+
+	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
+		section block(i*block_size, block_size);
+		std::uint64_t qtyATblock=0, qtyATdiv, qtyATlow, qtyAThigh;
+
+		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
+		qtyATdiv = qtyATblock;
+		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
+		if(qtyATblock>qtyhalfhigh||qtyATblock<qtyhalfhigh){//許容範囲に収まってたらスキップ
+			qtyATlow = static_cast<std::uint64_t>(std::floor(static_cast<double>(qtyATblock)*(0.5-tolerance)));
+			qtyAThigh = static_cast<std::uint64_t>(std::ceil(static_cast<double>(qtyATblock)*(0.5+tolerance)));
+
+			section div(block.head, div_size);
+			if(qtyATblock&1){
+				qtyATdiv += source[div.tail++].is_AT();
+				++qtyATlow;
+				++qtyAThigh;
+			}
+			while(div.tail<block.tail &&(qtyATdiv<qtyATlow || qtyAThigh>qtyAThigh)){
+				for(std::size_t i=0; i<division_pitch; ++i){
+					qtyATdiv -= source[div.head++].is_AT();
+					qtyATdiv += source[div.tail++].is_AT();
+				}
+			}
+			for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=2;
+		}
 	}
 	return balanced;
 }
