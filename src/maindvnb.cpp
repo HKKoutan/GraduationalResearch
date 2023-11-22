@@ -27,7 +27,8 @@ int main(int argc, char* argv[]){
 	util::Timekeep tk;
 	tk.start();
 
-	cout<<"Title: DNA storage simulation on nanopore sequencing channel with VLRLL encoding"<<endl;
+	cout<<"Title: DNA storage simulation on nanopore sequencing channel with VLRLL encoding and simple conversion or differential encoding."<<endl;
+	cout<<"ATGC: "<<std::bitset<8>(ATGC)<<endl;
 
 	auto temp = DEFAULT_REPEAT_PER_THREAD;
 	if(argc>1) temp = std::stoull(argv[1]);
@@ -38,12 +39,12 @@ int main(int argc, char* argv[]){
 
 	// constexpr array noise_factor = {0};
 	constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
-	// constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
+	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02,0.015,0.01,0.005,0.0};
 	constexpr size_t nsize = noise_factor.size();
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	// tuple: biterrors, bitcounts, nterrors, GCper(average,var), maxrunlength
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>,std::size_t>,2> stat = {};
+	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,pair<double,double>,std::size_t>,3> stat = {};
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t>,NUM_THREADS> stats = {};
 
 	auto plain = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t> *st){
@@ -52,7 +53,7 @@ int main(int argc, char* argv[]){
 		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
+			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
@@ -70,24 +71,21 @@ int main(int argc, char* argv[]){
 				// auto rm=cm;
 
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(rm);
-				{
-					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=rm[i]);
-					nterror[n] += acc;
-				}
+
+				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
 		}
 	};
 
-	auto encoded = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t> *st){
+	auto encoded_conv = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t> *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &gcper = std::get<3>(*st);
 		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
+			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
@@ -118,11 +116,53 @@ int main(int argc, char* argv[]){
 				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 				auto cest = code::DNAS::convert<ATGC>::binary_to_nttype(test);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
-				{
-					uint64_t acc = 0u;
-					for(size_t i=0u, iend=cm.size(); i<iend; ++i) acc += (cm[i]!=cest[i]);
-					nterror[n] += acc;
-				}
+
+				nterror[n] += code::DNAS::countDifferentialError(cm,cest);
+				biterror[n] += ((mest&mmask)^(m&mmask)).count();
+				bitcount[n] += mmask.count();
+			}
+		}
+	};
+
+	auto encoded_diff = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,array<vector<double>,nsize>,std::size_t> *st){
+		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
+		auto &gcper = std::get<3>(*st);
+		auto &maxrunlength = std::get<4>(*st);
+		for(size_t n=0; n<nsize; ++n){
+			bitset<SOURCE_LENGTH> m;
+			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
+			util::RandomBits rb(t);
+			gcper[n].resize(repeat_per_thread);
+
+			for(size_t r=0u; r<repeat_per_thread; r++){
+				rb.generate(m);
+
+				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
+				auto tm = code::DNAS::differential<ATGC>::decode(cm);
+				auto tr = ldpc.encode_redundancy(tm);
+				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
+
+				auto qty_AT = code::DNAS::countAT(cm) + code::DNAS::countAT(cr);
+				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cm.size()+cr.size());
+				auto runlength = code::DNAS::countRunlength(code::concatenate(cm,cr));
+				if(maxrunlength<runlength) maxrunlength = runlength;
+
+				auto rm = ch.noise(cm);
+				auto rr = ch.noise(cr);
+				// auto rm=cm;
+				// auto rr=cr;
+
+				auto Lrm = ch.likelihood<float>(rm);
+				auto Lrr = ch.likelihood<float>(rr);
+				auto LLR = code::concatenate(code::DNAS::differential<ATGC>::decode_p(Lrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(Lrr, Lrm.back()));
+
+				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
+				// auto LLRest = LLR;
+				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
+				auto cest = code::DNAS::differential<ATGC>::encode(test);
+				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
+
+				nterror[n] += code::DNAS::countDifferentialError(cm,cest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
@@ -169,9 +209,14 @@ int main(int argc, char* argv[]){
 	aggregate(0);
 	threads.clear();
 	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(encoded, threads.size(), &st);
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_conv, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(1);
+	threads.clear();
+	tk.split();
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_conv, threads.size(), &st);
+	for(auto &t: threads) t.join();
+	aggregate(2);
 	tk.stop();
 
 	cout<<SOURCE_LENGTH<<endl;
@@ -179,7 +224,11 @@ int main(int argc, char* argv[]){
 	result(0,SOURCE_LENGTH);
 
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
-	cout<<"encoded(no balancing)"<<endl;
+	cout<<"encoded(conv)"<<endl;
+	result(1,SOURCE_LENGTH);
+
+	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
+	cout<<"encoded(diff)"<<endl;
 	result(1,SOURCE_LENGTH);
 
 	return 0;

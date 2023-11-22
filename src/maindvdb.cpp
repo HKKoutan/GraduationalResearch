@@ -21,14 +21,15 @@ constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
 constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
-
+constexpr size_t BLOCK_SIZE = 0;
 constexpr std::uint8_t ATGC = 0x27;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
 	tk.start();
 
-	cout<<"Title: DNA storage simulation on nanopore sequencing channel with VLRLL encoding"<<endl;
+	cout<<"Title: DNA storage simulation on nanopore sequencing channel with VLRLL encoding, differential encoding and division balancing."<<endl;
+	cout<<"ATGC: "<<std::bitset<8>(ATGC)<<endl;
 
 	auto temp = DEFAULT_REPEAT_PER_THREAD;
 	if(argc>1) temp = std::stoull(argv[1]);
@@ -38,8 +39,8 @@ int main(int argc, char* argv[]){
 	cout<<repeat_per_thread<<"*"<<NUM_THREADS<<endl;
 
 	// constexpr array noise_factor = {0};
-	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02};
 	constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
+	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02,0.015,0.01,0.005,0.0};
 	constexpr size_t nsize = noise_factor.size();
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
@@ -53,7 +54,7 @@ int main(int argc, char* argv[]){
 		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
+			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
@@ -62,7 +63,7 @@ int main(int argc, char* argv[]){
 
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 
-				auto bm = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cm);
+				auto bm = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cm);
 				// auto bm = cm;
 
 				auto qty_AT = code::DNAS::countAT(bm);
@@ -87,7 +88,7 @@ int main(int argc, char* argv[]){
 		auto &maxrunlength = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::Nanopore_Sequencing<ATGC> ch(noise_factor[n],t);
+			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcper[n].resize(repeat_per_thread);
 
@@ -99,18 +100,18 @@ int main(int argc, char* argv[]){
 				auto tr = ldpc.encode_redundancy(tm);
 				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
 
-				auto bm = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cm);
-				auto br = code::DNAS::DivisionBalancing<ATGC,0,1>::balance(cr, bm.back()-cm.back());
+				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cm);
+				auto crbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cr, cmbar.back()-cm.back());
 				// auto bm = cm;
 				// auto br = cr;
 
-				auto qty_AT = code::DNAS::countAT(bm) + code::DNAS::countAT(br);
-				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(bm.size()+br.size());
-				auto runlength = code::DNAS::countRunlength(code::concatenate(bm,br));
+				auto qty_AT = code::DNAS::countAT(cmbar) + code::DNAS::countAT(crbar);
+				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cmbar.size()+crbar.size());
+				auto runlength = code::DNAS::countRunlength(code::concatenate(cmbar,crbar));
 				if(maxrunlength<runlength) maxrunlength = runlength;
 
-				auto rm = ch.noise(bm);
-				auto rr = ch.noise(br);
+				auto rm = ch.noise(cmbar);
+				auto rr = ch.noise(crbar);
 				// auto rm=bm;
 				// auto rr=br;
 
@@ -123,6 +124,7 @@ int main(int argc, char* argv[]){
 				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 				auto cest = code::DNAS::differential<ATGC>::encode(test);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
+
 				nterror[n] += code::DNAS::countDifferentialError(cm, cest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
