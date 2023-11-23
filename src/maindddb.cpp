@@ -230,17 +230,18 @@ int main(int argc, char* argv[]){
 	tk.stop();
 
 	//結果表示
+	cout<<"Block Size: "<<BLOCK_SIZE<<endl;
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain"<<endl;
 	result(0, SOURCE_LENGTH);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded"<<endl;
 	result(1, CODE_LENGTH);
-	cout<<SOURCE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
-	cout<<"plain(minchange)"<<endl;
+	cout<<SOURCE_LENGTH<<endl;
+	cout<<"plain(lesschange)"<<endl;
 	result(2, SOURCE_LENGTH);
-	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<"("<<BLOCK_SIZE<<")"<<endl;
-	cout<<"encoded(minchange)"<<endl;
+	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
+	cout<<"encoded(lesschange)"<<endl;
 	result(3, CODE_LENGTH);
 
 	return 0;

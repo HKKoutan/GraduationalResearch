@@ -222,11 +222,9 @@ int main(int argc, char* argv[]){
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain"<<endl;
 	result(0,SOURCE_LENGTH);
-
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(conv)"<<endl;
 	result(1,SOURCE_LENGTH);
-
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(diff)"<<endl;
 	result(2,SOURCE_LENGTH);

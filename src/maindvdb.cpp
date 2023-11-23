@@ -177,10 +177,10 @@ int main(int argc, char* argv[]){
 	aggregate(1);
 	tk.stop();
 
+	cout<<"Block Size: "<<BLOCK_SIZE<<endl;
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain"<<endl;
 	result(0,SOURCE_LENGTH);
-
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded"<<endl;
 	result(1,SOURCE_LENGTH);
