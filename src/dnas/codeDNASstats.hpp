@@ -6,15 +6,6 @@
 
 namespace code::DNAS {
 
-template<std::uint8_t ATGC, std::size_t L>
-auto countAT(const std::array<nucleotide_t<ATGC>,L> &c);
-template<std::uint8_t ATGC, std::size_t L>
-auto countRunlength(const std::array<nucleotide_t<ATGC>,L> &c);
-template<std::uint8_t ATGC, std::size_t L>
-auto countError(const std::array<nucleotide_t<ATGC>,L> &c1, const std::array<nucleotide_t<ATGC>,L> &c2);
-template<std::uint8_t ATGC, std::size_t L>
-auto countDifferentialError(const std::array<nucleotide_t<ATGC>,L> &c1, const std::array<nucleotide_t<ATGC>,L> &c2);
-
 ////////////////////////////////////////////////////////////////
 //                                                            //
 //                         statistics                         //
@@ -26,6 +17,23 @@ auto countAT(const std::array<nucleotide_t<ATGC>,L> &c){
 	std::uint64_t qty_AT=0;
 	for(const auto &i: c) qty_AT+=i.is_AT();
 	return qty_AT;
+}
+
+template<std::size_t BS = 0, std::uint8_t ATGC, std::size_t L>
+auto countBlockGCmaxDeviation(const std::array<nucleotide_t<ATGC>,L> &c){
+	constexpr std::size_t block_size = BS==0?L:BS;
+	std::uint64_t maxDeviation = 0;
+
+	for(std::size_t i=0u, iend=L/block_size; i<iend; ++i){
+		section block(i*block_size, block_size);
+		std::int64_t blockGC = 0;
+		for(std::size_t j=block.head, jend=block.tail; j<jend; ++j){
+			blockGC += c[j].is_GC();
+		}
+		std::uint64_t deviation = static_cast<std::uint64_t>(std::abs(static_cast<std::int64_t>(block_size>>1)-blockGC));
+		if(deviation>maxDeviation) maxDeviation=deviation;
+	}
+	return maxDeviation;
 }
 
 template<std::uint8_t ATGC, std::size_t L>
