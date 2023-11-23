@@ -12,8 +12,9 @@ namespace code::DNAS {
 template<std::uint8_t ATGC> struct differential;
 
 template<>
-struct differential<0x1B> {
+class differential<0x1B> {
 	static constexpr std::uint8_t ATGC = 0x1B;
+public:
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>
@@ -23,8 +24,9 @@ struct differential<0x1B> {
 };
 
 template<>
-struct differential<0x27> {
+class differential<0x27> {
 	static constexpr std::uint8_t ATGC = 0x27;
+public:
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>

@@ -12,8 +12,9 @@ namespace code::DNAS {
 template<std::uint8_t ATGC> struct VLRLL;
 
 template<>
-struct VLRLL<0x1B> {
+class VLRLL<0x1B> {
 	static constexpr std::uint8_t ATGC = 0x1B;
+public:
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>
@@ -21,8 +22,9 @@ struct VLRLL<0x1B> {
 };
 
 template<>
-struct VLRLL<0x27> {
+class VLRLL<0x27> {
 	static constexpr std::uint8_t ATGC = 0x27;
+public:
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state = 0);
 	template<std::size_t S>
@@ -32,8 +34,9 @@ struct VLRLL<0x27> {
 template<std::uint8_t ATGC> struct modifiedVLRLL;
 
 template<>
-struct modifiedVLRLL<0x1B> {
+class modifiedVLRLL<0x1B> {
 	static constexpr std::uint8_t ATGC = 0x1B;
+public:
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state, std::size_t initial_runlength);
 	template<std::size_t S>
@@ -43,8 +46,9 @@ struct modifiedVLRLL<0x1B> {
 };
 
 template<>
-struct modifiedVLRLL<0x27> {
+class modifiedVLRLL<0x27> {
 	static constexpr std::uint8_t ATGC = 0x27;
+public:
 	template<std::size_t S>
 	static auto encode(const std::bitset<S> &source, nucleotide_t<ATGC> initial_state, std::size_t initial_runlength);
 	template<std::size_t S>

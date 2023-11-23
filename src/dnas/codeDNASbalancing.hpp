@@ -20,24 +20,33 @@ struct FlipBalancing {//ATGC=0x1B
 template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[0:default 1:runlength 2:minchange]
 
 template<std::size_t BS>
-struct DivisionBalancing<0x1B,BS,0> {
+class DivisionBalancing<0x1B,BS,0> {
 	static constexpr std::uint8_t ATGC = 0x1B;
+public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
+	template<std::floating_point T, std::size_t S>
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source);
 };
 
 template<std::size_t BS>
-struct DivisionBalancing<0x27,BS,1> {
+class DivisionBalancing<0x27,BS,1> {
 	static constexpr std::uint8_t ATGC = 0x27;
+public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> diff_init = 0);
+	template<std::floating_point T, std::size_t S>
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source);
 };
 
 template<std::size_t BS>
-struct DivisionBalancing<0x1B,BS,2> {
+class DivisionBalancing<0x1B,BS,2> {
 	static constexpr std::uint8_t ATGC = 0x1B;
+public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance=0);
+	template<std::floating_point T, std::size_t S>
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance=0);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -123,6 +132,12 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 }
 
 template<std::size_t BS>
+template<std::floating_point T, std::size_t S>
+auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
+	return source;
+}
+
+template<std::size_t BS>
 template<std::size_t S>
 auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> diff_init){
 	constexpr std::size_t block_size = BS==0?S:BS;
@@ -178,6 +193,12 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 }
 
 template<std::size_t BS>
+template<std::floating_point T, std::size_t S>
+auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
+	return source;
+}
+
+template<std::size_t BS>
 template<std::size_t S>
 auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance){
 	constexpr std::size_t block_size = BS==0?S:BS;
@@ -216,6 +237,12 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 		}
 	}
 	return balanced;
+}
+
+template<std::size_t BS>
+template<std::floating_point T, std::size_t S>
+auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance){
+	return source;
 }
 
 }
