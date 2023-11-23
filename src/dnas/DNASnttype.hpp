@@ -46,6 +46,9 @@ class nucleotide_p{
 	static_assert(nA!=nT && nA!=nG && nA!=nC && nT!=nG && nT!=nC && nG!=nC);//ATGCに重複がない
 	std::array<T,4> likelihood;
 public:
+	nucleotide_p(): likelihood{}{}
+	nucleotide_p(T i0, T i1, T i2, T i3): likelihood(i0,i1,i2,i3){}
+	void operator=(std::initializer_list<T> &&rhs){likelihood = rhs;}
 	auto &lhA(){return likelihood[nA];}//likelihood of nucleotide A
 	auto &lhT(){return likelihood[nT];}//likelihood of nucleotide T
 	auto &lhG(){return likelihood[nG];}//likelihood of nucleotide G
@@ -58,6 +61,13 @@ public:
 	const auto &lhC() const{return likelihood[nC];}//likelihood of nucleotide C
 	const auto &operator[](nucleotide_t<ATGC> i) const{return likelihood[i.val];}//likelihood of i
 	const auto &operator[](std::uint8_t i) const{return likelihood[i&3ui8];}//likelihood of i
+};
+
+struct section{
+	std::size_t head;
+	std::size_t tail;
+	section(std::size_t head, std::size_t length):head(head),tail(head+length){}
+	std::size_t size(){return tail-head;}
 };
 
 }

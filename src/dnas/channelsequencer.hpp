@@ -10,8 +10,8 @@
 
 namespace channel{
 
-template<std::uint8_t ATGC=0x1B>
-class Nanopore_Sequencing{
+template<std::uint8_t ATGC>
+class NanoporeSequencing{
 	std::mt19937_64 mt;
 	std::uniform_real_distribution<> uniform;
 	static constexpr std::uint8_t nA = (ATGC>>6)&3, nT = (ATGC>>4)&3, nG = (ATGC>>2)&3, nC = ATGC&3;
@@ -23,8 +23,8 @@ class Nanopore_Sequencing{
 	auto condprob_init() const;
 
 public:
-	Nanopore_Sequencing(double alpha, std::int64_t seed);
-	Nanopore_Sequencing(double alpha);
+	NanoporeSequencing(double alpha, std::int64_t seed);
+	NanoporeSequencing(double alpha);
 
 	template<std::size_t L>
 	auto noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in);
@@ -40,7 +40,7 @@ public:
 };
 
 template<>
-auto Nanopore_Sequencing<0x1B>::condprob_init() const{
+auto NanoporeSequencing<0x1B>::condprob_init() const{
 	return std::array<std::array<double,4>,4>{
 		non_error_rate[0],error_rate[1],error_rate[3],error_rate[2],
 		error_rate[1],non_error_rate[1],error_rate[2],error_rate[0],
@@ -50,7 +50,7 @@ auto Nanopore_Sequencing<0x1B>::condprob_init() const{
 }
 
 template<>
-auto Nanopore_Sequencing<0x27>::condprob_init() const{
+auto NanoporeSequencing<0x27>::condprob_init() const{
 	return std::array<std::array<double,4>,4>{
 		non_error_rate[0],error_rate[3],error_rate[1],error_rate[2],
 		error_rate[3],non_error_rate[2],error_rate[2],error_rate[1],
@@ -60,10 +60,10 @@ auto Nanopore_Sequencing<0x27>::condprob_init() const{
 }
 
 template<std::uint8_t ATGC>
-Nanopore_Sequencing<ATGC>::Nanopore_Sequencing(double alpha) : Nanopore_Sequencing(alpha, 0){}
+NanoporeSequencing<ATGC>::NanoporeSequencing(double alpha) : NanoporeSequencing(alpha, 0){}
 
 template<std::uint8_t ATGC>
-Nanopore_Sequencing<ATGC>::Nanopore_Sequencing(double alpha, std::int64_t seed):
+NanoporeSequencing<ATGC>::NanoporeSequencing(double alpha, std::int64_t seed):
 	mt(seed),
 	uniform(0,1),
 	error_rate{4*alpha, alpha, 0.01, 0},
@@ -76,13 +76,13 @@ Nanopore_Sequencing<ATGC>::Nanopore_Sequencing(double alpha, std::int64_t seed):
 
 template<std::uint8_t ATGC>
 template<std::size_t L>
-auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in){
+auto NanoporeSequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in){
 	auto out = in;
 	for(auto &i: out){
-		code::DNAS::nucleotide_t<ATGC> j=0;
+		int j=0;
 		double rand = uniform(mt)-condprob[i][j];
 		while(rand>=0){
-			j+=1;
+			++j;
 			rand-=condprob[i][j];
 		}
 		i=j;
@@ -92,7 +92,7 @@ auto Nanopore_Sequencing<ATGC>::noise(const std::array<code::DNAS::nucleotide_t<
 
 template<std::uint8_t ATGC>
 template<std::floating_point T, std::size_t L>
-auto Nanopore_Sequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in){
+auto NanoporeSequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in){
 	std::array<code::DNAS::nucleotide_p<ATGC,T>,L> likelihoods;
 	for(std::size_t i=0; i<L; ++i){
 		auto &li = likelihoods[i];
@@ -104,7 +104,7 @@ auto Nanopore_Sequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleoti
 
 // template<std::uint8_t ATGC>
 // template<std::size_t S, std::size_t R>
-// auto Nanopore_Sequencing<ATGC,float>::VLRLL_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &cm, const std::array<code::DNAS::nucleotide_t<ATGC>,R> &cr, code::DNAS::nucleotide_t<ATGC> initial_state) const{
+// auto NanoporeSequencing<ATGC,float>::VLRLL_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &cm, const std::array<code::DNAS::nucleotide_t<ATGC>,R> &cr, code::DNAS::nucleotide_t<ATGC> initial_state) const{
 // 	std::array<float,S*2+R*2> LLR;
 // 	std::size_t j=0u;
 // 	//情報部
@@ -166,7 +166,7 @@ auto Nanopore_Sequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleoti
 
 // template<std::uint8_t ATGC>
 // template<std::size_t S>
-// auto Nanopore_Sequencing<ATGC,float>::differential_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &code, code::DNAS::nucleotide_t<ATGC> initial_state) const{
+// auto NanoporeSequencing<ATGC,float>::differential_LLR(const std::array<code::DNAS::nucleotide_t<ATGC>,S> &code, code::DNAS::nucleotide_t<ATGC> initial_state) const{
 // 	std::array<float,S*2> LLR;
 // 	auto previous = initial_state;
 
@@ -201,7 +201,7 @@ auto Nanopore_Sequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleoti
 
 // template<>
 // template<std::size_t BS, std::size_t S>
-// auto Nanopore_Sequencing<0x1B,float>::division_balancing_LLR(const std::array<code::DNAS::nucleotide_t<0x1B>,S> &code, code::DNAS::nucleotide_t<0x1B> initial_state) const{
+// auto NanoporeSequencing<0x1B,float>::division_balancing_LLR(const std::array<code::DNAS::nucleotide_t<0x1B>,S> &code, code::DNAS::nucleotide_t<0x1B> initial_state) const{
 // 	constexpr std::size_t block_size = BS==0?S:BS;
 // 	constexpr std::size_t div_size = block_size>>1;
 // 	constexpr double div_prob = 1.0/div_size;
@@ -277,7 +277,7 @@ auto Nanopore_Sequencing<ATGC>::likelihood(const std::array<code::DNAS::nucleoti
 
 // template<>
 // template<std::size_t BS, std::size_t S>
-// auto Nanopore_Sequencing<0x27,float>::division_balancing_LLR(const std::array<code::DNAS::nucleotide_t<0x27>,S> &code, code::DNAS::nucleotide_t<0x27> initial_state) const{
+// auto NanoporeSequencing<0x27,float>::division_balancing_LLR(const std::array<code::DNAS::nucleotide_t<0x27>,S> &code, code::DNAS::nucleotide_t<0x27> initial_state) const{
 // 	constexpr std::size_t block_size = BS==0?S:BS;
 // 	constexpr std::size_t div_size = block_size>>1;
 // 	constexpr double div_prob = 1.0/div_size;
