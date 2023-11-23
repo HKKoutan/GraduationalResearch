@@ -127,7 +127,7 @@ int main(int argc, char* argv[]){
 
 				auto mest = code::DNAS::differential<ATGC>::decode(rm);
 
-				nterror[n] += code::DNAS::countError(cm,rm);
+				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -159,7 +159,7 @@ int main(int argc, char* argv[]){
 				auto cest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(cest);
 
-				nterror[n] += code::DNAS::countError(cc,rc);
+				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
 				biterror[n] += (mest^m).count();
 			}
 		}
