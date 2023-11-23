@@ -21,6 +21,7 @@ constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
 constexpr size_t BLOCK_SIZE = 0;
 constexpr uint8_t ATGC = 0x1B;
+constexpr double TOLERANCE = 0.125;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -125,7 +126,7 @@ int main(int argc, char* argv[]){
 
 				auto cm = code::DNAS::differential<ATGC>::encode(m);
 
-				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2>::balance(cm);
+				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2>::balance(cm, TOLERANCE);
 
 				auto qty_AT = code::DNAS::countAT(cmbar);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(cmbar.size());
@@ -156,7 +157,7 @@ int main(int argc, char* argv[]){
 				auto c = ldpc.encode(m);
 				auto cc = code::DNAS::differential<ATGC>::encode(c);
 
-				auto ccbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2>::balance(cc);
+				auto ccbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2>::balance(cc, TOLERANCE);
 
 				auto qty_AT = code::DNAS::countAT(ccbar);
 				gcper[n][r] = 1.0 - static_cast<double>(qty_AT)/static_cast<double>(ccbar.size());
