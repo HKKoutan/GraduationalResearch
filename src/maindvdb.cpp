@@ -22,7 +22,7 @@ constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
 constexpr size_t BLOCK_SIZE = 32;
-constexpr std::uint8_t ATGC = 0x1B;
+constexpr std::uint8_t ATGC = 0x27;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -62,7 +62,7 @@ int main(int argc, char* argv[]){
 
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 
-				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,0>::balance(cm);
+				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cm);
 				// auto bm = cm;
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cmbar);
@@ -98,8 +98,8 @@ int main(int argc, char* argv[]){
 				auto tr = ldpc.encode_redundancy(tm);
 				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
 
-				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,0>::balance(cm);
-				auto crbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,0>::balance(cr/*, cmbar.back()-cm.back()*/);
+				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cm);
+				auto crbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cr, cmbar.back()-cm.back());
 				// auto bm = cm;
 				// auto br = cr;
 
