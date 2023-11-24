@@ -70,7 +70,7 @@ int main(int argc, char* argv[]){
 
 				auto mest = code::DNAS::differential<ATGC>::decode(rm);
 
-				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
+				nterror[n] += code::DNAS::countDifferentialError(cmbar,rm);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 
-				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
+				nterror[n] += code::DNAS::countDifferentialError(ccbar,rc);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]){
 
 				auto mest = code::DNAS::differential<ATGC>::decode(rm);
 
-				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
+				nterror[n] += code::DNAS::countDifferentialError(cmbar,rm);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -167,7 +167,7 @@ int main(int argc, char* argv[]){
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 
-				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
+				nterror[n] += code::DNAS::countDifferentialError(ccbar,rc);
 				biterror[n] += (mest^m).count();
 			}
 		}
