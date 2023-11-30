@@ -17,7 +17,7 @@ struct FlipBalancing {//ATGC=0x1B
 	static auto restore(const std::array<nucleotide_t<ATGC>,R> &crbar, const std::bitset<R> &flipinfo);
 };
 
-template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[0:default 1:runlength 2:lesschange 4:pitch]
+template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[1:runlength 2:lesschange 4:pitch]
 
 template<std::size_t BS>
 class DivisionBalancing<0x1B,BS,0> {
@@ -42,12 +42,11 @@ public:
 template<std::size_t BS>
 class DivisionBalancing<0x1B,BS,2> {
 	static constexpr std::uint8_t ATGC = 0x1B;
-	// static constexpr double div_prob(std::size_t block_size, double tolerance);
 public:
 	template<std::size_t S>
-	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance=0);
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance = 0);
 	template<std::floating_point T, std::size_t S>
-	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance=0);
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, T modprob = 0);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -135,7 +134,23 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
 auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
-	return source;
+	constexpr std::size_t block_size = BS==0?S:BS;
+	constexpr std::size_t div_size = block_size>>1;
+	constexpr T divprob = 1/div_size;
+	constexpr T nondivprob = 1-divprob;
+	auto result = source;
+	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
+		section block(i*block_size, block_size);
+		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j){
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprob + (temp[1]+temp[2]+temp[3])*divprob;
+			rj[1] = rj[1]*nondivprob + (temp[0]+temp[2]+temp[3])*divprob;
+			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
+			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
+		}
+	}
+	return result;
 }
 
 template<std::size_t BS>
@@ -196,23 +211,24 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
 auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
-	return source;
+	constexpr std::size_t block_size = BS==0?S:BS;
+	constexpr std::size_t div_size = block_size>>1;
+	constexpr T divprob = 1/div_size;
+	constexpr T nondivprob = 1-divprob;
+	auto result = source;
+	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
+		section block(i*block_size, block_size);
+		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j){
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprob + (temp[1]+temp[2]+temp[3])*divprob;
+			rj[1] = rj[1]*nondivprob + (temp[0]+temp[2]+temp[3])*divprob;
+			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
+			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
+		}
+	}
+	return result;
 }
-
-// template<std::size_t BS>
-// constexpr double DivisionBalancing<0x1B,BS,2>::div_prob(std::size_t block_size, double tolerance){
-// 	const std::size_t block_half = block_size>>1;
-// 	const std::uint64_t tole_range = static_cast<std::uint64_t>(std::floor(static_cast<double>(block_size)*tolerance));
-// 	double comb_sum = 0;
-// 	double exp = std::ldexp(1,-block_size);
-
-// 	for(auto k = block_half-tole_range; k<block_half; ++k){
-
-// 	}
-
-
-// 	return ;
-// }
 
 template<std::size_t BS>
 template<std::size_t S>
@@ -257,8 +273,24 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance){
-	return source;
+auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, T modprob){
+	constexpr std::size_t block_size = BS==0?S:BS;
+	constexpr std::size_t div_size = block_size>>1;
+	const T divprob = modprob/div_size;
+	const T nondivprob = 1-divprob;
+	auto result = source;
+	for(std::size_t i=0u, iend=S/block_size; i<iend; ++i){
+		section block(i*block_size, block_size);
+		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j){
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprob + (temp[1]+temp[2]+temp[3])*divprob;
+			rj[1] = rj[1]*nondivprob + (temp[0]+temp[2]+temp[3])*divprob;
+			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
+			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
+		}
+	}
+	return result;
 }
 
 }
