@@ -98,7 +98,8 @@ int main(int argc, char* argv[]){
 				auto rc = ch.noise(ccbar);
 				// auto rc=ccbar;
 
-				auto Lrc = ch.likelihood<float>(rc);
+				auto Lrb = ch.likelihood<float>(rc);
+				auto Lrc = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,0>::restore_p(Lrb);
 				auto LLR = code::DNAS::differential<ATGC>::decode_p(Lrc);
 
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
@@ -161,7 +162,8 @@ int main(int argc, char* argv[]){
 				auto rc = ch.noise(ccbar);
 				// auto rc=ccbar;
 
-				auto Lrc = ch.likelihood<float>(rc);
+				auto Lrb = ch.likelihood<float>(rc);
+				auto Lrc = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2>::restore_p(Lrb);
 				auto LLR = code::DNAS::differential<ATGC>::decode_p(Lrc);
 
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
