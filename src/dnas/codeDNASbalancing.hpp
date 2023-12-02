@@ -46,7 +46,7 @@ public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance = 0);
 	template<std::floating_point T, std::size_t S>
-	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, T modprob = 0);
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double modprob = 0);
 };
 
 template<std::size_t BS>
@@ -56,7 +56,7 @@ public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance = 0);
 	template<std::floating_point T, std::size_t S>
-	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance = 0, T modprob = 0);
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance = 0, double modprob = 0);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -159,6 +159,14 @@ auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,
 			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
 			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
 		}
+		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j){
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprob + (temp[1]+temp[2]+temp[3])*divprob;
+			rj[1] = rj[1]*nondivprob + (temp[0]+temp[2]+temp[3])*divprob;
+			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
+			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
+		}
 	}
 	return result;
 }
@@ -236,6 +244,14 @@ auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,
 			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
 			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
 		}
+		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j){
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprob + (temp[1]+temp[2]+temp[3])*divprob;
+			rj[1] = rj[1]*nondivprob + (temp[0]+temp[2]+temp[3])*divprob;
+			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
+			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
+		}
 	}
 	return result;
 }
@@ -278,15 +294,24 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, T modprob){
+auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double modprob){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
-	const T divprob = modprob/static_cast<T>(div_size);
-	const T nondivprob = 1-divprob;
+	const double divprobd = modprob/static_cast<double>(div_size);
+	const T divprob = static_cast<T>(divprobd);
+	const T nondivprob = static_cast<T>(1.0-divprobd);
 	auto result = source;
 	for(std::size_t i=0, iend=S/block_size; i<iend; ++i){
 		section block(i*block_size, block_size);
 		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j){
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprob + (temp[1]+temp[2]+temp[3])*divprob;
+			rj[1] = rj[1]*nondivprob + (temp[0]+temp[2]+temp[3])*divprob;
+			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
+			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
+		}
+		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j){
 			nucleotide_p<ATGC,T> temp = source[j];
 			auto &rj = result[j];
 			rj[0] = rj[0]*nondivprob + (temp[1]+temp[2]+temp[3])*divprob;
@@ -305,21 +330,24 @@ auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S
 	constexpr std::size_t div_size = block_size>>1;
 	static_assert(block_size%2==0&&S%block_size==0);
 	if(tolerance>0.5||tolerance<0) throw std::invalid_argument("invalid tolerance value");
-	const std::uint64_t qtyhalflow = static_cast<std::uint64_t>(std::ceil(static_cast<double>(block_size)*(0.5-tolerance)));
-	const std::uint64_t qtyhalfhigh = static_cast<std::uint64_t>(std::floor(static_cast<double>(block_size)*(0.5+tolerance)));
-	const std::size_t division_pitch = static_cast<std::size_t>(static_cast<double>(block_size)*tolerance)*2+1;//分割位置の候補の間隔
+	const std::uint64_t qtytolerance = static_cast<std::uint64_t>(std::floor(static_cast<double>(block_size)*tolerance));
+	const std::uint64_t qtyhalflow = div_size-qtytolerance;
+	const std::uint64_t qtyhalfhigh = div_size+qtytolerance;
+	const std::size_t division_pitch = ((qtytolerance>>1)<<1)+1;//分割位置の候補の間隔
 	auto balanced = source;
 
 	for(std::size_t i=0, iend=S/block_size; i<iend; ++i){
 		section block(i*block_size, block_size);
-		std::uint64_t qtyATblock=0, qtyATdiv, qtyATlow, qtyAThigh;
+		const std::uint64_t qtyATtolerance = qtytolerance>>1;
+		std::uint64_t qtyATblock=0, qtyATdiv, qtyAThalf, qtyATlow, qtyAThigh;
 
 		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyATdiv = qtyATblock;
 		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
 		if(qtyATblock>qtyhalfhigh||qtyATblock<qtyhalflow){//許容範囲に収まってたらスキップ
-			qtyATlow = static_cast<std::uint64_t>(std::ceil(static_cast<double>(qtyATblock)*(0.5-tolerance)));
-			qtyAThigh = static_cast<std::uint64_t>(std::floor(static_cast<double>(qtyATblock)*(0.5+tolerance)));
+			qtyAThalf = qtyATblock>>1;
+			qtyATlow = qtyAThalf>qtyATtolerance?qtyAThalf-qtyATtolerance:0;
+			qtyAThigh = qtyAThalf+qtyATtolerance<div_size?qtyAThalf+qtyATtolerance:div_size;
 
 			section div(block.head, div_size);
 			if(qtyATblock&1){
@@ -327,11 +355,12 @@ auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S
 				++qtyATlow;
 				++qtyAThigh;
 			}
-			while(div.tail<block.tail && (qtyATdiv<qtyATlow || qtyATdiv>qtyAThigh)){
-				for(std::size_t k=0; k<division_pitch; ++k){
+			while(qtyATdiv<qtyATlow || qtyATdiv>qtyAThigh){
+				for(std::size_t k=0; div.tail<block.tail&&k<division_pitch; ++k){
 					qtyATdiv -= source[div.head++].is_AT();
 					qtyATdiv += source[div.tail++].is_AT();
 				}
+				if(div.tail>=block.tail) throw std::exception();
 			}
 			for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=2;
 		}
@@ -341,12 +370,15 @@ auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x1B,BS,6>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance, T modprob){
+auto DivisionBalancing<0x1B,BS,6>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance, double modprob){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
-	const std::size_t division_pitch = static_cast<std::size_t>(static_cast<double>(block_size)*tolerance)*2+1;//分割位置の候補の間隔
-	const T divprob = modprob/static_cast<T>((div_size-1)/division_pitch+1);
-	const T nondivprob = 1-divprob;
+	const std::size_t division_pitch = ((static_cast<std::uint64_t>(std::floor(static_cast<double>(block_size)*tolerance))>>1)<<1)+1;//分割位置の候補の間隔
+	const double divprobd = modprob/static_cast<double>((div_size-1)/division_pitch+1);
+	const T divprob = static_cast<T>(divprobd);
+	const T divprobhalf = static_cast<T>(divprobd/2);
+	const T nondivprob = static_cast<T>(1.0-divprobd);
+	const T nondivprobhalf = static_cast<T>(1.0-divprobd/2);
 	auto result = source;
 	for(std::size_t i=0, iend=S/block_size; i<iend; ++i){
 		section block(i*block_size, block_size);
@@ -357,6 +389,22 @@ auto DivisionBalancing<0x1B,BS,6>::restore_p(const std::array<nucleotide_p<ATGC,
 			rj[1] = rj[1]*nondivprob + (temp[0]+temp[2]+temp[3])*divprob;
 			rj[2] = rj[2]*nondivprob + (temp[0]+temp[1]+temp[3])*divprob;
 			rj[3] = rj[3]*nondivprob + (temp[0]+temp[1]+temp[2])*divprob;
+		}
+		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; j+=division_pitch){//偶数の場合
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprobhalf + (temp[1]+temp[2]+temp[3])*divprobhalf;
+			rj[1] = rj[1]*nondivprobhalf + (temp[0]+temp[2]+temp[3])*divprobhalf;
+			rj[2] = rj[2]*nondivprobhalf + (temp[0]+temp[1]+temp[3])*divprobhalf;
+			rj[3] = rj[3]*nondivprobhalf + (temp[0]+temp[1]+temp[2])*divprobhalf;
+		}
+		for(std::size_t j=block.head+div_size+1, jend=block.tail; j<jend; j+=division_pitch){//奇数の場合
+			nucleotide_p<ATGC,T> temp = source[j];
+			auto &rj = result[j];
+			rj[0] = rj[0]*nondivprobhalf + (temp[1]+temp[2]+temp[3])*divprobhalf;
+			rj[1] = rj[1]*nondivprobhalf + (temp[0]+temp[2]+temp[3])*divprobhalf;
+			rj[2] = rj[2]*nondivprobhalf + (temp[0]+temp[1]+temp[3])*divprobhalf;
+			rj[3] = rj[3]*nondivprobhalf + (temp[0]+temp[1]+temp[2])*divprobhalf;
 		}
 	}
 	return result;
