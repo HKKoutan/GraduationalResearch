@@ -19,9 +19,10 @@ constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
 constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
-constexpr size_t BLOCK_SIZE = 0;
+constexpr size_t BLOCK_SIZE = 16;
 constexpr uint8_t ATGC = 0x1B;
 constexpr double TOLERANCE = 0.125;
+constexpr double MODPROB = 0.210113525;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -44,7 +45,7 @@ int main(int argc, char* argv[]){
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	// tuple: biterrors, nterrors, maxGCdeviation
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t>,5> stat = {};
+	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t>,6> stat = {};
 	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t>,NUM_THREADS> stats = {};
 
 	auto plain = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
@@ -70,7 +71,7 @@ int main(int argc, char* argv[]){
 
 				auto mest = code::DNAS::differential<ATGC>::decode(rm);
 
-				nterror[n] += code::DNAS::countDifferentialError(cmbar,rm);
+				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -105,7 +106,7 @@ int main(int argc, char* argv[]){
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 
-				nterror[n] += code::DNAS::countDifferentialError(ccbar,rc);
+				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -134,7 +135,7 @@ int main(int argc, char* argv[]){
 
 				auto mest = code::DNAS::differential<ATGC>::decode(rm);
 
-				nterror[n] += code::DNAS::countDifferentialError(cmbar,rm);
+				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -163,13 +164,77 @@ int main(int argc, char* argv[]){
 				// auto rc=ccbar;
 
 				auto Lrb = ch.likelihood<float>(rc);
-				auto Lrc = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2>::restore_p(Lrb);
+				auto Lrc = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2>::restore_p(Lrb, MODPROB);
 				auto LLR = code::DNAS::differential<ATGC>::decode_p(Lrc);
 
 				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(LLRest);
 
-				nterror[n] += code::DNAS::countDifferentialError(ccbar,rc);
+				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
+				biterror[n] += (mest^m).count();
+			}
+		}
+	};
+
+	auto plain_pitch = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
+		auto &maxgcdev = std::get<2>(*st);
+		for(size_t n=0; n<nsize; ++n){
+			bitset<SOURCE_LENGTH> m;
+			util::RandomBits rb(t);
+			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
+
+			for(size_t r=0u; r<repeat_per_thread; r++){
+				rb.generate(m);
+
+				auto cm = code::DNAS::differential<ATGC>::encode(m);
+
+				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,6>::balance(cm, TOLERANCE);
+
+				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cmbar);
+				if(dev>maxgcdev) maxgcdev=dev;
+
+				auto rm = ch.noise(cmbar);
+				// auto rm=cmbar;
+
+				auto mest = code::DNAS::differential<ATGC>::decode(rm);
+
+				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
+				biterror[n] += (mest^m).count();
+			}
+		}
+	};
+
+	auto encoded_pitch = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
+		auto &maxgcdev = std::get<2>(*st);
+		for(size_t n=0; n<nsize; ++n){
+			bitset<SOURCE_LENGTH> m;
+			util::RandomBits rb(t);
+			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
+
+			for(size_t r=0u; r<repeat_per_thread; r++){
+				rb.generate(m);
+
+				auto c = ldpc.encode(m);
+				auto cc = code::DNAS::differential<ATGC>::encode(c);
+
+				auto ccbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,6>::balance(cc, TOLERANCE);
+
+				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(ccbar);
+				if(dev>maxgcdev) maxgcdev=dev;
+
+				auto rc = ch.noise(ccbar);
+				// auto rc=ccbar;
+
+				auto Lrb = ch.likelihood<float>(rc);
+				auto Lrc = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,6>::restore_p(Lrb, TOLERANCE, MODPROB);
+				auto LLR = code::DNAS::differential<ATGC>::decode_p(Lrc);
+
+				auto LLRest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
+				auto mest = code::estimate_crop<SOURCE_LENGTH>(LLRest);
+
+				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
 				biterror[n] += (mest^m).count();
 			}
 		}
@@ -221,6 +286,16 @@ int main(int argc, char* argv[]){
 	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_minchange, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(3);
+	threads.clear();
+	tk.split();
+	for(stats = {}; auto &st: stats) threads.emplace_back(plain_pitch, threads.size(), &st);
+	for(auto &t: threads) t.join();
+	aggregate(4);
+	threads.clear();
+	tk.split();
+	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_pitch, threads.size(), &st);
+	for(auto &t: threads) t.join();
+	aggregate(5);
 	tk.stop();
 
 	//結果表示
@@ -237,6 +312,12 @@ int main(int argc, char* argv[]){
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(lesschange)"<<endl;
 	result(3, CODE_LENGTH);
+	cout<<SOURCE_LENGTH<<endl;
+	cout<<"plain(pitch)"<<endl;
+	result(4, SOURCE_LENGTH);
+	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
+	cout<<"encoded(pitch)"<<endl;
+	result(5, CODE_LENGTH);
 
 	return 0;
 }
