@@ -5,7 +5,7 @@
 #include <cassert>
 
 constexpr std::size_t LENGTH = 16;
-constexpr double TOLERANCE = 0;
+constexpr double TOLERANCE = 0.125;
 
 int main(){
 	constexpr std::size_t divsize = LENGTH>>1;
@@ -26,16 +26,15 @@ int main(){
 			for(std::size_t i=0; i<divsize; ++i) half[i]=series[i];
 			std::size_t pos = 0;
 			std::uint64_t qty1div = half.count()<<1;
-			std::uint64_t qty1low = qty1block>qtytolerance?qty1block-qtytolerance:0;
-			std::uint64_t qty1high = qty1block+qtytolerance<LENGTH?qty1block+qtytolerance:LENGTH;
-			while(pos<LENGTH&&(qty1div<qty1low||qty1div>qty1high)){
-				std::size_t stride = (qty1div>qty1block?qty1div-qty1block:qty1block-qty1div)-qtytolerance;
-				assert(stride!=0);
-				for(std::size_t k=0; k<stride; ++k){
+			std::uint64_t stride = qty1div>qty1block?qty1div-qty1block:qty1block-qty1div;
+			while(stride>qtytolerance){
+				assert(pos<LENGTH);
+				for(std::size_t k=0, kend=stride-qtytolerance; k<kend; ++k){
 					qty1div -= series.test(pos>>1);
 					qty1div += series.test((pos+LENGTH)>>1);
 					++pos;
 				}
+				stride = qty1div>qty1block?qty1div-qty1block:qty1block-qty1div;
 			}
 			++count[pos];
 		}else{
