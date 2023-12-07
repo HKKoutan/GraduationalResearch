@@ -19,6 +19,13 @@ struct FlipBalancing {//ATGC=0x1B
 
 template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBalancing;//BS:ブロック長, FLAG:識別子[1:runlength 2:lesschange 4:pitch]
 
+namespace {
+	template<std::size_t BS>
+	constexpr auto DivisionBalancingDistribution();
+	template<std::size_t BS>
+	constexpr auto DivisionBalancingDistribution(double tolerance);
+}
+
 template<std::size_t BS>
 class DivisionBalancing<0x1B,BS,0> {
 	static constexpr std::uint8_t ATGC = 0x1B;
@@ -66,13 +73,6 @@ public:
 	template<std::floating_point T, std::size_t S>
 	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source);
 };
-
-namespace {
-	template<std::size_t BS>
-	constexpr auto DivisionBalancingDistribution();
-	template<std::size_t BS>
-	constexpr auto DivisionBalancingDistribution(double tolerance);
-}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
