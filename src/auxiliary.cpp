@@ -5,7 +5,7 @@
 #include <cassert>
 
 constexpr std::size_t LENGTH = 16;
-constexpr double TOLERANCE = 0.125;
+constexpr double TOLERANCE = 0;
 
 int main(){
 	constexpr std::size_t divsize = LENGTH>>1;
@@ -18,6 +18,7 @@ int main(){
 	std::bitset<divsize> half;
 	std::uint64_t noncount = 0;
 	std::array<std::uint64_t,LENGTH> count = {};
+	std::array<std::uint64_t,LENGTH> dist = {};
 
 	do{
 		series = series.to_ullong()+1;
@@ -37,11 +38,14 @@ int main(){
 				stride = qty1div>qty1block?qty1div-qty1block:qty1block-qty1div;
 			}
 			++count[pos];
+			for(std::size_t j=pos>>1, jend=(pos+LENGTH+1)>>1; j<jend; ++j) ++dist[j];
 		}else{
 			++noncount;
 		}
 	}while(!series.all());
 	std::cout<<noncount<<std::endl;
 	for(auto i: count) std::cout<<i<<"\t";
+	std::cout<<std::endl;
+	for(auto i: dist) std::cout<<i<<"\t";
 	std::cout<<std::endl;
 }
