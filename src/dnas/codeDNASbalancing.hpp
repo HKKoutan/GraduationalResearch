@@ -22,7 +22,6 @@ template<std::uint8_t ATGC, std::size_t BS, std::uint8_t FLAG> struct DivisionBa
 template<std::size_t BS>
 class DivisionBalancing<0x1B,BS,0> {
 	static constexpr std::uint8_t ATGC = 0x1B;
-	static constexpr std::array<float,BS> dist = DivisionBalancingDistribution<BS>();
 public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
@@ -33,7 +32,6 @@ public:
 template<std::size_t BS>
 class DivisionBalancing<0x27,BS,1> {
 	static constexpr std::uint8_t ATGC = 0x27;
-	static constexpr std::array<float,BS> dist = DivisionBalancingDistribution<BS>();
 public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> diff_init = 0);
@@ -44,35 +42,22 @@ public:
 template<std::size_t BS>
 class DivisionBalancing<0x1B,BS,2> {
 	static constexpr std::uint8_t ATGC = 0x1B;
-	const double tolerance;
-	const std::array<float,BS> dist;
 public:
-	DivisionBalancing(double tolerance):tolerance(tolerance),dist(DivisionBalancingDistribution<BS>(tolerance)){}
 	template<std::size_t S>
-	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance = 0);
 	template<std::floating_point T, std::size_t S>
-	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source);
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double modprob = 0);
 };
 
 template<std::size_t BS>
 class DivisionBalancing<0x1B,BS,6> {
 	static constexpr std::uint8_t ATGC = 0x1B;
-	const double tolerance;
-	const std::array<float,BS> dist;
 public:
-	DivisionBalancing(double tolerance):tolerance(tolerance),dist(DivisionBalancingDistribution<BS>(tolerance)){}
 	template<std::size_t S>
-	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance = 0);
 	template<std::floating_point T, std::size_t S>
-	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source);
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance = 0, double modprob = 0);
 };
-
-namespace {
-	template<std::size_t BS>
-	constexpr auto DivisionBalancingDistribution();
-	template<std::size_t BS>
-	constexpr auto DivisionBalancingDistribution(double tolerance);
-}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -147,9 +132,9 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 			qtyATdiv += source[div.tail++].is_AT();
 			++qtyAThalf;
 		}
-		while(div.tail<block.tail && qtyATdiv!=qtyAThalf){//divとhalfの差を使えばより効率的に探索できる
-			qtyATdiv += source[div.tail++].is_AT();
+		while(div.tail<block.tail && qtyATdiv!=qtyAThalf){
 			qtyATdiv -= source[div.head++].is_AT();
+			qtyATdiv += source[div.tail++].is_AT();
 		}
 		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=2;
 	}
@@ -161,9 +146,8 @@ template<std::floating_point T, std::size_t S>
 auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
-	constexpr T divprob = static_cast<T>(3.3/static_cast<double>(div_size));
-	// constexpr T divprob = 1;
-	std::array<nucleotide_p<ATGC,T>,S> result = source;
+	constexpr T divprob = static_cast<T>(0.08/static_cast<double>(div_size));
+	auto result = source;
 	for(std::size_t i=0, iend=S/block_size; i<iend; ++i){
 		section block(i*block_size, block_size);
 		T secprob = 0;
@@ -171,7 +155,6 @@ auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,
 			const auto &sj = source[j];
 			auto &rj = result[j];
 			secprob += divprob;
-			if(secprob>1) secprob=1;
 			for(auto k=0ui8; k<4; ++k) rj[k] += (sj[k+2]-sj[k])*secprob;
 		}
 		secprob += divprob/2;
@@ -179,7 +162,6 @@ auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,
 			const auto &sj = source[j];
 			auto &rj = result[j];
 			secprob -= divprob;
-			if(secprob<0) secprob=0;
 			for(auto k=0ui8; k<4; ++k) rj[k] += (sj[k+2]-sj[k])*secprob;
 		}
 	}
@@ -213,8 +195,8 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 		}
 		//分割区間を探す
 		while(div.tail<block.tail && qtyATdiv!=qtyAThalf){
-			qtyATdiv += source[div.tail++].is_AT();
 			qtyATdiv -= source[div.head++].is_AT();
+			qtyATdiv += source[div.tail++].is_AT();
 		}
 		//分割位置の連長を調べる
 		if(div.head!=0&&source[div.head-1]==source[div.head]+1){
@@ -272,7 +254,7 @@ auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,
 
 template<std::size_t BS>
 template<std::size_t S>
-auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
+auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	static_assert(block_size%2==0&&S%block_size==0);
@@ -297,8 +279,8 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 				++qtyAThalf;
 			}
 			while(div.tail<block.tail && qtyATdiv!=qtyAThalf){
-				qtyATdiv += source[div.tail++].is_AT();
 				qtyATdiv -= source[div.head++].is_AT();
+				qtyATdiv += source[div.tail++].is_AT();
 			}
 			for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=2;
 		}
@@ -308,7 +290,7 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
+auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double modprob){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	const T divprob = static_cast<T>(modprob/static_cast<double>(div_size));
@@ -335,7 +317,7 @@ auto DivisionBalancing<0x1B,BS,2>::restore_p(const std::array<nucleotide_p<ATGC,
 
 template<std::size_t BS>
 template<std::size_t S>
-auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S> &source){
+auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S> &source, double tolerance){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	static_assert(block_size%2==0&&S%block_size==0);
@@ -367,8 +349,8 @@ auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S
 			}
 			while(qtyATdiv<qtyATlow || qtyATdiv>qtyAThigh){
 				for(std::size_t k=0; div.tail<block.tail&&k<division_pitch; ++k){
-					qtyATdiv += source[div.tail++].is_AT();
 					qtyATdiv -= source[div.head++].is_AT();
+					qtyATdiv += source[div.tail++].is_AT();
 				}
 				if(div.tail>=block.tail) throw std::exception();
 			}
@@ -380,7 +362,7 @@ auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x1B,BS,6>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
+auto DivisionBalancing<0x1B,BS,6>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, double tolerance, double modprob){
 	constexpr std::size_t block_size = BS==0?S:BS;
 	constexpr std::size_t div_size = block_size>>1;
 	const std::size_t division_pitch = ((static_cast<std::uint64_t>(std::floor(static_cast<double>(block_size)*tolerance))>>1)<<1)+1;//分割位置の候補の間隔
@@ -405,72 +387,6 @@ auto DivisionBalancing<0x1B,BS,6>::restore_p(const std::array<nucleotide_p<ATGC,
 		}
 	}
 	return result;
-}
-
-////////////////////////////////////////////////////////////////
-//                                                            //
-//               DivisionBalancingDistribution                //
-//                                                            //
-////////////////////////////////////////////////////////////////
-namespace {
-
-template<std::size_t BS>
-constexpr auto DivisionBalancingDistribution(){
-	return std::array<float,BS>{};
-}
-
-template<>
-constexpr auto DivisionBalancingDistribution<16>(){
-	return std::array{
-		12870.f/65536.f,
-		6864.f/65536.f,
-		6006.f/65536.f,
-		5280.f/65536.f,
-		4158.f/65536.f,
-		4440.f/65536.f,
-		3150.f/65536.f,
-		3880.f/65536.f,
-		2450.f/65536.f,
-		3460.f/65536.f,
-		1890.f/65536.f,
-		3124.f/65536.f,
-		1386.f/65536.f,
-		2860.f/65536.f,
-		858.f/65536.f,
-		2860.f/65536.f
-	};
-}
-
-template<std::size_t BS>
-constexpr auto DivisionBalancingDistribution(double tolerance){
-	return std::array<float,BS>{};
-}
-
-template<>
-constexpr auto DivisionBalancingDistribution<16>(double tolerance){
-	if(tolerance == 0) return DivisionBalancingDistribution<16>();
-	if(tolerance == 0.125){
-		return std::array{
-			10802.f/65536.f,
-			1064.f/65536.f,
-			140.f/65536.f,
-			680.f/65536.f,
-			80.f/65536.f,
-			440.f/65536.f,
-			40.f/65536.f,
-			280.f/65536.f,
-			16.f/65536.f,
-			160.f/65536.f,
-			4.f/65536.f,
-			64.f/65536.f,
-			0.f,
-			0.f,
-			0.f,
-			0.f
-		};
-	}
-}
-
 }
 
 }
