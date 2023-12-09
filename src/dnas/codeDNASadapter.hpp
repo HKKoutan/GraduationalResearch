@@ -91,12 +91,12 @@ auto differential<0x1B>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code
 		for(auto j=0ui8; j<4; ++j) PX0 += previous[j] * (current[j] + current[j+2]); //下位ビットが0: 遷移語が0 or 2になる組み合わせ
 		for(auto j=0ui8; j<4; ++j) PX1 += previous[j] * (current[j+1] + current[j+3]); //下位ビットが1: 遷移語が1 or 3になる組み合わせ
 		previous = current;
-		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(P0X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(P1X==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(P0X)-std::log(P1X);
 		++i;
-		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(PX0==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(PX0)-std::log(PX1);
 		++i;
 	}
@@ -145,12 +145,12 @@ auto differential<0x27>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code
 		for(auto j=0ui8; j<4; ++j) PX0 += previous[j] * (current[j] + current[j+3]); //下位ビットが0: 遷移語が0 or 3になる組み合わせ
 		for(auto j=0ui8; j<4; ++j) PX1 += previous[j] * (current[j+1] + current[j+2]); //下位ビットが1: 遷移語が1 or 2になる組み合わせ
 		previous = current;
-		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(P0X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(P1X==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(P0X)-std::log(P1X);
 		++i;
-		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(PX0==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(PX0)-std::log(PX1);
 		++i;
 	}
@@ -180,12 +180,12 @@ auto convert<ATGC>::nttype_to_binary_p(const std::array<nucleotide_p<ATGC,T>,S> 
 	std::array<T,S*2> LLR;
 	for(std::size_t i=0; const auto &j: source){
 		auto PX0 = j[0]+j[2], PX1 = j[1]+j[3], P0X = j[0]+j[1], P1X = j[2]+j[3];
-		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(P0X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(P1X==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(P0X)-std::log(P1X);
 		++i;
-		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(PX0==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(PX0)-std::log(PX1);
 		++i;
 	}
