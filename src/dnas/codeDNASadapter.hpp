@@ -9,13 +9,12 @@
 
 namespace code::DNAS {
 
-template<std::uint8_t ATGC>
 struct differential {
-	template<std::size_t S>
+	template<std::uint8_t ATGC, std::size_t S>
 	static auto encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state = 0);
-	template<std::size_t S>
+	template<std::uint8_t ATGC, std::size_t S>
 	static auto decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state = 0);
-	template<std::floating_point T, std::size_t S>
+	template<std::uint8_t ATGC, std::floating_point T, std::size_t S>
 	static auto decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state = {1,0,0,0});
 };
 
@@ -51,9 +50,8 @@ public:
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::uint8_t ATGC>
-template<std::size_t S>
-auto differential<ATGC>::encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
+template<std::uint8_t ATGC, std::size_t S>
+auto differential::encode(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> initial_state){
 	std::array<nucleotide_t<ATGC>,S> code;
 	nucleotide_t current_state = initial_state;
 
@@ -64,9 +62,8 @@ auto differential<ATGC>::encode(const std::array<nucleotide_t<ATGC>,S> &source, 
 	return code;
 }
 
-template<std::uint8_t ATGC>
-template<std::size_t S>
-auto differential<ATGC>::decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state){
+template<std::uint8_t ATGC, std::size_t S>
+auto differential::decode(const std::array<nucleotide_t<ATGC>,S> &code, nucleotide_t<ATGC> initial_state){
 	std::array<nucleotide_t<ATGC>,S> decode;
 	nucleotide_t prev = initial_state;
 
@@ -77,9 +74,8 @@ auto differential<ATGC>::decode(const std::array<nucleotide_t<ATGC>,S> &code, nu
 	return decode;
 }
 
-template<std::uint8_t ATGC>
-template<std::floating_point T ,std::size_t S>
-auto differential<ATGC>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state){
+template<std::uint8_t ATGC, std::floating_point T ,std::size_t S>
+auto differential::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &code, nucleotide_p<ATGC,T> initial_state){
 	std::array<nucleotide_p<ATGC,T>,S> decode;
 	auto previous = initial_state;
 
