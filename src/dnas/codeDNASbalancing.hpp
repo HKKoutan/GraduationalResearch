@@ -392,41 +392,42 @@ constexpr auto DivisionBalancingDistribution(){
 template<>
 constexpr auto DivisionBalancingDistribution<16,0>(){
 	constexpr float sum = 65536.f;
-	constexpr float bias = 1.f;
 	return std::array{
-		19734.f/sum*bias,
-		11286.f/sum*bias,
-		8598.f/sum*bias,
-		7030.f/sum*bias,
-		5910.f/sum*bias,
-		5014.f/sum*bias,
-		4246.f/sum*bias,
-		3718.f/sum*bias,
-		12870.f/sum*bias,
-		12870.f/sum*bias,
-		9438.f/sum*bias,
-		7590.f/sum*bias,
-		6330.f/sum*bias,
-		5350.f/sum*bias,
-		4510.f/sum*bias,
-		3718.f/sum*bias,
-		2860.f/sum*bias
+		19734.f/sum,
+		11286.f/sum,
+		8598.f/sum,
+		7030.f/sum,
+		5910.f/sum,
+		5014.f/sum,
+		4246.f/sum,
+		3718.f/sum,
+		12870.f/sum,
+		12870.f/sum,
+		9438.f/sum,
+		7590.f/sum,
+		6330.f/sum,
+		5350.f/sum,
+		4510.f/sum,
+		3718.f/sum,
+		2860.f/sum
 	};
 }
 
-// template<>
-// constexpr auto DivisionBalancingCumlativeDistribution<8,0>(){
-// 	return std::array{
-// 		110.f/256.f,
-// 		172.f/256.f,
-// 		218.f/256.f,
-// 		256.f/256.f,
-// 		186.f/256.f,
-// 		116.f/256.f,
-// 		66.f/256.f,
-// 		28.f/256.f
-// 	};
-// }
+template<>
+constexpr auto DivisionBalancingDistribution<8,0>(){
+	constexpr float sum = 256.f;
+	return std::array{
+		110.f/sum,
+		62.f/sum,
+		46.f/sum,
+		38.f/sum,
+		70.f/sum,
+		70.f/sum,
+		50.f/sum,
+		38.f/sum,
+		28.f/sum
+	};
+}
 
 template<std::size_t BS, std::uint8_t FLAG>
 constexpr auto DivisionBalancingDistribution(double tolerance){
@@ -436,29 +437,47 @@ constexpr auto DivisionBalancingDistribution(double tolerance){
 template<>
 constexpr auto DivisionBalancingDistribution<16,2>(double tolerance){
 	constexpr float sum = 65536.f;
-	constexpr float bias = 1.f;
 	if(tolerance == 0) return DivisionBalancingDistribution<16,0>();
 	if(tolerance == 0.125){
 		return std::array{
-			11866.f/sum*bias,
-			820.f/sum*bias,
-			520.f/sum*bias,
-			320.f/sum*bias,
-			176.f/sum*bias,
-			68.f/sum*bias,
-			0.f/sum*bias,
-			0.f/sum*bias,
-			10802.f/sum*bias,
-			1204.f/sum*bias,
-			760.f/sum*bias,
-			480.f/sum*bias,
-			296.f/sum*bias,
-			164.f/sum*bias,
-			64.f/sum*bias,
-			0.f/sum*bias,
-			0.f/sum*bias
+			11866.f/sum,
+			820.f/sum,
+			520.f/sum,
+			320.f/sum,
+			176.f/sum,
+			68.f/sum,
+			0.f/sum,
+			0.f/sum,
+			10802.f/sum,
+			1204.f/sum,
+			760.f/sum,
+			480.f/sum,
+			296.f/sum,
+			164.f/sum,
+			64.f/sum,
+			0.f/sum,
+			0.f/sum
 		};
 	}else return std::array<float,17>{};
+}
+
+template<>
+constexpr auto DivisionBalancingDistribution<8,2>(double tolerance){
+	constexpr float sum = 256.f;
+	if(tolerance == 0) return DivisionBalancingDistribution<8,2>();
+	if(tolerance == 0.125){
+		return std::array{
+			62.f/sum,
+			8.f/sum,
+			4.f/sum,
+			0.f/sum,
+			50.f/sum,
+			12.f/sum,
+			8.f/sum,
+			4.f/sum,
+			0.f/sum
+		};
+	}else return std::array<float,9>{};
 }
 
 }
