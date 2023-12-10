@@ -29,18 +29,19 @@ namespace {
 template<std::size_t BS>
 class DivisionBalancing<0x1B,BS,0> {
 	static constexpr std::uint8_t ATGC = 0x1B;
-	static constexpr std::array<float,BS> dist = DivisionBalancingDistribution<BS>();
+	static constexpr std::array<float,BS+1> dist = DivisionBalancingDistribution<BS>();
 public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source);
 	template<std::floating_point T, std::size_t S>
-	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source);
+	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, T prev=0);
 };
 
 template<std::size_t BS>
 class DivisionBalancing<0x27,BS,1> {
 	static constexpr std::uint8_t ATGC = 0x27;
-	static constexpr std::array<float,BS> dist = DivisionBalancingDistribution<BS>();
+	static constexpr auto dist_init();
+	static constexpr std::array<std::array<float,4>,BS> dist = dist_init();
 public:
 	template<std::size_t S>
 	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> diff_init = 0);
@@ -157,18 +158,21 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
+auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &differential, T prev){
 	constexpr std::size_t blocksize = BS==0?S:BS;
-	std::array<nucleotide_p<ATGC,T>,S> result = source;
-	for(std::size_t i=0, iend=S/blocksize; i<iend; ++i){
-		for(std::size_t j=0; j<blocksize; ++j){
-			const auto ij = i*blocksize+j;
-			const auto &sj = source[ij];
-			auto &rj = result[ij];
-			for(auto k=0ui8; k<4; ++k) rj[k] += (sj[k+2]-sj[k])*dist[j]*0.08f;
+	std::array<nucleotide_p<ATGC,T>,S> result = differential;
+	for(std::size_t i=0; i<S; ++i){
+		auto j = i%blocksize;
+		const auto &di = differential[i];
+		auto &ri = result[i];
+		T prob = dist[j];
+		if(j==0){
+			prob -= prev;
+			prev = dist[blocksize];
 		}
+		for(auto k=0ui8; k<4; ++k) ri[k] += (di[k+2]-di[k])*prob;
 	}
-	return result;
+	return std::make_pair(result, prev);
 }
 
 template<std::size_t BS>
@@ -226,34 +230,34 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 	return balanced;
 }
 
-template<std::size_t BS>
-template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
-	constexpr std::size_t block_size = BS==0?S:BS;
-	constexpr std::size_t div_size = block_size>>1;
-	constexpr T divprob = static_cast<T>(1/static_cast<double>(div_size));
-	constexpr T b1p = static_cast<T>(7.0/8.0);
-	constexpr T b3p = 1-b1p;
-	auto result = source;
-	for(std::size_t i=0, iend=S/block_size; i<iend; ++i){
-		section block(i*block_size, block_size);
-		T secprob = 0;
-		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j){
-			const auto &sj = source[j];
-			auto &rj = result[j];
-			secprob += divprob;
-			for(auto k=0ui8; k<4; ++k) rj[k] += (sj[k+1]*b1p+sj[k+3]*b3p-sj[k])*secprob;
-		}
-		secprob += divprob/2;
-		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j){
-			const auto &sj = source[j];
-			auto &rj = result[j];
-			secprob -= divprob;
-			for(auto k=0ui8; k<4; ++k) rj[k] += (sj[k+1]*b1p+sj[k+3]*b3p-sj[k])*secprob;
-		}
-	}
-	return result;
-}
+// template<std::size_t BS>
+// template<std::floating_point T, std::size_t S>
+// auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source){
+// 	constexpr std::size_t block_size = BS==0?S:BS;
+// 	constexpr std::size_t div_size = block_size>>1;
+// 	constexpr T divprob = static_cast<T>(1/static_cast<double>(div_size));
+// 	constexpr T b1p = static_cast<T>(7.0/8.0);
+// 	constexpr T b3p = 1-b1p;
+// 	auto result = source;
+// 	for(std::size_t i=0, iend=S/block_size; i<iend; ++i){
+// 		section block(i*block_size, block_size);
+// 		T secprob = 0;
+// 		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j){
+// 			const auto &sj = source[j];
+// 			auto &rj = result[j];
+// 			secprob += divprob;
+// 			for(auto k=0ui8; k<4; ++k) rj[k] += (sj[k+1]*b1p+sj[k+3]*b3p-sj[k])*secprob;
+// 		}
+// 		secprob += divprob/2;
+// 		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j){
+// 			const auto &sj = source[j];
+// 			auto &rj = result[j];
+// 			secprob -= divprob;
+// 			for(auto k=0ui8; k<4; ++k) rj[k] += (sj[k+1]*b1p+sj[k+3]*b3p-sj[k])*secprob;
+// 		}
+// 	}
+// 	return result;
+// }
 
 // template<std::size_t BS>
 // template<std::size_t S>
@@ -401,60 +405,77 @@ namespace {
 
 template<std::size_t BS>
 constexpr auto DivisionBalancingDistribution(){
-	return std::array<float,BS>{};
+	return std::array<float,BS+1>{};
 }
 
 template<>
 constexpr auto DivisionBalancingDistribution<16>(){
+	constexpr float sum = 65536.f;
+	constexpr float bias = 1.f;
 	return std::array{
-		19734.f/65536.f,
-		31020.f/65536.f,
-		39618.f/65536.f,
-		46648.f/65536.f,
-		52558.f/65536.f,
-		57572.f/65536.f,
-		61818.f/65536.f,
-		65536.f/65536.f,
-		52666.f/65536.f,
-		39796.f/65536.f,
-		30358.f/65536.f,
-		22768.f/65536.f,
-		16438.f/65536.f,
-		11088.f/65536.f,
-		6578.f/65536.f,
-		2860.f/65536.f
+		19734.f/sum*bias,
+		11286.f/sum*bias,
+		8598.f/sum*bias,
+		7030.f/sum*bias,
+		5910.f/sum*bias,
+		5014.f/sum*bias,
+		4246.f/sum*bias,
+		3718.f/sum*bias,
+		12870.f/sum*bias,
+		12870.f/sum*bias,
+		9438.f/sum*bias,
+		7590.f/sum*bias,
+		6330.f/sum*bias,
+		5350.f/sum*bias,
+		4510.f/sum*bias,
+		3718.f/sum*bias,
+		2860.f/sum*bias
 	};
 }
+
+// template<>
+// constexpr auto DivisionBalancingCumlativeDistribution<8>(){
+// 	return std::array{
+// 		110.f/256.f,
+// 		172.f/256.f,
+// 		218.f/256.f,
+// 		256.f/256.f,
+// 		186.f/256.f,
+// 		116.f/256.f,
+// 		66.f/256.f,
+// 		28.f/256.f
+// 	};
+// }
 
 template<std::size_t BS>
 constexpr auto DivisionBalancingDistribution(double tolerance){
 	return std::array<float,BS>{};
 }
 
-template<>
-constexpr auto DivisionBalancingDistribution<16>(double tolerance){
-	if(tolerance == 0) return DivisionBalancingDistribution<16>();
-	if(tolerance == 0.125){
-		return std::array{
-			11866.f/65536.f,
-			12686.f/65536.f,
-			13206.f/65536.f,
-			13526.f/65536.f,
-			13702.f/65536.f,
-			13770.f/65536.f,
-			13770.f/65536.f,
-			13770.f/65536.f,
-			2968.f/65536.f,
-			1764.f/65536.f,
-			1004.f/65536.f,
-			524.f/65536.f,
-			228.f/65536.f,
-			64.f/65536.f,
-			0.f/65536.f,
-			0.f/65536.f
-		};
-	}
-}
+// template<>
+// constexpr auto DivisionBalancingDistribution<16>(double tolerance){
+// 	if(tolerance == 0) return DivisionBalancingDistribution<16>();
+// 	if(tolerance == 0.125){
+// 		return std::array{
+// 			11866.f/65536.f,
+// 			12686.f/65536.f,
+// 			13206.f/65536.f,
+// 			13526.f/65536.f,
+// 			13702.f/65536.f,
+// 			13770.f/65536.f,
+// 			13770.f/65536.f,
+// 			13770.f/65536.f,
+// 			2968.f/65536.f,
+// 			1764.f/65536.f,
+// 			1004.f/65536.f,
+// 			524.f/65536.f,
+// 			228.f/65536.f,
+// 			64.f/65536.f,
+// 			0.f/65536.f,
+// 			0.f/65536.f
+// 		};
+// 	}
+// }
 
 }
 
