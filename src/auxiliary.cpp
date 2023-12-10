@@ -38,7 +38,7 @@ int main(){
 						++pos;
 					}
 				}else{
-					for(std::size_t k=0, kend=1; k<kend; ++k){
+					for(std::size_t k=0, kend=qty1div>qty1block?qty1div-qty1block:qty1block-qty1div; k<kend; ++k){
 						assert(pos<LENGTH);
 						qty1div -= series.test(pos>>1);
 						qty1div += series.test((pos+LENGTH)>>1);

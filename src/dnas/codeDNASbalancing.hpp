@@ -4,9 +4,7 @@
 #include <array>
 #include <bitset>
 #include <cmath>
-// #include <limits>
 #include <cassert>
-// #include <stdexcept>
 #include "DNASnttype.hpp"
 
 namespace code::DNAS {
@@ -136,20 +134,20 @@ auto DivisionBalancing<0x1B,BS,0>::balance(const std::array<nucleotide_t<ATGC>,S
 
 	for(std::size_t i=0, iend=S/blocksize; i<iend; ++i){
 		section block(i*blocksize, blocksize);
-		std::uint64_t qtyATblock=0, qtyATdiv, stride;
+		std::uint64_t qtyATblock=0, qtyATdiv, qtyATdivwide;
 
 		for(std::size_t j=block.head, jend=block.head+divsize; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyATdiv = qtyATblock<<1;
 		for(std::size_t j=block.head+divsize, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
 
 		section div(block.head<<1, blocksize);
-		stride = qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv;
-		while(stride>0){
-			for(std::size_t k=0; k<stride; ++k){
+		qtyATdivwide = qtyATdiv;
+		while(qtyATdivwide!=qtyATblock){
+			for(std::size_t k=0, kend=qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv; k<kend; ++k){
 				qtyATdiv += source[(div.tail++)>>1].is_AT();
 				qtyATdiv -= source[(div.head++)>>1].is_AT();
 			}
-			stride = qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv;
+			qtyATdivwide = qtyATdiv + (source[div.tail>>1].is_AT()+source[div.head>>1].is_AT()-1)*(div.head&1);
 		}
 		for(std::size_t j=div.head>>1, jend=(div.tail+1)>>1; j<jend; ++j) balanced[j]+=2;
 	}
@@ -175,81 +173,81 @@ auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,
 	return std::make_pair(result, prev);
 }
 
-template<std::size_t BS>
-template<std::size_t S>
-auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> diff_init){
-	constexpr std::size_t block_size = BS==0?S:BS;
-	constexpr std::size_t div_size = block_size>>1;
-	static_assert(block_size%2==0&&S%block_size==0);
-	auto balanced = source;
-	auto diff = diff_init;
+// template<std::size_t BS>
+// template<std::size_t S>
+// auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> diff_init){
+// 	constexpr std::size_t block_size = BS==0?S:BS;
+// 	constexpr std::size_t div_size = block_size>>1;
+// 	static_assert(block_size%2==0&&S%block_size==0);
+// 	auto balanced = source;
+// 	auto diff = diff_init;
 
-	for(std::size_t i=0; i<S/block_size; ++i){
-		section block(i*block_size, block_size);
-		std::uint64_t qtyATblock=0, qtyATdiv, qtyAThalf;
+// 	for(std::size_t i=0; i<S/block_size; ++i){
+// 		section block(i*block_size, block_size);
+// 		std::uint64_t qtyATblock=0, qtyATdiv, qtyAThalf;
 
-		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
-		qtyATdiv = qtyATblock;
-		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
-		qtyAThalf = qtyATblock>>1;
+// 		for(std::size_t j=block.head, jend=block.head+div_size; j<jend; ++j) qtyATblock += source[j].is_AT();
+// 		qtyATdiv = qtyATblock;
+// 		for(std::size_t j=block.head+div_size, jend=block.tail; j<jend; ++j) qtyATblock += source[j].is_AT();
+// 		qtyAThalf = qtyATblock>>1;
 
-		section div(block.head, div_size);
-		std::pair<nucleotide_t<ATGC>,nucleotide_t<ATGC>> change = {1,(diff==0?3:1)};
-		//奇数の場合の処理
-		if(qtyATblock&1){
-			qtyATdiv += source[div.tail++].is_AT();
-			++qtyAThalf;
-		}
-		//分割区間を探す
-		while(div.tail<block.tail && qtyATdiv!=qtyAThalf){
-			qtyATdiv += source[div.tail++].is_AT();
-			qtyATdiv -= source[div.head++].is_AT();
-		}
-		//分割位置の連長を調べる
-		if(div.head!=0&&source[div.head-1]==source[div.head]+1){
-			section run(div.head-1, 2);
-			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
-			while(run.tail!=source.size()&&source[run.tail-1]==source[run.tail]) ++run.tail;
-			if(run.size()>3){
-				change.first += 2;
-				change.second += 2;
-			}
-		}
-		if(div.tail!=source.size()&&source[div.tail-1]==source[div.tail]+change.second){
-			section run(div.tail-1, 2);
-			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
-			while(run.tail!=source.size()&&source[run.tail-1]==source[run.tail]) ++run.tail;
-			if(run.size()>3) change.second += 2;
-		}
-		//適用
-		for(std::size_t j=block.head; j<div.head; ++j) balanced[j]+=diff;
-		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=diff+change.first;
-		diff += change.first+change.second;
-		for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j]+=diff;
-	}
-	return balanced;
-}
+// 		section div(block.head, div_size);
+// 		std::pair<nucleotide_t<ATGC>,nucleotide_t<ATGC>> change = {1,(diff==0?3:1)};
+// 		//奇数の場合の処理
+// 		if(qtyATblock&1){
+// 			qtyATdiv += source[div.tail++].is_AT();
+// 			++qtyAThalf;
+// 		}
+// 		//分割区間を探す
+// 		while(div.tail<block.tail && qtyATdiv!=qtyAThalf){
+// 			qtyATdiv += source[div.tail++].is_AT();
+// 			qtyATdiv -= source[div.head++].is_AT();
+// 		}
+// 		//分割位置の連長を調べる
+// 		if(div.head!=0&&source[div.head-1]==source[div.head]+1){
+// 			section run(div.head-1, 2);
+// 			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
+// 			while(run.tail!=source.size()&&source[run.tail-1]==source[run.tail]) ++run.tail;
+// 			if(run.size()>3){
+// 				change.first += 2;
+// 				change.second += 2;
+// 			}
+// 		}
+// 		if(div.tail!=source.size()&&source[div.tail-1]==source[div.tail]+change.second){
+// 			section run(div.tail-1, 2);
+// 			while(run.head!=0&&source[run.head-1]==source[run.head]) --run.head;
+// 			while(run.tail!=source.size()&&source[run.tail-1]==source[run.tail]) ++run.tail;
+// 			if(run.size()>3) change.second += 2;
+// 		}
+// 		//適用
+// 		for(std::size_t j=block.head; j<div.head; ++j) balanced[j]+=diff;
+// 		for(std::size_t j=div.head; j<div.tail; ++j) balanced[j]+=diff+change.first;
+// 		diff += change.first+change.second;
+// 		for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j]+=diff;
+// 	}
+// 	return balanced;
+// }
 
-template<std::size_t BS>
-template<std::floating_point T, std::size_t S>
-auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &differential, T prev){
-	constexpr std::size_t blocksize = BS==0?S:BS;
-	constexpr T b1p = static_cast<T>(7.0/8.0);
-	constexpr T b3p = 1-b1p;
-	std::array<nucleotide_p<ATGC,T>,S> result = differential;
-	for(std::size_t i=0; i<S; ++i){
-		auto j = i%blocksize;
-		const auto &di = differential[i];
-		auto &ri = result[i];
-		T prob = dist[j];
-		if(j==0){
-			prob -= prev;
-			prev = dist[blocksize];
-		}
-		for(auto k=0ui8; k<4; ++k) ri[k] += (di[k+1]*b1p+di[k+3]*b3p-di[k])*prob;
-	}
-	return std::make_pair(result, prev);
-}
+// template<std::size_t BS>
+// template<std::floating_point T, std::size_t S>
+// auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &differential, T prev){
+// 	constexpr std::size_t blocksize = BS==0?S:BS;
+// 	constexpr T b1p = static_cast<T>(7.0/8.0);
+// 	constexpr T b3p = 1-b1p;
+// 	std::array<nucleotide_p<ATGC,T>,S> result = differential;
+// 	for(std::size_t i=0; i<S; ++i){
+// 		auto j = i%blocksize;
+// 		const auto &di = differential[i];
+// 		auto &ri = result[i];
+// 		T prob = dist[j];
+// 		if(j==0){
+// 			prob -= prev;
+// 			prev = dist[blocksize];
+// 		}
+// 		for(auto k=0ui8; k<4; ++k) ri[k] += (di[k+1]*b1p+di[k+3]*b3p-di[k])*prob;
+// 	}
+// 	return std::make_pair(result, prev);
+// }
 
 template<std::size_t BS>
 template<std::size_t S>
@@ -264,7 +262,7 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 
 	for(std::size_t i=0, iend=S/blocksize; i<iend; ++i){
 		section block(i*blocksize, blocksize);
-		std::uint64_t qtyATblock=0, qtyATdiv, stride;
+		std::uint64_t qtyATblock=0, qtyATdiv, qtyATdivwide, stride;
 
 		for(std::size_t j=block.head, jend=block.head+divsize; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyATdiv = qtyATblock<<1;
@@ -274,11 +272,12 @@ auto DivisionBalancing<0x1B,BS,2>::balance(const std::array<nucleotide_t<ATGC>,S
 			section div(block.head<<1, blocksize);
 			stride = qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv;
 			while(stride>qtytolerance){
-				for(std::size_t k=0; k<stride; ++k){
+				for(std::size_t k=0, kend=qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv; k<kend; ++k){
 					qtyATdiv += source[(div.tail++)>>1].is_AT();
 					qtyATdiv -= source[(div.head++)>>1].is_AT();
 				}
-				stride = qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv;
+				qtyATdivwide = qtyATdiv + (source[div.tail>>1].is_AT()+source[div.head>>1].is_AT()-1)*(div.head&1);
+				stride = qtyATdivwide>qtyATblock?qtyATdivwide-qtyATblock:qtyATblock-qtyATdivwide;
 			}
 			for(std::size_t j=div.head>>1, jend=(div.tail+1)>>1; j<jend; ++j) balanced[j]+=2;
 		}
@@ -319,7 +318,7 @@ auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S
 
 	for(std::size_t i=0, iend=S/blocksize; i<iend; ++i){
 		section block(i*blocksize, blocksize);
-		std::uint64_t qtyATblock=0, qtyATdiv, stride;
+		std::uint64_t qtyATblock=0, qtyATdiv, qtyATdivwide, stride;
 
 		for(std::size_t j=block.head, jend=block.head+divsize; j<jend; ++j) qtyATblock += source[j].is_AT();
 		qtyATdiv = qtyATblock<<1;
@@ -329,15 +328,19 @@ auto DivisionBalancing<0x1B,BS,6>::balance(const std::array<nucleotide_t<ATGC>,S
 			section div(block.head<<1, blocksize);
 			stride = qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv;
 			while(stride>qtytolerance){
-				assert(div.tail<block.tail);
 				for(std::size_t k=0; k<pitch; ++k){
 					qtyATdiv += source[(div.tail++)>>1].is_AT();
 					qtyATdiv -= source[(div.head++)>>1].is_AT();
 				}
-				stride = qtyATdiv>qtyATblock?qtyATdiv-qtyATblock:qtyATblock-qtyATdiv;
+				qtyATdivwide = qtyATdiv + (source[div.tail>>1].is_AT()+source[div.head>>1].is_AT()-1)*(div.head&1);
+				stride = qtyATdivwide>qtyATblock?qtyATdivwide-qtyATblock:qtyATblock-qtyATdivwide;
 			}
 			for(std::size_t j=div.head>>1, jend=(div.tail+1)>>1; j<jend; ++j) balanced[j]+=2;
 		}
+
+		std::uint64_t qtyATblock2=0;
+		for(std::size_t j=block.head, jend=block.tail; j<jend; ++j) qtyATblock2 += balanced[j].is_AT();
+		assert(qtyATblock2<=qtyhalfhigh&&qtyATblock2>=qtyhalflow);
 	}
 	return balanced;
 }
