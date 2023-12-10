@@ -49,18 +49,10 @@ public:
 	nucleotide_p(): likelihood{}{}
 	nucleotide_p(T i0, T i1, T i2, T i3): likelihood(i0,i1,i2,i3){}
 	void operator=(std::initializer_list<T> &&rhs){likelihood = rhs;}
-	auto &lhA(){return likelihood[nA];}//likelihood of nucleotide A
-	auto &lhT(){return likelihood[nT];}//likelihood of nucleotide T
-	auto &lhG(){return likelihood[nG];}//likelihood of nucleotide G
-	auto &lhC(){return likelihood[nC];}//likelihood of nucleotide C
-	auto &operator[](nucleotide_t<ATGC> i){return likelihood[i.val];}//likelihood of i
-	auto &operator[](std::uint8_t i){return likelihood[i&3ui8];}//likelihood of i
-	const auto &lhA() const{return likelihood[nA];}//likelihood of nucleotide A
-	const auto &lhT() const{return likelihood[nT];}//likelihood of nucleotide T
-	const auto &lhG() const{return likelihood[nG];}//likelihood of nucleotide G
-	const auto &lhC() const{return likelihood[nC];}//likelihood of nucleotide C
-	const auto &operator[](nucleotide_t<ATGC> i) const{return likelihood[i.val];}//likelihood of i
-	const auto &operator[](std::uint8_t i) const{return likelihood[i&3ui8];}//likelihood of i
+	auto &operator[](nucleotide_t<ATGC> i){return likelihood[i];}
+	auto &operator[](std::uint8_t i){return likelihood[i&3ui8];}
+	const auto &operator[](nucleotide_t<ATGC> i) const{return likelihood[i];}
+	const auto &operator[](std::uint8_t i) const{return likelihood[i&3ui8];}
 };
 
 struct section{
