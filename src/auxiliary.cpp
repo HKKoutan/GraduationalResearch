@@ -4,8 +4,9 @@
 #include <cstdint>
 #include <cassert>
 
-constexpr std::size_t LENGTH = 16;
-constexpr double TOLERANCE = 0;
+constexpr std::size_t LENGTH = 8;
+constexpr double TOLERANCE = 0.125;
+constexpr bool PITCH = true;
 
 int main(){
 	constexpr std::size_t divsize = LENGTH>>1;
@@ -30,10 +31,18 @@ int main(){
 			std::uint64_t stride = qty1div>qty1block?qty1div-qty1block:qty1block-qty1div;
 			while(stride>qtytolerance){
 				assert(pos<LENGTH);
-				for(std::size_t k=0, kend=stride-qtytolerance; k<kend; ++k){
-					qty1div -= series.test(pos>>1);
-					qty1div += series.test((pos+LENGTH)>>1);
-					++pos;
+				if constexpr(PITCH){
+					for(std::size_t k=0, kend=qtytolerance*2+1; k<kend; ++k){
+						qty1div -= series.test(pos>>1);
+						qty1div += series.test((pos+LENGTH)>>1);
+						++pos;
+					}
+				}else{
+					for(std::size_t k=0, kend=stride-qtytolerance; k<kend; ++k){
+						qty1div -= series.test(pos>>1);
+						qty1div += series.test((pos+LENGTH)>>1);
+						++pos;
+					}
 				}
 				stride = qty1div>qty1block?qty1div-qty1block:qty1block-qty1div;
 			}
@@ -48,4 +57,6 @@ int main(){
 	std::cout<<std::endl;
 	for(auto i: dist) std::cout<<i<<"\t";
 	std::cout<<std::endl;
+
+	
 }
