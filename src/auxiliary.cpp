@@ -4,9 +4,9 @@
 #include <cstdint>
 #include <cassert>
 
-constexpr std::size_t LENGTH = 8;
-constexpr double TOLERANCE = 0.125;
-constexpr bool PITCH = true;
+constexpr std::size_t LENGTH = 16;
+constexpr double TOLERANCE = 0;
+constexpr bool PITCH = false;
 
 int main(){
 	constexpr std::size_t divsize = LENGTH>>1;
@@ -30,21 +30,23 @@ int main(){
 			std::uint64_t qty1div = half.count()<<1;
 			std::uint64_t stride = qty1div>qty1block?qty1div-qty1block:qty1block-qty1div;
 			while(stride>qtytolerance){
-				assert(pos<LENGTH);
 				if constexpr(PITCH){
 					for(std::size_t k=0, kend=qtytolerance*2+1; k<kend; ++k){
+						assert(pos<LENGTH);
 						qty1div -= series.test(pos>>1);
 						qty1div += series.test((pos+LENGTH)>>1);
 						++pos;
 					}
 				}else{
-					for(std::size_t k=0, kend=stride-qtytolerance; k<kend; ++k){
+					for(std::size_t k=0, kend=1; k<kend; ++k){
+						assert(pos<LENGTH);
 						qty1div -= series.test(pos>>1);
 						qty1div += series.test((pos+LENGTH)>>1);
 						++pos;
 					}
 				}
-				stride = qty1div>qty1block?qty1div-qty1block:qty1block-qty1div;
+				std::uint64_t qty1divwide = qty1div + (series.test(pos>>1)+series.test((pos+LENGTH)>>1)-1)*(pos&1);
+				stride = qty1divwide>qty1block?qty1divwide-qty1block:qty1block-qty1divwide;
 			}
 			++count[pos];
 			for(std::size_t j=pos>>1, jend=(pos+LENGTH+1)>>1; j<jend; ++j) ++dist[j];
