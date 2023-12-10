@@ -28,7 +28,7 @@ public:
 
 	template<std::size_t L>
 	auto noise(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in);
-	template<std::floating_point T=double, std::size_t L>
+	template<std::floating_point T=float, std::size_t L>
 	auto likelihood(const std::array<code::DNAS::nucleotide_t<ATGC>,L> &in);
 
 	// template<std::size_t S, std::size_t R>

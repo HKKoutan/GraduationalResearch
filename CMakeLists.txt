@@ -34,6 +34,8 @@ add_subdirectory(src/ldpcidec)
 
 target_link_libraries(ldpcidec PRIVATE ldpc idec)
 
+add_executable(aux ${PROJECT_SOURCE_DIR}/src/auxiliary.cpp)
+
 add_executable(awgn ${PROJECT_SOURCE_DIR}/src/mainawgn.cpp)
 add_executable(mids ${PROJECT_SOURCE_DIR}/src/mainmids.cpp)
 add_executable(lids ${PROJECT_SOURCE_DIR}/src/mainlids.cpp)

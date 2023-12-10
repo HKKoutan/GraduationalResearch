@@ -349,12 +349,12 @@ auto modifiedVLRLL<0x1B>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &cod
 		for(auto j=0ui8; j<4; ++j) PX0 += previous[j] * (current[j+1] + p3_to_10*current[j+3]); //下位ビットが0: 遷移語が1 or 3(*p3_to_10)になる組み合わせ
 		for(auto j=0ui8; j<4; ++j) PX1 += previous[j] * (current[j] + current[j+2] + p3_to_11*current[j+3]); //下位ビットが1: 遷移語が0 or 2 or 3(*p3_to_11)になる組み合わせ
 		previous = current;
-		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(P0X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(P1X==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(P0X)-std::log(P1X);
 		++i;
-		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(PX0==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(PX0)-std::log(PX1);
 		++i;
 	}
@@ -455,12 +455,12 @@ auto modifiedVLRLL<0x27>::decode_p(const std::array<nucleotide_p<ATGC,T>,S> &sou
 		for(auto j=0ui8; j<4; ++j) PX0 += previous[j] * (current[j+2] + p3_to_10*current[j+3]); //下位ビットが0: 遷移語が2 or 3(*p3_to_10)になる組み合わせ
 		for(auto j=0ui8; j<4; ++j) PX1 += previous[j] * (current[j] + current[j+1] + p3_to_11*current[j+3]); //下位ビットが1: 遷移語が0 or 1 or 3(*p3_to_11)になる組み合わせ
 		previous = current;
-		if(P0X==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(P1X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(P0X==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(P1X==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(P0X)-std::log(P1X);
 		++i;
-		if(PX0==0) LLR[i] = std::numeric_limits<T>::infinity();
-		else if(PX1==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		if(PX0==0) LLR[i] = -std::numeric_limits<T>::infinity();
+		else if(PX1==0) LLR[i] = std::numeric_limits<T>::infinity();
 		else LLR[i] = std::log(PX0)-std::log(PX1);
 		++i;
 	}
