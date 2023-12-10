@@ -380,23 +380,23 @@ template<>
 constexpr auto DivisionBalancingDistribution<16,0>(){
 	constexpr float sum = 65536.f;
 	return std::array{
-		19734.f/sum,
-		11286.f/sum,
-		8598.f/sum,
-		7030.f/sum,
-		5910.f/sum,
-		5014.f/sum,
-		4246.f/sum,
-		3718.f/sum,
+		25740.f/sum,
+		12012.f/sum,
+		8316.f/sum,
+		6300.f/sum,
+		4900.f/sum,
+		3780.f/sum,
+		2772.f/sum,
+		1716.f/sum,
 		12870.f/sum,
-		12870.f/sum,
-		9438.f/sum,
-		7590.f/sum,
-		6330.f/sum,
-		5350.f/sum,
-		4510.f/sum,
-		3718.f/sum,
-		2860.f/sum
+		18876.f/sum,
+		10164.f/sum,
+		7308.f/sum,
+		5600.f/sum,
+		4340.f/sum,
+		3276.f/sum,
+		2244.f/sum,
+		858.f/sum
 	};
 }
 
@@ -404,15 +404,15 @@ template<>
 constexpr auto DivisionBalancingDistribution<8,0>(){
 	constexpr float sum = 256.f;
 	return std::array{
-		110.f/sum,
-		62.f/sum,
-		46.f/sum,
-		38.f/sum,
+		140.f/sum,
+		60.f/sum,
+		36.f/sum,
+		20.f/sum,
 		70.f/sum,
-		70.f/sum,
-		50.f/sum,
-		38.f/sum,
-		28.f/sum
+		100.f/sum,
+		48.f/sum,
+		28.f/sum,
+		10.f/sum
 	};
 }
 
@@ -427,21 +427,21 @@ constexpr auto DivisionBalancingDistribution<16,2>(double tolerance){
 	if(tolerance == 0) return DivisionBalancingDistribution<16,0>();
 	if(tolerance == 0.125){
 		return std::array{
-			11866.f/sum,
-			820.f/sum,
-			520.f/sum,
-			320.f/sum,
-			176.f/sum,
-			68.f/sum,
+			12496.f/sum,
+			630.f/sum,
+			350.f/sum,
+			182.f/sum,
+			84.f/sum,
+			28.f/sum,
 			0.f/sum,
 			0.f/sum,
 			10802.f/sum,
-			1204.f/sum,
-			760.f/sum,
-			480.f/sum,
-			296.f/sum,
-			164.f/sum,
-			64.f/sum,
+			1834.f/sum,
+			570.f/sum,
+			310.f/sum,
+			158.f/sum,
+			72.f/sum,
+			24.f/sum,
 			0.f/sum,
 			0.f/sum
 		};
@@ -454,14 +454,14 @@ constexpr auto DivisionBalancingDistribution<8,2>(double tolerance){
 	if(tolerance == 0) return DivisionBalancingDistribution<8,2>();
 	if(tolerance == 0.125){
 		return std::array{
-			62.f/sum,
-			8.f/sum,
+			68.f/sum,
 			4.f/sum,
+			2.f/sum,
 			0.f/sum,
 			50.f/sum,
-			12.f/sum,
-			8.f/sum,
+			18.f/sum,
 			4.f/sum,
+			2.f/sum,
 			0.f/sum
 		};
 	}else return std::array<float,9>{};
@@ -475,21 +475,21 @@ constexpr auto DivisionBalancingDistribution<16,6>(double tolerance){
 		return std::array{
 			10802.f/sum,
 			0.f/sum,
-			2364.f/sum,
+			2514.f/sum,
 			0.f/sum,
 			0.f/sum,
-			532.f/sum,
+			402.f/sum,
 			0.f/sum,
-			72.f/sum,
+			52.f/sum,
 			10802.f/sum,
 			0.f/sum,
 			0.f/sum,
-			2364.f/sum,
+			2514.f/sum,
 			0.f/sum,
-			532.f/sum,
+			402.f/sum,
 			0.f/sum,
 			0.f/sum,
-			72.f/sum
+			52.f/sum
 		};
 	}else return std::array<float,17>{};
 }
@@ -501,13 +501,13 @@ constexpr auto DivisionBalancingDistribution<8,6>(double tolerance){
 	if(tolerance == 0.125){
 		return std::array{
 			50.f/sum,
-			20.f/sum,
+			22.f/sum,
 			0.f/sum,
-			4.f/sum,
+			2.f/sum,
 			50.f/sum,
 			0.f/sum,
-			20.f/sum,
-			4.f/sum,
+			22.f/sum,
+			2.f/sum,
 			0.f/sum
 		};
 	}else return std::array<float,9>{};
