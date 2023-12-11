@@ -31,6 +31,7 @@ class CheckMatrix_irregular{
 	static const char *path;
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
+	static constexpr bool is_regular() noexcept{return false;}
 	CheckMatrix_irregular();
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
@@ -48,6 +49,7 @@ class CheckMatrix_regular{
 	static const char *path;
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
+	static constexpr bool is_regular() noexcept{return true;}
 	CheckMatrix_regular();
 	static constexpr auto codesize() noexcept{return C;}
 	static constexpr auto sourcesize() noexcept{return S;}
