@@ -41,6 +41,8 @@ public:
 	constexpr auto end() const noexcept{return pos1.cend();}
 	constexpr auto cend() const noexcept{return pos1.cend();}
 	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
+	template<std::integral T>
+	auto mask(std::size_t i) const;
 };
 
 template<std::size_t S, std::size_t C, std::size_t W>//S:Source length, C:Code length, W:row weight
@@ -119,6 +121,15 @@ CheckMatrix_irregular<S,C>::CheckMatrix_irregular(){
 		readCheckMatrix();
 		init = true;
 	}
+}
+
+template<std::size_t S, std::size_t C>
+template<std::integral T>
+auto CheckMatrix_irregular<S,C>::mask(std::size_t i) const{
+	constexpr T open = ~static_cast<T>(0);
+	std::array<T,C> mask = {};
+	for(auto j: pos1[i]) mask[j] = open;
+	return mask;
 }
 
 ////////////////////////////////////////////////////////////////
