@@ -11,19 +11,26 @@
 
 namespace code::LDPC {
 
-class funcGallager_double {
+namespace{
+	template<std::floating_point T>
+	struct uint_of_length {};
+	template<>
+	struct uint_of_length<float> {
+		using type = std::uint32_t;
+	};
+	template<>
+	struct uint_of_length<double> {
+		using type = std::uint64_t;
+	};
+}
+
+class funcGallager_calc {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto UPPER_BOUND = 0x1p6f;
 public:
 	template<std::floating_point T>
 	T operator()(T x) const;
-};
-
-class funcGallager_single {
-	static constexpr auto LOWER_BOUND = 0x1p-16f;
-	static constexpr auto UPPER_BOUND = 0x1p6f;
-public:
-	template<std::floating_point T>
+	template<std::floating_point I, std::floating_point T>
 	T operator()(T x) const;
 };
 
@@ -69,35 +76,29 @@ public:
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                 class funcGallager_double                  //
+//                  class funcGallager_calc                   //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<>
-float funcGallager_double::operator()(float x) const{
+template<std::floating_point T>
+T funcGallager_calc::operator()(T x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
 	if(y<LOWER_BOUND) y = LOWER_BOUND;
 	if(y>UPPER_BOUND) y = UPPER_BOUND;
-	y = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(y))));
-	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
+	y = std::log1p(static_cast<T>(2)/std::expm1(y));
+	y = std::bit_cast<T>(std::bit_cast<uint_of_length<T>>(y)|std::bit_cast<uint_of_length<T>>(x)&0x80000000);
 	return y;
 }
 
-////////////////////////////////////////////////////////////////
-//                                                            //
-//                 class funcGallager_single                  //
-//                                                            //
-////////////////////////////////////////////////////////////////
-
-template<>
-float funcGallager_single::operator()(float x) const{
+template<std::floating_point I, std::floating_point T>
+T funcGallager_calc::operator()(T x) const{
 	auto y = std::fabs(x);
 	//定義域を限定
 	if(y<LOWER_BOUND) y = LOWER_BOUND;
 	if(y>UPPER_BOUND) y = UPPER_BOUND;
-	y = std::log1p(2.0f/std::expm1(y));
-	y = std::bit_cast<float>(std::bit_cast<uint32_t>(y)|std::bit_cast<uint32_t>(x)&0x80000000);
+	y = static_cast<T>(std::log1p(static_cast<I>(2)/std::expm1(static_cast<I>(y))));
+	y = std::bit_cast<T>(std::bit_cast<uint_of_length<T>>(y)|std::bit_cast<uint_of_length<T>>(x)&0x80000000);
 	return y;
 }
 
