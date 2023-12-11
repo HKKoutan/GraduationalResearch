@@ -56,7 +56,8 @@ public:
 	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR);
 	//rowupdate
 	struct SumProduct {
-		inline static const funcGallager_table boxplus;
+		// inline static const funcGallager_calc boxplus;
+		using boxplus = funcGallager_calc;
 		static void rowupdate();
 	};
 	struct MinSum {
@@ -160,20 +161,14 @@ bool Iterative_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> 
 
 template<CheckMatrix T>
 void Iterative_decoding<T>::SumProduct::rowupdate(){
-	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = boxplus(bij);
+	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = boxplus::forward(bij);
 	for(auto &abpi: alphabetap){
-		fptype abssum = 0;
-		signtype signprod = 0;
+		boxplus::accumlator<fptype> acc;
 		for(const auto [apij,bpij]: abpi){
-			auto bij = *bpij;
-			abssum += std::fabs(bij);
-			signprod ^= std::bit_cast<signtype>(bij);
+			acc += *bpij;
 		}
 		for(const auto [apij,bpij]: abpi){
-			auto bij = *bpij;
-			auto absval = boxplus(abssum-std::fabs(bij));
-			auto sign = (std::bit_cast<signtype>(bij)^signprod)&signmask;
-			*apij = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(absval));
+			*apij = boxplus::backward(acc-*bpij);
 		}
 	}
 }

@@ -22,16 +22,31 @@ namespace{
 	struct uint_of_length<double> {
 		using type = std::uint64_t;
 	};
+	template<std::floating_point T>
+	using uint_of_length_t = uint_of_length<T>::type;
 }
 
 class funcGallager_calc {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto UPPER_BOUND = 0x1p6f;
+
+	template<std::uint8_t precision, std::floating_point T>
+	static T calc(T x);
 public:
+	template<std::uint8_t precision=0, std::floating_point T>
+	static T forward(T x){return calc<precision>(x);}
+	template<std::uint8_t precision=0, std::floating_point T>
+	static T backward(T x){return calc<precision>(x);}
+
 	template<std::floating_point T>
-	T operator()(T x) const;
-	template<std::floating_point I, std::floating_point T>
-	T operator()(T x) const;
+	class accumlator{
+		T abssum;
+		uint_of_length_t<T> signprod;
+	public:
+		accumlator():abssum(0),signprod(0){}
+		void operator+=(T rhs);
+		T operator-(T rhs) const;
+	};
 };
 
 class funcGallager_table {
@@ -80,26 +95,29 @@ public:
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::floating_point T>
-T funcGallager_calc::operator()(T x) const{
+template<std::uint8_t precision, std::floating_point T>
+T funcGallager_calc::calc(T x){
+	static_assert(precision<2,"invalid precision specification");
 	auto y = std::fabs(x);
 	//定義域を限定
 	if(y<LOWER_BOUND) y = LOWER_BOUND;
 	if(y>UPPER_BOUND) y = UPPER_BOUND;
-	y = std::log1p(static_cast<T>(2)/std::expm1(y));
-	y = std::bit_cast<T>(std::bit_cast<uint_of_length<T>>(y)|std::bit_cast<uint_of_length<T>>(x)&0x80000000);
+	if constexpr(precision==0) y = static_cast<T>(std::log1p(static_cast<double>(2)/std::expm1(static_cast<double>(y))));
+	if constexpr(precision==1) y = std::log1p(static_cast<T>(2)/std::expm1(y));
+	y = std::bit_cast<T>(std::bit_cast<uint_of_length_t<T>>(y)|std::bit_cast<uint_of_length_t<T>>(x)&0x80000000);
 	return y;
 }
 
-template<std::floating_point I, std::floating_point T>
-T funcGallager_calc::operator()(T x) const{
-	auto y = std::fabs(x);
-	//定義域を限定
-	if(y<LOWER_BOUND) y = LOWER_BOUND;
-	if(y>UPPER_BOUND) y = UPPER_BOUND;
-	y = static_cast<T>(std::log1p(static_cast<I>(2)/std::expm1(static_cast<I>(y))));
-	y = std::bit_cast<T>(std::bit_cast<uint_of_length<T>>(y)|std::bit_cast<uint_of_length<T>>(x)&0x80000000);
-	return y;
+template<std::floating_point T>
+void funcGallager_calc::accumlator<T>::operator+=(T rhs){
+	abssum += std::fabs(rhs);
+	signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
+}
+
+template<std::floating_point T>
+T funcGallager_calc::accumlator<T>::operator-(T rhs) const{
+	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
+	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(abssum-std::fabs(rhs)));
 }
 
 ////////////////////////////////////////////////////////////////
