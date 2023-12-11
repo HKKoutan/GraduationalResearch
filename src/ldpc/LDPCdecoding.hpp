@@ -9,7 +9,7 @@
 #include <limits>
 #include <exception>
 #include "LDPCCheckMatrix.hpp"
-#include "LDPCfuncGallager.hpp"
+#include "LDPCboxplus.hpp"
 
 namespace code::LDPC {
 
@@ -56,7 +56,7 @@ public:
 	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR);
 	//rowupdate
 	struct SumProduct {
-		inline static const funcGallager_table fg;
+		inline static const funcGallager_table boxplus;
 		static void rowupdate();
 	};
 	struct MinSum {
@@ -160,7 +160,7 @@ bool Iterative_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> 
 
 template<CheckMatrix T>
 void Iterative_decoding<T>::SumProduct::rowupdate(){
-	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = fg(bij);
+	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = boxplus(bij);
 	for(auto &abpi: alphabetap){
 		fptype abssum = 0;
 		signtype signprod = 0;
@@ -171,7 +171,7 @@ void Iterative_decoding<T>::SumProduct::rowupdate(){
 		}
 		for(const auto [apij,bpij]: abpi){
 			auto bij = *bpij;
-			auto absval = fg(abssum-std::fabs(bij));
+			auto absval = boxplus(abssum-std::fabs(bij));
 			auto sign = (std::bit_cast<signtype>(bij)^signprod)&signmask;
 			*apij = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(absval));
 		}

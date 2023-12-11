@@ -1,5 +1,5 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCfuncGallager
-#define INCLUDE_GUARD_ldpc_LDPCfuncGallager
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
+#define INCLUDE_GUARD_ldpc_LDPCboxplus
 
 #include <iostream>
 #include <fstream>
