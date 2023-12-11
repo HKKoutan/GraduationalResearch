@@ -26,17 +26,18 @@ namespace{
 	using uint_of_length_t = uint_of_length<T>::type;
 }
 
+template<std::uint8_t precision=0>
 class funcGallager_calc {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto UPPER_BOUND = 0x1p6f;
 
-	template<std::uint8_t precision, std::floating_point T>
-	static T calc(T x);
+	template<std::floating_point T>
+	static T common(T x);
 public:
-	template<std::uint8_t precision=0, std::floating_point T>
-	static T forward(T x){return calc<precision>(x);}
-	template<std::uint8_t precision=0, std::floating_point T>
-	static T backward(T x){return calc<precision>(x);}
+	template<std::floating_point T>
+	static T forward(T x){return common(x);}
+	template<std::floating_point T>
+	static T backward(T x){return common(x);}
 
 	template<std::floating_point T>
 	class accumlator{
@@ -95,8 +96,9 @@ public:
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::uint8_t precision, std::floating_point T>
-T funcGallager_calc::calc(T x){
+template<std::uint8_t precision>
+template<std::floating_point T>
+T funcGallager_calc<precision>::common(T x){
 	static_assert(precision<2,"invalid precision specification");
 	auto y = std::fabs(x);
 	//定義域を限定
@@ -108,14 +110,16 @@ T funcGallager_calc::calc(T x){
 	return y;
 }
 
+template<std::uint8_t precision>
 template<std::floating_point T>
-void funcGallager_calc::accumlator<T>::operator+=(T rhs){
+void funcGallager_calc<precision>::accumlator<T>::operator+=(T rhs){
 	abssum += std::fabs(rhs);
 	signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
 }
 
+template<std::uint8_t precision>
 template<std::floating_point T>
-T funcGallager_calc::accumlator<T>::operator-(T rhs) const{
+T funcGallager_calc<precision>::accumlator<T>::operator-(T rhs) const{
 	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
 	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(abssum-std::fabs(rhs)));
 }

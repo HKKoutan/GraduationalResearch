@@ -57,7 +57,7 @@ public:
 	//rowupdate
 	struct SumProduct {
 		// inline static const funcGallager_calc boxplus;
-		using boxplus = funcGallager_calc;
+		using boxplus = funcGallager_calc<>;
 		static void rowupdate();
 	};
 	struct MinSum {
