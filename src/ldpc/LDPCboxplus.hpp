@@ -24,7 +24,18 @@ namespace{
 	};
 	template<std::floating_point T>
 	using uint_of_length_t = uint_of_length<T>::type;
+
+	template<std::floating_point T>
+	class sum_accumlator{
+		T abssum;
+		uint_of_length_t<T> signprod;
+	public:
+		sum_accumlator():abssum(0),signprod(0){}
+		void operator+=(T rhs);
+		T operator-(T rhs) const;
+	};
 }
+
 
 template<std::uint8_t precision=0>
 class funcGallager_calc {
@@ -35,22 +46,17 @@ class funcGallager_calc {
 	static T common(T x);
 public:
 	template<std::floating_point T>
+	using accumlator = sum_accumlator<T>;
+	template<std::floating_point T>
 	static T forward(T x){return common(x);}
 	template<std::floating_point T>
 	static T backward(T x){return common(x);}
-
-	template<std::floating_point T>
-	class accumlator{
-		T abssum;
-		uint_of_length_t<T> signprod;
-	public:
-		accumlator():abssum(0),signprod(0){}
-		void operator+=(T rhs);
-		T operator-(T rhs) const;
-	};
 };
 
-class funcGallager_table {
+template<std::uint8_t precision=0> class funcGallager_table;
+
+template<>
+class funcGallager_table<0> {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto LOWER_BOUND_U = std::bit_cast<uint32_t>(LOWER_BOUND);
 	static constexpr auto UPPER_BOUND = 0x1p6f;
@@ -62,13 +68,20 @@ class funcGallager_table {
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(decltype(values) &vec);
 	static bool write_values(const decltype(values) &vec);
+	template<std::floating_point T>
+	T get(T x) const;
 public:
+	template<std::floating_point T>
+	using accumlator = sum_accumlator<T>;
 	funcGallager_table();
 	template<std::floating_point T>
-	T operator()(T x) const;
+	T forward(T x) const{return get(x);}
+	template<std::floating_point T>
+	T backward(T x) const{return get(x);}
 };
 
-class funcGallager_halftable {
+template<>
+class funcGallager_table<1> {
 	static constexpr auto LOWER_BOUND = 0x1p-10f;
 	static constexpr auto LOWER_BOUND_U = 0x00000000;
 	static constexpr auto UPPER_BOUND = 0x1.ffdp4f;
@@ -82,13 +95,36 @@ class funcGallager_halftable {
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(decltype(values) &vec);
 	static bool write_values(const decltype(values) &vec);
+	float interpolate(float x) const;
 	template<std::floating_point T>
-	static T interpolate(T x);
+	T get(T x) const;
 public:
-	funcGallager_halftable();
 	template<std::floating_point T>
-	T operator()(T x) const;
+	using accumlator = sum_accumlator<T>;
+	funcGallager_table();
+	template<std::floating_point T>
+	T forward(T x) const{return get(x);}
+	template<std::floating_point T>
+	T backward(T x) const{return get(x);}
 };
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                    class sum_accumlator                    //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
+template<std::floating_point T>
+void sum_accumlator<T>::operator+=(T rhs){
+	abssum += std::fabs(rhs);
+	signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
+}
+
+template<std::floating_point T>
+T sum_accumlator<T>::operator-(T rhs) const{
+	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
+	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(abssum-std::fabs(rhs)));
+}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -110,27 +146,13 @@ T funcGallager_calc<precision>::common(T x){
 	return y;
 }
 
-template<std::uint8_t precision>
-template<std::floating_point T>
-void funcGallager_calc<precision>::accumlator<T>::operator+=(T rhs){
-	abssum += std::fabs(rhs);
-	signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
-}
-
-template<std::uint8_t precision>
-template<std::floating_point T>
-T funcGallager_calc<precision>::accumlator<T>::operator-(T rhs) const{
-	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
-	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(abssum-std::fabs(rhs)));
-}
-
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                  class funcGallager_table                  //
+//                class funcGallager_table<0>                 //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(funcGallager_table::values) funcGallager_table::values_init(){
+decltype(funcGallager_table<0>::values) funcGallager_table<0>::values_init(){
 	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	decltype(values) val(FG_VALUE_RANGE);
 
@@ -147,7 +169,7 @@ decltype(funcGallager_table::values) funcGallager_table::values_init(){
 	return val;
 }
 
-bool funcGallager_table::read_values(decltype(values) &vec){
+bool funcGallager_table<0>::read_values(decltype(values) &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
@@ -157,7 +179,7 @@ bool funcGallager_table::read_values(decltype(values) &vec){
 	return true;
 }
 
-bool funcGallager_table::write_values(const decltype(values) &vec){
+bool funcGallager_table<0>::write_values(const decltype(values) &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
 	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
@@ -166,7 +188,7 @@ bool funcGallager_table::write_values(const decltype(values) &vec){
 	return true;
 }
 
-funcGallager_table::funcGallager_table(){
+funcGallager_table<0>::funcGallager_table(){
 	static bool init;
 	if(!init){
 		values = values_init();
@@ -174,23 +196,24 @@ funcGallager_table::funcGallager_table(){
 	}
 }
 
-template<>
-float funcGallager_table::operator()(float x) const{
-	auto xa = std::fabs(x);
+template<std::floating_point T>
+T funcGallager_table<0>::get(T x) const{
+	auto xf = static_cast<float>(x);
+	auto xa = std::fabs(xf);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
 	auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
-	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
+	return static_cast<T>(std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000));
 }
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                class funcGallager_halftable                //
+//                class funcGallager_table<1>                 //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(funcGallager_halftable::values) funcGallager_halftable::values_init(){
+decltype(funcGallager_table<1>::values) funcGallager_table<1>::values_init(){
 	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	decltype(values) val(FG_VALUE_RANGE);
 
@@ -209,7 +232,7 @@ decltype(funcGallager_halftable::values) funcGallager_halftable::values_init(){
 	return val;
 }
 
-bool funcGallager_halftable::read_values(decltype(values) &vec){
+bool funcGallager_table<1>::read_values(decltype(values) &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
@@ -219,7 +242,7 @@ bool funcGallager_halftable::read_values(decltype(values) &vec){
 	return true;
 }
 
-bool funcGallager_halftable::write_values(const decltype(values) &vec){
+bool funcGallager_table<1>::write_values(const decltype(values) &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
 	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
@@ -228,8 +251,7 @@ bool funcGallager_halftable::write_values(const decltype(values) &vec){
 	return true;
 }
 
-template<>
-float funcGallager_halftable::interpolate(float x){
+float funcGallager_table<1>::interpolate(float x) const{
 	auto xu = ((std::bit_cast<std::uint32_t>(x)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&0x0000ffff;
 	auto ratio = static_cast<float>(std::bit_cast<std::uint32_t>(x)&0x000007ff)*0x1p-11f;
 	auto y1 = values[xu];
@@ -237,7 +259,7 @@ float funcGallager_halftable::interpolate(float x){
 	return y1 + (y1-y2)*ratio;
 }
 
-funcGallager_halftable::funcGallager_halftable(){
+funcGallager_table<1>::funcGallager_table(){
 	static bool init;
 	if(!init){
 		values = values_init();
@@ -245,16 +267,17 @@ funcGallager_halftable::funcGallager_halftable(){
 	}
 }
 
-template<>
-float funcGallager_halftable::operator()(float x) const{
-	auto xa = std::fabs(x);
+template<std::floating_point T>
+T funcGallager_table<1>::get(T x) const{
+	auto xf = static_cast<float>(x);
+	auto xa = std::fabs(xf);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
 	// auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&0x0000ffff;
 	// auto ya = values[xu];
 	auto ya = interpolate(xa);
-	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
+	return static_cast<T>(std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000));
 }
 
 }

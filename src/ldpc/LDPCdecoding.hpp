@@ -56,8 +56,8 @@ public:
 	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR);
 	//rowupdate
 	struct SumProduct {
-		// inline static const funcGallager_calc boxplus;
-		using boxplus = funcGallager_calc<>;
+		using boxplus = funcGallager_table<>;
+		inline static const boxplus bp;
 		static void rowupdate();
 	};
 	struct MinSum {
@@ -162,7 +162,7 @@ bool Iterative_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> 
 template<CheckMatrix T>
 void Iterative_decoding<T>::SumProduct::rowupdate(){
 	if constexpr(T::is_regular()){
-		for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = boxplus::forward(bij);
+		for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = bp.forward(bij);
 		for(auto &abpi: alphabetap){
 			boxplus::accumlator<fptype> acc;
 			for(const auto [apij,bpij]: abpi){
@@ -173,15 +173,15 @@ void Iterative_decoding<T>::SumProduct::rowupdate(){
 				// *apij = boxplus::backward(acc-*bpij);
 			}
 		}
-		for(auto &[ai, bi]: alphabeta) for(auto &aij: ai) aij = boxplus::backward(aij);
+		for(auto &[ai, bi]: alphabeta) for(auto &aij: ai) aij = bp.backward(aij);
 	}else{
 		for(auto &abpi: alphabetap){
 			boxplus::accumlator<fptype> acc;
 			for(const auto [apij,bpij]: abpi){
-				acc += boxplus::forward(*bpij);
+				acc += bp.forward(*bpij);
 			}
 			for(const auto [apij,bpij]: abpi){
-				*apij = boxplus::backward(acc-boxplus::forward(*bpij));
+				*apij = bp.backward(acc-bp.forward(*bpij));
 			}
 		}
 	}
