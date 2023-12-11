@@ -93,11 +93,11 @@ int main(int argc, char* argv[]){
 				auto rc = ch.noise(cc);
 				// auto rc=cc;
 
-				auto Lrc = ch.likelihood<float>(rc);
-				auto LLR = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lrc);
+				auto Lcc = ch.likelihood<float>(rc);
+				auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcc);
 
-				auto cest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
-				auto mest = code::estimate_crop<SOURCE_LENGTH>(cest);
+				auto Lcest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(Lc);
+				auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
 
 				nterror[n] += code::DNAS::countError(cc,rc);
 				biterror[n] += (mest^m).count();
@@ -116,7 +116,8 @@ int main(int argc, char* argv[]){
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto cm = code::DNAS::differential<ATGC>::encode(m);
+				auto nm = code::DNAS::convert<ATGC>::binary_to_nttype(m);
+				auto cm = code::DNAS::differential::encode(nm);
 				// for(auto &ci: cm) ci = 3;
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
@@ -125,7 +126,8 @@ int main(int argc, char* argv[]){
 				auto rm = ch.noise(cm);
 				// auto rm=cm;
 
-				auto mest = code::DNAS::differential<ATGC>::decode(rm);
+				auto nmest = code::DNAS::differential::decode(rm);
+				auto mest = code::DNAS::convert<ATGC>::nttype_to_binary(nmest);
 
 				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
 				biterror[n] += (mest^m).count();
@@ -145,7 +147,8 @@ int main(int argc, char* argv[]){
 				rb.generate(m);
 
 				auto c = ldpc.encode(m);
-				auto cc = code::DNAS::differential<ATGC>::encode(c);
+				auto nc = code::DNAS::convert<ATGC>::binary_to_nttype(c);
+				auto cc = code::DNAS::differential::encode(nc);
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cc);
 				if(dev>maxgcdev) maxgcdev=dev;
@@ -153,11 +156,12 @@ int main(int argc, char* argv[]){
 				auto rc = ch.noise(cc);
 				// auto rc=cc;
 
-				auto Lrc = ch.likelihood<float>(rc);
-				auto LLR = code::DNAS::differential<ATGC>::decode_p(Lrc);
+				auto Lcc = ch.likelihood<float>(rc);
+				auto Lnc = code::DNAS::differential::decode_p(Lcc);
+				auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lnc);
 
-				auto cest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(LLR);
-				auto mest = code::estimate_crop<SOURCE_LENGTH>(cest);
+				auto Lcest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(Lc);
+				auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
 
 				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
 				biterror[n] += (mest^m).count();
