@@ -20,6 +20,7 @@ constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
 constexpr size_t BLOCK_SIZE = 0;//GCdevの集計にのみ影響
 constexpr uint8_t ATGC = 0x1B;
+using DECODERTYPE = code::LDPC::phi_table<>;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]){
 				auto Lcc = ch.likelihood<float>(rc);
 				auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcc);
 
-				auto Lcest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(Lc);
+				auto Lcest = ldpc.decode<DECODERTYPE>(Lc);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
 
 				nterror[n] += code::DNAS::countError(cc,rc);
@@ -160,7 +161,7 @@ int main(int argc, char* argv[]){
 				auto Lnc = code::DNAS::differential::decode_p(Lcc);
 				auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lnc);
 
-				auto Lcest = ldpc.decode<decltype(ldpc)::DecoderType::SumProduct>(Lc);
+				auto Lcest = ldpc.decode<DECODERTYPE>(Lc);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
 
 				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
