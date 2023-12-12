@@ -56,13 +56,13 @@ public:
 	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR);
 	//rowupdate
 	struct SumProduct {
-		using boxplus = funcGallager_table<>;
+		using boxplus = funcGallager_calc<>;
 		inline static const boxplus bp;
 		static void rowupdate();
 	};
-	struct MinSum {
-		static void rowupdate();
-	};
+	// struct MinSum {
+	// 	static void rowupdate();
+	// };
 };
 
 ////////////////////////////////////////////////////////////////
@@ -187,25 +187,25 @@ void Iterative_decoding<T>::SumProduct::rowupdate(){
 	}
 }
 
-template<CheckMatrix T>
-void Iterative_decoding<T>::MinSum::rowupdate(){
-	for(auto &abpi: alphabetap){
-		signtype signprod = 0;
-		for(const auto [apij,bpij]: abpi){
-			signprod ^= std::bit_cast<signtype>(*bpij);
-		}
-		for(std::size_t j=0, jend=abpi.size(); j<jend; ++j){
-			auto [apij,bpij] = abpi[j];
-			auto min = std::numeric_limits<fptype>::infinity();
-			for(std::size_t k=0u, kend=abpi.size(); k<kend; ++k) if(j != k){
-				auto temp = std::fabs(*abpi[k].second);
-				if(temp<min) min = temp;
-			}
-			auto sign = (std::bit_cast<const signtype>(*bpij)^signprod)&signmask;
-			*apij = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(min));
-		}
-	}
-}
+// template<CheckMatrix T>
+// void Iterative_decoding<T>::MinSum::rowupdate(){
+// 	for(auto &abpi: alphabetap){
+// 		signtype signprod = 0;
+// 		for(const auto [apij,bpij]: abpi){
+// 			signprod ^= std::bit_cast<signtype>(*bpij);
+// 		}
+// 		for(std::size_t j=0, jend=abpi.size(); j<jend; ++j){
+// 			auto [apij,bpij] = abpi[j];
+// 			auto min = std::numeric_limits<fptype>::infinity();
+// 			for(std::size_t k=0u, kend=abpi.size(); k<kend; ++k) if(j != k){
+// 				auto temp = std::fabs(*abpi[k].second);
+// 				if(temp<min) min = temp;
+// 			}
+// 			auto sign = (std::bit_cast<const signtype>(*bpij)^signprod)&signmask;
+// 			*apij = std::bit_cast<fptype>(sign|std::bit_cast<signtype>(min));
+// 		}
+// 	}
+// }
 
 }
 

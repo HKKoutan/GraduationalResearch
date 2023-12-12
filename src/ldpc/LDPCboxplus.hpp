@@ -8,6 +8,7 @@
 #include <bit>
 #include <concepts>
 #include <cmath>
+#include <limits>
 
 namespace code::LDPC {
 
@@ -34,8 +35,26 @@ namespace{
 		void operator+=(T rhs);
 		T operator-(T rhs) const;
 	};
+
+	template<std::floating_point T>
+	class min_accumlator{
+		std::pair<T,T> absmin;
+		uint_of_length_t<T> signprod;
+	public:
+		min_accumlator():absmin(std::numeric_limits<T>::infinity(),std::numeric_limits<T>::infinity()),signprod(0){}
+		void operator+=(T rhs);
+		T operator-(T rhs) const;
+	};
 }
 
+struct minsum {
+	template<std::floating_point T>
+	using accumlator = min_accumlator<T>;
+	template<std::floating_point T>
+	static T forward(T x){return x;}
+	template<std::floating_point T>
+	static T backward(T x){return x;}
+};
 
 template<std::uint8_t precision=0>
 class funcGallager_calc {
@@ -149,6 +168,32 @@ template<std::floating_point T>
 T sum_accumlator<T>::operator-(T rhs) const{
 	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
 	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(abssum-std::fabs(rhs)));
+}
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                    class min_accumlator                    //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
+template<std::floating_point T>
+void min_accumlator<T>::operator+=(T rhs){
+	auto arhs = std::fabs(rhs);
+	if(absmin.first>=arhs){
+		absmin.second = absmin.first;
+		absmin.first = arhs;
+	}else if(absmin.second>arhs){
+		absmin.second = arhs;
+	}
+	signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
+}
+
+template<std::floating_point T>
+T min_accumlator<T>::operator-(T rhs) const{
+	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
+	auto arhs = std::fabs(rhs);
+	auto val = absmin.first==arhs?absmin.second:absmin.first;
+	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(val));
 }
 
 ////////////////////////////////////////////////////////////////
