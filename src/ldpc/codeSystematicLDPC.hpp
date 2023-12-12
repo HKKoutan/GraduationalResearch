@@ -17,17 +17,12 @@ class SystematicLDPC {
 	LDPC::Iterative_decoding<decltype(H)> decoder;
 	std::uint64_t iterationlimit;//反復回数上限
 public:
-	struct DecoderType{
-		struct SumProduct {using type = typename decltype(decoder)::SumProduct;};
-		struct MinSum {using type = typename decltype(decoder)::MinSum;};
-	};
-
 	explicit SystematicLDPC(const T &H, std::uint64_t iterationlimit);
 	explicit SystematicLDPC(const T &H): SystematicLDPC(H, DEFAULT_ITERATION_LIMIT){}
 
 	auto encode(const std::bitset<S> &information) const;//引数から符号語を求める
 	auto encode_redundancy(const std::bitset<S> &information) const;//引数から冗長を求める
-	template<class U, std::floating_point F> requires requires(U x){typename U::type;} && LDPC::DecoderType<typename U::type>
+	template<LDPC::boxplusclass B, std::floating_point F>
 	auto decode(const std::array<F,C> &LLR);
 
 	static constexpr auto sourcesize(){return S;}
@@ -70,13 +65,13 @@ auto SystematicLDPC<T>::encode_redundancy(const std::bitset<S> &information) con
 }
 
 template<LDPC::CheckMatrix T>
-template<class U, std::floating_point F> requires requires(U x){typename U::type;} && LDPC::DecoderType<typename U::type>
+template<LDPC::boxplusclass B, std::floating_point F>
 auto SystematicLDPC<T>::decode(const std::array<F,C> &LLR){
 	auto QLLR = encoder.inverse_substitution(LLR);
 	std::array<F,C> QLPR;//対数事後確率比：列ごとのalphaの和+QLLR
 
 	decoder.decode_init();
-	for(auto iter=0ui64; !decoder.iterate<U::type>(QLPR, QLLR) && iter<iterationlimit; ++iter);
+	for(auto iter=0ui64; !decoder.iterate<B>(QLPR, QLLR) && iter<iterationlimit; ++iter);
 
 	return encoder.substitution(QLPR);
 }

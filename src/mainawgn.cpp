@@ -82,7 +82,7 @@ int main(int argc, char* argv[]){
 	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::SumProduct());
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, code::LDPC::funcGallager_table<>());
 	for(auto &t: threads) t.join();
 	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	// threads.clear();

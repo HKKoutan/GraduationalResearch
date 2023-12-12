@@ -32,6 +32,7 @@ namespace{
 		uint_of_length_t<T> signprod;
 	public:
 		sum_accumlator():abssum(0),signprod(0){}
+		sum_accumlator(T x):abssum(std::fabs(x)),signprod(x){}
 		void operator+=(T rhs);
 		T operator-(T rhs) const;
 	};
@@ -49,8 +50,6 @@ namespace{
 
 struct minsum {
 	template<std::floating_point T>
-	using accumlator = min_accumlator<T>;
-	template<std::floating_point T>
 	static inline T forward(T x){return x;}
 	template<std::floating_point T>
 	static inline T backward(T x){return x;}
@@ -64,8 +63,6 @@ class funcGallager_calc {
 	template<std::floating_point T>
 	static T common(T x);
 public:
-	template<std::floating_point T>
-	using accumlator = sum_accumlator<T>;
 	template<std::floating_point T>
 	static inline T forward(T x){return common(x);}
 	template<std::floating_point T>
@@ -91,8 +88,6 @@ class funcGallager_table<0> {
 	static bool write_values(const decltype(values) &vec);
 	float get(float x) const;
 public:
-	template<std::floating_point T>
-	using accumlator = sum_accumlator<T>;
 	funcGallager_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
@@ -117,8 +112,6 @@ class funcGallager_table<1> {
 	static bool write_values(const decltype(values) &vec);
 	float get(float x) const;
 public:
-	template<std::floating_point T>
-	using accumlator = sum_accumlator<T>;
 	funcGallager_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
@@ -140,13 +133,35 @@ class funcGallager_table<2> {
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	float get(float x) const;
 public:
-	template<std::floating_point T>
-	using accumlator = sum_accumlator<T>;
 	funcGallager_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
+};
+
+template<class B, std::floating_point T> struct accumlator;
+
+template<std::floating_point T>
+struct accumlator<minsum,T> {
+	using type = min_accumlator<T>;
+};
+template<std::floating_point T, std::uint8_t P>
+struct accumlator<funcGallager_calc<P>,T> {
+	using type = sum_accumlator<T>;
+};
+template<std::floating_point T, std::uint8_t P>
+struct accumlator<funcGallager_table<P>,T> {
+	using type = sum_accumlator<T>;
+};
+
+template<class B, std::floating_point T> using accumlator_t = accumlator<B,T>::type;
+
+template<class T>
+concept boxplusclass = requires(T x){
+	typename accumlator_t<T,float>;
+	{x.forward(0.f)} -> std::same_as<float>;
+	{x.backward(0.f)} -> std::same_as<float>;
 };
 
 ////////////////////////////////////////////////////////////////

@@ -30,9 +30,6 @@ class Iterative_decoding {
 
 	inline static T H;//検査行列
 
-	using boxplus = minsum;
-	inline static const boxplus bp;
-
 	//alphabeta, alphabetapの型と初期化関数をTの型に応じて変える
 	template<CheckMatrix U>
 	struct decodingData {
@@ -55,7 +52,7 @@ class Iterative_decoding {
 public:
 	explicit Iterative_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
-	template<std::floating_point U>
+	template<class boxplus, std::floating_point U>
 	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR);
 	//rowupdate
 	// struct SumProduct {
@@ -142,22 +139,23 @@ void Iterative_decoding<T>::decode_init(){
 }
 
 template<CheckMatrix T>
-template<std::floating_point U>
+template<class boxplus, std::floating_point U>
 bool Iterative_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR){
+	const boxplus bp;
 	//apply LLR
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	//row update
 	if constexpr(T::is_regular()){
 		for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = bp.forward(bij);
 		for(auto &abpi: alphabetap){
-			boxplus::accumlator<fptype> acc;
+			accumlator_t<boxplus,fptype> acc;
 			for(const auto [apij,bpij]: abpi) acc += *bpij;
 			for(const auto [apij,bpij]: abpi) *apij = acc-*bpij;
 		}
 		for(auto &[ai, bi]: alphabeta) for(auto &aij: ai) aij = bp.backward(aij);
 	}else{
 		for(auto &abpi: alphabetap){
-			boxplus::accumlator<fptype> acc;
+			accumlator_t<boxplus,fptype> acc;
 			for(const auto [apij,bpij]: abpi) acc += bp.forward(*bpij);
 			for(const auto [apij,bpij]: abpi) *apij = bp.backward(acc-bp.forward(*bpij));
 		}
