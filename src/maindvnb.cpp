@@ -21,7 +21,7 @@ constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
 constexpr size_t BLOCK_SIZE = 0;
-constexpr std::uint8_t ATGC = 0x1B;
+constexpr std::uint8_t ATGC = 0x27;
 using DECODERTYPE = code::LDPC::phi_table<>;
 
 int main(int argc, char* argv[]){
@@ -94,7 +94,8 @@ int main(int argc, char* argv[]){
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cm);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
+				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
+				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
 				if(dev>maxgcdev) maxgcdev=dev;
@@ -108,17 +109,20 @@ int main(int argc, char* argv[]){
 				// auto rm=cm;
 				// auto rr=cr;
 
-				auto Lrm = ch.likelihood<float>(rm);
-				auto Lrr = ch.likelihood<float>(rr);
-				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(Lrm), code::DNAS::modifiedVLRLL<ATGC>::decode_p(Lrr, Lrm.back()));
+				auto Lcm = ch.likelihood<float>(rm);
+				auto Lcr = ch.likelihood<float>(rr);
+				auto Lcrd = code::DNAS::puncturedRLL<ATGC>::decode_p(Lcr, Lcm.back());
+				auto Ltr = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd);
+				auto Ltm = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcm);
+				auto Ltc = code::concatenate(Ltm, Ltr);
 
-				auto LLRest = ldpc.decode<DECODERTYPE>(LLR);
+				auto Ltcest = ldpc.decode<DECODERTYPE>(Ltc);
 				// auto LLRest = LLR;
-				auto test = code::estimate_crop<SOURCE_LENGTH>(LLRest);
-				auto cest = code::DNAS::convert<ATGC>::binary_to_nttype(test);
-				auto mest = code::DNAS::VLRLL<ATGC>::decode(cest);
+				auto tmest = code::estimate_crop<SOURCE_LENGTH>(Ltcest);
+				auto cmest = code::DNAS::convert<ATGC>::binary_to_nttype(tmest);
+				auto mest = code::DNAS::VLRLL<ATGC>::decode(cmest);
 
-				nterror[n] += code::DNAS::countError(cm,cest);
+				nterror[n] += code::DNAS::countError(cm,cmest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
@@ -141,7 +145,8 @@ int main(int argc, char* argv[]){
 				auto cmd = code::DNAS::differential::decode(cm);
 				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cmd);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto cr = code::DNAS::modifiedVLRLL<ATGC>::encode(tr, cm.back(), run);
+				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
+				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
 				if(dev>maxgcdev) maxgcdev=dev;
@@ -159,7 +164,8 @@ int main(int argc, char* argv[]){
 				auto Lcr = ch.likelihood<float>(rr);
 				auto Lcmd = code::DNAS::differential::decode_p(Lcm);
 				auto Ltm = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcmd);
-				auto Ltr = code::DNAS::modifiedVLRLL<ATGC>::decode_p(Lcr, Lcm.back());
+				auto Lcrd = code::DNAS::puncturedRLL<ATGC>::decode_p(Lcr, Lcm.back());
+				auto Ltr = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd);
 				auto Ltc = code::concatenate(Ltm, Ltr);
 
 				auto Ltcest = ldpc.decode<DECODERTYPE>(Ltc);
