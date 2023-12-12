@@ -141,7 +141,7 @@ void Iterative_decoding<T>::decode_init(){
 template<CheckMatrix T>
 template<class boxplus, std::floating_point U>
 bool Iterative_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR){
-	const boxplus bp;
+	static const boxplus bp;
 	//apply LLR
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	//row update
