@@ -56,7 +56,7 @@ struct minsum {
 };
 
 template<std::uint8_t precision=0>
-class funcGallager_calc {
+class phi_calc {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto UPPER_BOUND = 0x1p6f;
 
@@ -69,12 +69,12 @@ public:
 	static inline T backward(T x){return common(x);}
 };
 
-template<std::uint8_t precision=0> class funcGallager_table {
+template<std::uint8_t precision=0> class phi_table {
 	static_assert(precision<3,"invalid precision specification");
 };
 
 template<>
-class funcGallager_table<0> {
+class phi_table<0> {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto LOWER_BOUND_U = std::bit_cast<uint32_t>(LOWER_BOUND);
 	static constexpr auto UPPER_BOUND = 0x1p6f;
@@ -88,7 +88,7 @@ class funcGallager_table<0> {
 	static bool write_values(const decltype(values) &vec);
 	float get(float x) const;
 public:
-	funcGallager_table();
+	phi_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
@@ -96,7 +96,7 @@ public:
 };
 
 template<>
-class funcGallager_table<1> {
+class phi_table<1> {
 	static constexpr auto LOWER_BOUND = 0x1p-10f;
 	static constexpr auto LOWER_BOUND_U = 0x00000000;
 	static constexpr auto UPPER_BOUND = 0x1.ffdp4f;
@@ -112,7 +112,7 @@ class funcGallager_table<1> {
 	static bool write_values(const decltype(values) &vec);
 	float get(float x) const;
 public:
-	funcGallager_table();
+	phi_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
@@ -120,7 +120,7 @@ public:
 };
 
 template<>
-class funcGallager_table<2> {
+class phi_table<2> {
 	static constexpr auto LOWER_BOUND = 0x1p-10f;
 	static constexpr auto LOWER_BOUND_U = 0x00000000;
 	static constexpr auto UPPER_BOUND = 0x1.ffdp4f;
@@ -133,7 +133,7 @@ class funcGallager_table<2> {
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	float get(float x) const;
 public:
-	funcGallager_table();
+	phi_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
@@ -147,11 +147,11 @@ struct accumlator<minsum,T> {
 	using type = min_accumlator<T>;
 };
 template<std::floating_point T, std::uint8_t P>
-struct accumlator<funcGallager_calc<P>,T> {
+struct accumlator<phi_calc<P>,T> {
 	using type = sum_accumlator<T>;
 };
 template<std::floating_point T, std::uint8_t P>
-struct accumlator<funcGallager_table<P>,T> {
+struct accumlator<phi_table<P>,T> {
 	using type = sum_accumlator<T>;
 };
 
@@ -210,13 +210,13 @@ inline T min_accumlator<T>::operator-(T rhs) const{
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                  class funcGallager_calc                   //
+//                       class phi_calc                       //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
 template<std::uint8_t precision>
 template<std::floating_point T>
-inline T funcGallager_calc<precision>::common(T x){
+inline T phi_calc<precision>::common(T x){
 	static_assert(precision<2,"invalid precision specification");
 	auto y = std::fabs(x);
 	//定義域を限定
@@ -230,28 +230,28 @@ inline T funcGallager_calc<precision>::common(T x){
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                class funcGallager_table<0>                 //
+//                     class phi_table<0>                     //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(funcGallager_table<0>::values) funcGallager_table<0>::values_init(){
+decltype(phi_table<0>::values) phi_table<0>::values_init(){
 	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	decltype(values) val(FG_VALUE_RANGE);
 
 	if(!read_values(val)){
-		std::cerr<<"funcGallager_table: Cache file not found."<<std::endl;
+		std::cerr<<"phi_table: Cache file not found."<<std::endl;
 		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
 			auto iu = i+LOWER_BOUND_U;
 			val[i] = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(std::bit_cast<float>(iu)))));
 		}
 		if(!write_values(val)){
-			std::cerr<<"funcGallager_table: Caching failed."<<std::endl;
+			std::cerr<<"phi_table: Caching failed."<<std::endl;
 		}
 	}
 	return val;
 }
 
-bool funcGallager_table<0>::read_values(decltype(values) &vec){
+bool phi_table<0>::read_values(decltype(values) &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
@@ -261,7 +261,7 @@ bool funcGallager_table<0>::read_values(decltype(values) &vec){
 	return true;
 }
 
-bool funcGallager_table<0>::write_values(const decltype(values) &vec){
+bool phi_table<0>::write_values(const decltype(values) &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
 	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
@@ -270,7 +270,7 @@ bool funcGallager_table<0>::write_values(const decltype(values) &vec){
 	return true;
 }
 
-funcGallager_table<0>::funcGallager_table(){
+phi_table<0>::phi_table(){
 	static bool init;
 	if(!init){
 		values = values_init();
@@ -278,7 +278,7 @@ funcGallager_table<0>::funcGallager_table(){
 	}
 }
 
-inline float funcGallager_table<0>::get(float x) const{
+inline float phi_table<0>::get(float x) const{
 	auto xa = std::fabs(x);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
@@ -289,11 +289,11 @@ inline float funcGallager_table<0>::get(float x) const{
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                class funcGallager_table<1>                 //
+//                     class phi_table<1>                     //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(funcGallager_table<1>::values) funcGallager_table<1>::values_init(){
+decltype(phi_table<1>::values) phi_table<1>::values_init(){
 	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	decltype(values) val(FG_VALUE_RANGE);
 
@@ -312,7 +312,7 @@ decltype(funcGallager_table<1>::values) funcGallager_table<1>::values_init(){
 	return val;
 }
 
-bool funcGallager_table<1>::read_values(decltype(values) &vec){
+bool phi_table<1>::read_values(decltype(values) &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
@@ -322,7 +322,7 @@ bool funcGallager_table<1>::read_values(decltype(values) &vec){
 	return true;
 }
 
-bool funcGallager_table<1>::write_values(const decltype(values) &vec){
+bool phi_table<1>::write_values(const decltype(values) &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
 	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
@@ -331,7 +331,7 @@ bool funcGallager_table<1>::write_values(const decltype(values) &vec){
 	return true;
 }
 
-funcGallager_table<1>::funcGallager_table(){
+phi_table<1>::phi_table(){
 	static bool init;
 	if(!init){
 		values = values_init();
@@ -339,7 +339,7 @@ funcGallager_table<1>::funcGallager_table(){
 	}
 }
 
-inline float funcGallager_table<1>::get(float x) const{
+inline float phi_table<1>::get(float x) const{
 	auto xa = std::fabs(x);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
@@ -357,11 +357,11 @@ inline float funcGallager_table<1>::get(float x) const{
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                class funcGallager_table<2>                 //
+//                     class phi_table<2>                     //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(funcGallager_table<2>::values) funcGallager_table<2>::values_init(){
+decltype(phi_table<2>::values) phi_table<2>::values_init(){
 	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	decltype(values) val(FG_VALUE_RANGE);
 
@@ -373,7 +373,7 @@ decltype(funcGallager_table<2>::values) funcGallager_table<2>::values_init(){
 	return val;
 }
 
-funcGallager_table<2>::funcGallager_table(){
+phi_table<2>::phi_table(){
 	static bool init;
 	if(!init){
 		values = values_init();
@@ -381,7 +381,7 @@ funcGallager_table<2>::funcGallager_table(){
 	}
 }
 
-inline float funcGallager_table<2>::get(float x) const{
+inline float phi_table<2>::get(float x) const{
 	auto xa = std::fabs(x);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
