@@ -51,9 +51,9 @@ struct minsum {
 	template<std::floating_point T>
 	using accumlator = min_accumlator<T>;
 	template<std::floating_point T>
-	static T forward(T x){return x;}
+	static inline T forward(T x){return x;}
 	template<std::floating_point T>
-	static T backward(T x){return x;}
+	static inline T backward(T x){return x;}
 };
 
 template<std::uint8_t precision=0>
@@ -67,12 +67,14 @@ public:
 	template<std::floating_point T>
 	using accumlator = sum_accumlator<T>;
 	template<std::floating_point T>
-	static T forward(T x){return common(x);}
+	static inline T forward(T x){return common(x);}
 	template<std::floating_point T>
-	static T backward(T x){return common(x);}
+	static inline T backward(T x){return common(x);}
 };
 
-template<std::uint8_t precision=0> class funcGallager_table;
+template<std::uint8_t precision=0> class funcGallager_table {
+	static_assert(precision<3,"invalid precision specification");
+};
 
 template<>
 class funcGallager_table<0> {
@@ -87,16 +89,15 @@ class funcGallager_table<0> {
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(decltype(values) &vec);
 	static bool write_values(const decltype(values) &vec);
-	template<std::floating_point T>
-	T get(T x) const;
+	float get(float x) const;
 public:
 	template<std::floating_point T>
 	using accumlator = sum_accumlator<T>;
 	funcGallager_table();
 	template<std::floating_point T>
-	T forward(T x) const{return get(x);}
+	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
-	T backward(T x) const{return get(x);}
+	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 };
 
 template<>
@@ -114,17 +115,15 @@ class funcGallager_table<1> {
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(decltype(values) &vec);
 	static bool write_values(const decltype(values) &vec);
-	float interpolate(float x) const;
-	template<std::floating_point T>
-	T get(T x) const;
+	float get(float x) const;
 public:
 	template<std::floating_point T>
 	using accumlator = sum_accumlator<T>;
 	funcGallager_table();
 	template<std::floating_point T>
-	T forward(T x) const{return get(x);}
+	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
-	T backward(T x) const{return get(x);}
+	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 };
 
 template<>
@@ -139,17 +138,15 @@ class funcGallager_table<2> {
 	inline static std::vector<float> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
 
 	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
-	float interpolate(float x) const;
-	template<std::floating_point T>
-	T get(T x) const;
+	float get(float x) const;
 public:
 	template<std::floating_point T>
 	using accumlator = sum_accumlator<T>;
 	funcGallager_table();
 	template<std::floating_point T>
-	T forward(T x) const{return get(x);}
+	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
-	T backward(T x) const{return get(x);}
+	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 };
 
 ////////////////////////////////////////////////////////////////
@@ -159,13 +156,13 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template<std::floating_point T>
-void sum_accumlator<T>::operator+=(T rhs){
+inline void sum_accumlator<T>::operator+=(T rhs){
 	abssum += std::fabs(rhs);
 	signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
 }
 
 template<std::floating_point T>
-T sum_accumlator<T>::operator-(T rhs) const{
+inline T sum_accumlator<T>::operator-(T rhs) const{
 	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
 	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(abssum-std::fabs(rhs)));
 }
@@ -177,7 +174,7 @@ T sum_accumlator<T>::operator-(T rhs) const{
 ////////////////////////////////////////////////////////////////
 
 template<std::floating_point T>
-void min_accumlator<T>::operator+=(T rhs){
+inline void min_accumlator<T>::operator+=(T rhs){
 	auto arhs = std::fabs(rhs);
 	if(absmin.first>=arhs){
 		absmin.second = absmin.first;
@@ -189,7 +186,7 @@ void min_accumlator<T>::operator+=(T rhs){
 }
 
 template<std::floating_point T>
-T min_accumlator<T>::operator-(T rhs) const{
+inline T min_accumlator<T>::operator-(T rhs) const{
 	constexpr uint_of_length_t<T> signmask = 1u<<(sizeof(T)*8u-1u);
 	auto arhs = std::fabs(rhs);
 	auto val = absmin.first==arhs?absmin.second:absmin.first;
@@ -204,7 +201,7 @@ T min_accumlator<T>::operator-(T rhs) const{
 
 template<std::uint8_t precision>
 template<std::floating_point T>
-T funcGallager_calc<precision>::common(T x){
+inline T funcGallager_calc<precision>::common(T x){
 	static_assert(precision<2,"invalid precision specification");
 	auto y = std::fabs(x);
 	//定義域を限定
@@ -266,15 +263,13 @@ funcGallager_table<0>::funcGallager_table(){
 	}
 }
 
-template<std::floating_point T>
-T funcGallager_table<0>::get(T x) const{
-	auto xf = static_cast<float>(x);
-	auto xa = std::fabs(xf);
+inline float funcGallager_table<0>::get(float x) const{
+	auto xa = std::fabs(x);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
 	auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
-	return static_cast<T>(std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000));
+	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -321,14 +316,6 @@ bool funcGallager_table<1>::write_values(const decltype(values) &vec){
 	return true;
 }
 
-float funcGallager_table<1>::interpolate(float x) const{
-	auto xu = ((std::bit_cast<std::uint32_t>(x)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&0x0000ffff;
-	auto ratio = static_cast<float>(std::bit_cast<std::uint32_t>(x)&0x000007ff)*0x1p-11f;
-	auto y1 = values[xu];
-	auto y2 = values[xu+1];
-	return y1 + (y1-y2)*ratio;
-}
-
 funcGallager_table<1>::funcGallager_table(){
 	static bool init;
 	if(!init){
@@ -337,17 +324,20 @@ funcGallager_table<1>::funcGallager_table(){
 	}
 }
 
-template<std::floating_point T>
-T funcGallager_table<1>::get(T x) const{
-	auto xf = static_cast<float>(x);
-	auto xa = std::fabs(xf);
+inline float funcGallager_table<1>::get(float x) const{
+	auto xa = std::fabs(x);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
-	// auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&0x0000ffff;
-	// auto ya = values[xu];
-	auto ya = interpolate(xa);
-	return static_cast<T>(std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000));
+	auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&UPPER_BOUND_U;
+	auto ya = values[xu];
+	//線形補間
+	constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_HALF_FLOAT);
+	constexpr float ratiounit = 1.0f/(1<<SHIFT_HALF_FLOAT);
+	auto y2 = values[xu+1];
+	ya += (y2-ya)*static_cast<float>(std::bit_cast<std::uint32_t>(xa)&bottommask)*ratiounit;
+
+	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -363,18 +353,9 @@ decltype(funcGallager_table<2>::values) funcGallager_table<2>::values_init(){
 	for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
 		auto x = std::bit_cast<float>(((i<<SHIFT_MINI_FLOAT)-EXPONENT_BIAS)&0x7fffffff);
 		auto y = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(x))));
-		// auto value = static_cast<decltype(values)::value_type>((std::bit_cast<uint32_t>(y)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT);
 		val[i] = y;
 	}
 	return val;
-}
-
-float funcGallager_table<2>::interpolate(float x) const{
-	auto xu = ((std::bit_cast<std::uint32_t>(x)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT)&0x0000ffff;
-	auto ratio = static_cast<float>(std::bit_cast<std::uint32_t>(x)&0x000007ff)*0x1p-11f;
-	auto y1 = values[xu];
-	auto y2 = values[xu+1];
-	return y1 + (y1-y2)*ratio;
 }
 
 funcGallager_table<2>::funcGallager_table(){
@@ -385,17 +366,20 @@ funcGallager_table<2>::funcGallager_table(){
 	}
 }
 
-template<std::floating_point T>
-T funcGallager_table<2>::get(T x) const{
-	auto xf = static_cast<float>(x);
-	auto xa = std::fabs(xf);
+inline float funcGallager_table<2>::get(float x) const{
+	auto xa = std::fabs(x);
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
 	auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT)&UPPER_BOUND_U;
 	auto ya = values[xu];
-	// auto ya = interpolate(xa);
-	return static_cast<T>(std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000));
+	//線形補間
+	// constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_MINI_FLOAT);
+	// constexpr float ratiounit = 1.0f/(1<<SHIFT_MINI_FLOAT);
+	// auto y2 = values[xu+1];
+	// ya += (y2-ya)*static_cast<float>(std::bit_cast<std::uint32_t>(xa)&bottommask)*ratiounit;
+	//符号を復元
+	return std::bit_cast<float>(std::bit_cast<std::uint32_t>(ya)|std::bit_cast<std::uint32_t>(x)&0x80000000);
 }
 
 
