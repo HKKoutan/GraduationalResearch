@@ -22,7 +22,6 @@ constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
 constexpr size_t BLOCK_SIZE = 0;
 constexpr std::uint8_t ATGC = 0x27;
-using DECODERTYPE = code::LDPC::phi_table<>;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -42,6 +41,7 @@ int main(int argc, char* argv[]){
 	constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
 	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02,0.015,0.01,0.005,0.0};
 	constexpr size_t nsize = noise_factor.size();
+	code::LDPC::phi_table<> decodertype;
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	// tuple: biterrors, bitcounts, nterrors, maxGCdeviation, maxrunlength
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_conv = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t> *st){
+	auto encoded_conv = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t> *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &maxgcdev = std::get<3>(*st);
 		auto &maxrunlength = std::get<4>(*st);
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]){
 				auto Ltm = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcm);
 				auto Ltc = code::concatenate(Ltm, Ltr);
 
-				auto Ltcest = ldpc.decode<DECODERTYPE>(Ltc);
+				auto Ltcest = ldpc.decode(Ltc,decodertype);
 				// auto LLRest = LLR;
 				auto tmest = code::estimate_crop<SOURCE_LENGTH>(Ltcest);
 				auto cmest = code::DNAS::convert<ATGC>::binary_to_nttype(tmest);
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_diff = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t> *st){
+	auto encoded_diff = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t> *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &maxgcdev = std::get<3>(*st);
 		auto &maxrunlength = std::get<4>(*st);
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]){
 				auto Ltr = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd);
 				auto Ltc = code::concatenate(Ltm, Ltr);
 
-				auto Ltcest = ldpc.decode<DECODERTYPE>(Ltc);
+				auto Ltcest = ldpc.decode(Ltc,decodertype);
 				// auto LLRest = LLR;
 				auto tmest = code::estimate_crop<SOURCE_LENGTH>(Ltcest);
 				auto cmdest = code::DNAS::convert<ATGC>::binary_to_nttype(tmest);

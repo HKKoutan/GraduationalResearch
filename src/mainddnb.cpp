@@ -20,7 +20,6 @@ constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
 constexpr size_t BLOCK_SIZE = 0;//GCdevの集計にのみ影響
 constexpr uint8_t ATGC = 0x1B;
-using DECODERTYPE = code::LDPC::phi_table<>;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -40,6 +39,7 @@ int main(int argc, char* argv[]){
 	constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
 	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02,0.015,0.01,0.005,0.0};
 	constexpr size_t nsize = noise_factor.size();
+	code::LDPC::phi_table<> decodertype;
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	// tuple: biterrors, nterrors, maxGCdeviation
@@ -74,7 +74,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_conv = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	auto encoded_conv = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &maxgcdev = std::get<2>(*st);
 		for(size_t n=0; n<nsize; ++n){
@@ -97,7 +97,7 @@ int main(int argc, char* argv[]){
 				auto Lcc = ch.likelihood<float>(rc);
 				auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcc);
 
-				auto Lcest = ldpc.decode<DECODERTYPE>(Lc);
+				auto Lcest = ldpc.decode(Lc,decodertype);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
 
 				nterror[n] += code::DNAS::countError(cc,rc);
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_diff = [&ldpc, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	auto encoded_diff = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
 		auto &maxgcdev = std::get<2>(*st);
 		for(size_t n=0; n<nsize; ++n){
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]){
 				auto Lnc = code::DNAS::differential::decode_p(Lcc);
 				auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lnc);
 
-				auto Lcest = ldpc.decode<DECODERTYPE>(Lc);
+				auto Lcest = ldpc.decode(Lc,decodertype);
 				auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
 
 				nterror[n] += code::DNAS::countDifferentialError(cc,rc);
