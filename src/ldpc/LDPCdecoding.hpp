@@ -2,7 +2,6 @@
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <bitset>
-#include <optional>
 #include <cstdint>
 #include <bit>
 #include <algorithm>

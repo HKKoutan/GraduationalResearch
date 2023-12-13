@@ -1,6 +1,7 @@
 ﻿#ifndef INCLUDE_GUARD_ldpc_codeSystematicLDPC
 #define INCLUDE_GUARD_ldpc_codeSystematicLDPC
 
+#include <optional>
 #include "LDPCdecoding.hpp"
 #include "LDPCencoding.hpp"
 
