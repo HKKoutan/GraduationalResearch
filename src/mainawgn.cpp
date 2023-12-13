@@ -28,6 +28,7 @@ int main(int argc, char* argv[]){
 	constexpr array noise_factor = {0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0};
 	//constexpr array noise_factor = {0.0};
 	constexpr size_t nsize = noise_factor.size();
+	code::LDPC::phi_table<> decodertype;
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	array<array<uint64_t,nsize>,3> biterror = {0};
@@ -66,7 +67,7 @@ int main(int argc, char* argv[]){
 				auto code = ldpc.encode(info);
 				auto y = ch.noise<float>(code);
 				auto LLR = ch.LLR(y);
-				LLR = ldpc.decode<decltype(decodertype)>(LLR);
+				LLR = ldpc.decode(LLR, decodertype);
 				auto est = code::estimate_crop<SOURCE_LENGTH>(LLR);
 
 				bn += (est^info).count();
@@ -82,7 +83,7 @@ int main(int argc, char* argv[]){
 	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	threads.clear();
 	tk.split();
-	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, code::LDPC::phi_table<>());
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decodertype);
 	for(auto &t: threads) t.join();
 	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	// threads.clear();
