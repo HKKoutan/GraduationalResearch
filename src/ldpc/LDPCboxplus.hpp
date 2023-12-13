@@ -32,7 +32,6 @@ namespace{
 		uint_of_length_t<T> signprod;
 	public:
 		sum_accumlator():abssum(0),signprod(0){}
-		sum_accumlator(T x):abssum(std::fabs(x)),signprod(x){}
 		void operator+=(T rhs);
 		T operator-(T rhs) const;
 	};
