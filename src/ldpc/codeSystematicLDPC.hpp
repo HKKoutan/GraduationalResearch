@@ -67,11 +67,8 @@ auto SystematicLDPC<T>::encode_redundancy(const std::bitset<S> &information) con
 template<LDPC::CheckMatrix T>
 template<std::floating_point F, LDPC::boxplusclass P>
 auto SystematicLDPC<T>::decode(const std::array<F,C> &LLR, const P &bp){
-	static thread_local bool decoder_initialized;
-	if(!decoder_initialized){
-		decoders.emplace(H);
-		decoder_initialized = true;
-	}
+	if(!decoders) decoders.emplace(H);
+
 	auto QLLR = encoder.inverse_substitution(LLR);
 	std::array<F,C> QLPR;//対数事後確率比：列ごとのalphaの和+QLLR
 
