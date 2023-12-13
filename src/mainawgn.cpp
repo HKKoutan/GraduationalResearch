@@ -47,7 +47,7 @@ int main(int argc, char* argv[]){
 				rb.generate(info);
 
 				auto y = ch.noise<float>(info);
-				auto est = code::estimate(y);
+				auto est = code::estimate_crop(y);
 
 				bn += (est^info).count();
 			}
