@@ -9,7 +9,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 endif()
 
 enable_language(CXX)
-# enable_language(CUDA)
+enable_language(CUDA)
 set(PROJECT_VERSION 3.10.4)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -36,6 +36,7 @@ target_link_libraries(ldpcidec PRIVATE ldpc idec)
 
 add_executable(aux ${PROJECT_SOURCE_DIR}/src/auxiliary.cpp)
 
+add_executable(cawgn ${PROJECT_SOURCE_DIR}/src/mainawgn.cu)
 add_executable(awgn ${PROJECT_SOURCE_DIR}/src/mainawgn.cpp)
 add_executable(mids ${PROJECT_SOURCE_DIR}/src/mainmids.cpp)
 add_executable(lids ${PROJECT_SOURCE_DIR}/src/mainlids.cpp)
