@@ -69,9 +69,7 @@ public:
 	static inline T backward(T x){return common(x);}
 };
 
-template<std::uint8_t precision=0> class phi_table {
-	static_assert(precision<3,"invalid precision specification");
-};
+template<std::uint8_t precision=0> class phi_table;
 
 template<>
 class phi_table<0> {
@@ -239,14 +237,12 @@ decltype(phi_table<0>::values) phi_table<0>::values_init(){
 	decltype(values) val(FG_VALUE_RANGE);
 
 	if(!read_values(val)){
-		std::cerr<<"phi_table: Cache file not found."<<std::endl;
+		std::cerr<<"phi_table<0>: Cache file not found."<<std::endl;
 		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
 			auto iu = i+LOWER_BOUND_U;
 			val[i] = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(std::bit_cast<float>(iu)))));
 		}
-		if(!write_values(val)){
-			std::cerr<<"phi_table: Caching failed."<<std::endl;
-		}
+		if(!write_values(val)) std::cerr<<"phi_table<0>: Caching failed."<<std::endl;
 	}
 	return val;
 }
@@ -298,16 +294,13 @@ decltype(phi_table<1>::values) phi_table<1>::values_init(){
 	decltype(values) val(FG_VALUE_RANGE);
 
 	if(!read_values(val)){
-		std::cerr<<"funcGallager_halftable: Cache file not found."<<std::endl;
+		std::cerr<<"phi_table<1>: Cache file not found."<<std::endl;
 		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
 			auto x = std::bit_cast<float>(((i<<SHIFT_HALF_FLOAT)-EXPONENT_BIAS)&0x7fffffff);
 			auto y = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(x))));
-			// auto value = static_cast<decltype(values)::value_type>((std::bit_cast<uint32_t>(y)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT);
 			val[i] = y;
 		}
-		if(!write_values(val)){
-			std::cerr<<"funcGallager_halftable: Caching failed."<<std::endl;
-		}
+		if(!write_values(val)) std::cerr<<"phi_table<1>: Caching failed."<<std::endl;
 	}
 	return val;
 }

@@ -22,8 +22,8 @@ public:
 
 	auto encode(const std::bitset<S> &information) const;//引数から符号語を求める
 	auto encode_redundancy(const std::bitset<S> &information) const;//引数から冗長を求める
-	template<LDPC::boxplusclass B, std::floating_point F>
-	auto decode(const std::array<F,C> &LLR);
+	template<std::floating_point F, LDPC::boxplusclass P>
+	auto decode(const std::array<F,C> &LLR, const P &bp);
 
 	static constexpr auto sourcesize(){return S;}
 	static constexpr auto codesize(){return C;}
@@ -65,13 +65,13 @@ auto SystematicLDPC<T>::encode_redundancy(const std::bitset<S> &information) con
 }
 
 template<LDPC::CheckMatrix T>
-template<LDPC::boxplusclass B, std::floating_point F>
-auto SystematicLDPC<T>::decode(const std::array<F,C> &LLR){
+template<std::floating_point F, LDPC::boxplusclass P>
+auto SystematicLDPC<T>::decode(const std::array<F,C> &LLR, const P &bp){
 	auto QLLR = encoder.inverse_substitution(LLR);
 	std::array<F,C> QLPR;//対数事後確率比：列ごとのalphaの和+QLLR
 
 	decoder.decode_init();
-	for(auto iter=0ui64; !decoder.iterate<B>(QLPR, QLLR) && iter<iterationlimit; ++iter);
+	for(auto iter=0ui64; !decoder.iterate(QLPR, QLLR, bp) && iter<iterationlimit; ++iter);
 
 	return encoder.substitution(QLPR);
 }
