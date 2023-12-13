@@ -203,13 +203,15 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 			qtyATdivwide = qtyATdiv + (source[div.tail>>1].is_AT()+source[div.head>>1].is_AT()-1)*(div.head&1);
 		}
 		//適用
-		for(std::size_t j=block.head, jend=div.head>>1; j<jend; ++j) balanced[j] = source[j]+change;
+		div.head = div.head>>1;
+		div.tail = (div.tail+1)>>1;
+		for(std::size_t j=block.head, jend=div.head; j<jend; ++j) balanced[j] = source[j]+change;
 		if(div.head!=0&&source[div.head-1]==source[div.head]+1) change += 3;//分割位置の前後が連続しているかどうか調べる
 		else change += 1;
-		for(std::size_t j=div.head>>1, jend=(div.tail+1)>>1; j<jend; ++j) balanced[j] = source[j]+change;
-		if(div.tail<source.size()&&source[div.head]==source[div.head+1]+3) change += 1;
+		for(std::size_t j=div.head, jend=div.tail; j<jend; ++j) balanced[j] = source[j]+change;
+		if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+3) change += 1;
 		else change += 3;
-		for(std::size_t j=(div.tail+1)>>1; j<block.tail; ++j) balanced[j] = source[j]+change;
+		for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j] = source[j]+change;
 	}
 	return std::make_pair(balanced, change);
 }
@@ -217,7 +219,7 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 template<std::size_t BS>
 template<std::floating_point T, std::size_t S>
 auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,T>,S> &differential, T prevdist){
-	constexpr T b1p = static_cast<T>(7.0/8.0);
+	constexpr T b1p = static_cast<T>(3.0/4.0);
 	constexpr T b3p = 1-b1p;
 	std::array<nucleotide_p<ATGC,T>,S> result = differential;
 	if constexpr(BS!=0){
