@@ -51,7 +51,7 @@ public:
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//                  class Sumproduct_decoding                  //
+//                  class Sumproduct_decoding                 //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
@@ -127,7 +127,7 @@ bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C>
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
-//       class Sumproduct_decoding<CheckMatrix_regular>        //
+//       class Sumproduct_decoding<CheckMatrix_regular>       //
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
@@ -136,8 +136,11 @@ auto Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(const Chec
 	constexpr std::size_t Hsize = C-S;
 	std::array<std::array<fptype*,W>,C-S> alphabetap;
 
-	std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
-	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
+	std::array<std::array<std::uint64_t,W*S/C>,C> HT;//Hの転置
+	{
+		std::array<std::size_t,C> HTc = {};
+		for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
+	}
 
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
