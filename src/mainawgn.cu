@@ -81,11 +81,11 @@ int main(int argc, char* argv[]){
 	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(plain, threads.size(), &bt);
 	for(auto &t: threads) t.join();
 	for(auto &bs = biterror[0]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
-	// threads.clear();
-	// tk.split();
-	// for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decodertype);
-	// for(auto &t: threads) t.join();
-	// for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
+	threads.clear();
+	tk.split();
+	for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decodertype);
+	for(auto &t: threads) t.join();
+	for(auto &bs = biterror[1]; auto &bt: biterrors) for(size_t n=0; n<nsize; ++n) bs[n]+=bt[n];
 	// threads.clear();
 	// tk.split();
 	// for(biterrors = {0}; auto &bt: biterrors) threads.emplace_back(encoded, threads.size(), &bt, decltype(ldpc)::DecoderType::MinSum());
@@ -95,14 +95,14 @@ int main(int argc, char* argv[]){
 
 	cout<<"S/N"
 	<<"\tPlain"
-	// <<"\tSum-Product"
+	<<"\tSum-Product"
 	// <<"\tMin-sum"
 	<<endl;
 
 	for(size_t n=0; n<nsize; ++n){
 		cout<<noise_factor[n]
 		<<"\t"<<static_cast<double>(biterror[0][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
-		// <<"\t"<<static_cast<double>(biterror[1][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
+		<<"\t"<<static_cast<double>(biterror[1][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
 		// <<"\t"<<static_cast<double>(biterror[2][n])/(ldpc.sourcesize()*repeat_per_thread*NUM_THREADS)
 		<<endl;
 	}
