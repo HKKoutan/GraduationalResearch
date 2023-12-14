@@ -4,11 +4,13 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <memory>
 #include <cstdint>
 #include <bit>
 #include <concepts>
 #include <cmath>
 #include <limits>
+#include <cassert>
 
 namespace code::LDPC {
 
@@ -76,14 +78,15 @@ class phi_table<0> {
 	static constexpr auto LOWER_BOUND_U = std::bit_cast<uint32_t>(LOWER_BOUND);
 	static constexpr auto UPPER_BOUND = 0x1p6f;
 	static constexpr auto UPPER_BOUND_U = std::bit_cast<uint32_t>(UPPER_BOUND);
+	static constexpr auto VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	static constexpr auto CACHE_FILENAME = "gallager_float.bin";
 
-	inline static std::vector<float> values;
+	inline static std::unique_ptr<float[]> values;
 
-	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
-	static bool read_values(decltype(values) &vec);
-	static bool write_values(const decltype(values) &vec);
-	float get(float x) const;
+	static void values_init();//キャッシュファイルを読み込む。失敗したら、値を計算してキャッシュファイルに保存する。
+	static bool read_values(std::unique_ptr<float[]> &vec);
+	static bool write_values(const std::unique_ptr<float[]> &vec);
+	inline float get(float x) const;
 public:
 	phi_table();
 	template<std::floating_point T>
@@ -100,14 +103,15 @@ class phi_table<1> {
 	static constexpr auto UPPER_BOUND_U = 0x0000ffff;
 	static constexpr auto EXPONENT_BIAS = (11+0x00000080)<<23;//指数の内部表現の差
 	static constexpr auto SHIFT_HALF_FLOAT = 11;//仮数部の長さの差
+	static constexpr auto VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	static constexpr auto CACHE_FILENAME = "gallager_half.bin";
 
-	inline static std::vector<float> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
+	inline static std::unique_ptr<float[]> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
 
-	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
-	static bool read_values(decltype(values) &vec);
-	static bool write_values(const decltype(values) &vec);
-	float get(float x) const;
+	static void values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
+	static bool read_values(std::unique_ptr<float[]> &vec);
+	static bool write_values(const std::unique_ptr<float[]> &vec);
+	inline float get(float x) const;
 public:
 	phi_table();
 	template<std::floating_point T>
@@ -124,11 +128,12 @@ class phi_table<2> {
 	static constexpr auto UPPER_BOUND_U = 0x000000ff;
 	static constexpr auto EXPONENT_BIAS = (11+0x00000080)<<23;//指数の内部表現の差
 	static constexpr auto SHIFT_MINI_FLOAT = 19;//仮数部の長さの差
+	static constexpr auto VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 
-	inline static std::vector<float> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
+	inline static std::unique_ptr<float[]> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
 
-	static decltype(values) values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
-	float get(float x) const;
+	static void values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
+	inline float get(float x) const;
 public:
 	phi_table();
 	template<std::floating_point T>
@@ -231,46 +236,40 @@ inline T phi_calc<precision>::common(T x){
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(phi_table<0>::values) phi_table<0>::values_init(){
-	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
-	decltype(values) val(FG_VALUE_RANGE);
+void phi_table<0>::values_init(){
+	values = std::make_unique<float[]>(VALUE_RANGE);
 
-	if(!read_values(val)){
+	if(!read_values(values)){
 		std::cerr<<"phi_table<0>: Cache file not found."<<std::endl;
-		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
+		for(auto i=0ui32; i<VALUE_RANGE; ++i){
 			auto iu = i+LOWER_BOUND_U;
-			val[i] = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(std::bit_cast<float>(iu)))));
+			values[i] = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(std::bit_cast<float>(iu)))));
 		}
-		if(!write_values(val)) std::cerr<<"phi_table<0>: Caching failed."<<std::endl;
+		if(!write_values(values)) std::cerr<<"phi_table<0>: Caching failed."<<std::endl;
 	}
-	return val;
 }
 
-bool phi_table<0>::read_values(decltype(values) &vec){
+bool phi_table<0>::read_values(std::unique_ptr<float[]> &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
-	file.read(reinterpret_cast<char*>(vec.data()), vec.size()*sizeof(vec.front()));
+	file.read(reinterpret_cast<char*>(vec.get()), VALUE_RANGE*sizeof(float));
 	file.close();
 	if(file.fail()) return false;
 	return true;
 }
 
-bool phi_table<0>::write_values(const decltype(values) &vec){
+bool phi_table<0>::write_values(const std::unique_ptr<float[]> &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
-	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
+	file.write(reinterpret_cast<const char*>(vec.get()), VALUE_RANGE*sizeof(float));
 	file.close();
 	if(file.fail()) return false;
 	return true;
 }
 
 phi_table<0>::phi_table(){
-	static bool init;
-	if(!init){
-		values = values_init();
-		init = true;
-	}
+	if(!values) values_init();
 }
 
 inline float phi_table<0>::get(float x) const{
@@ -278,6 +277,7 @@ inline float phi_table<0>::get(float x) const{
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	assert(std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U < VALUE_RANGE);
 	auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
 	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
@@ -288,47 +288,41 @@ inline float phi_table<0>::get(float x) const{
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(phi_table<1>::values) phi_table<1>::values_init(){
-	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
-	decltype(values) val(FG_VALUE_RANGE);
+void phi_table<1>::values_init(){
+	values = std::make_unique<float[]>(VALUE_RANGE);
 
-	if(!read_values(val)){
+	if(!read_values(values)){
 		std::cerr<<"phi_table<1>: Cache file not found."<<std::endl;
-		for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
+		for(auto i=0ui32; i<VALUE_RANGE; ++i){
 			auto x = std::bit_cast<float>(((i<<SHIFT_HALF_FLOAT)-EXPONENT_BIAS)&0x7fffffff);
 			auto y = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(x))));
-			val[i] = y;
+			values[i] = y;
 		}
-		if(!write_values(val)) std::cerr<<"phi_table<1>: Caching failed."<<std::endl;
+		if(!write_values(values)) std::cerr<<"phi_table<1>: Caching failed."<<std::endl;
 	}
-	return val;
 }
 
-bool phi_table<1>::read_values(decltype(values) &vec){
+bool phi_table<1>::read_values(std::unique_ptr<float[]> &vec){
 	std::ifstream file(CACHE_FILENAME, std::ios::in | std::ios::binary);
 	if(!file.is_open()) return false;
 
-	file.read(reinterpret_cast<char*>(vec.data()), vec.size()*sizeof(vec.front()));
+	file.read(reinterpret_cast<char*>(vec.get()), VALUE_RANGE*sizeof(float));
 	file.close();
 	if(file.fail()) return false;
 	return true;
 }
 
-bool phi_table<1>::write_values(const decltype(values) &vec){
+bool phi_table<1>::write_values(const std::unique_ptr<float[]> &vec){
 	std::ofstream file(CACHE_FILENAME, std::ios::out | std::ios::binary);
 
-	file.write(reinterpret_cast<const char*>(vec.data()), vec.size()*sizeof(vec.front()));
+	file.write(reinterpret_cast<const char*>(vec.get()), VALUE_RANGE*sizeof(float));
 	file.close();
 	if(file.fail()) return false;
 	return true;
 }
 
 phi_table<1>::phi_table(){
-	static bool init;
-	if(!init){
-		values = values_init();
-		init = true;
-	}
+	if(!values) values_init();
 }
 
 inline float phi_table<1>::get(float x) const{
@@ -353,24 +347,18 @@ inline float phi_table<1>::get(float x) const{
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-decltype(phi_table<2>::values) phi_table<2>::values_init(){
-	constexpr auto FG_VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
-	decltype(values) val(FG_VALUE_RANGE);
+void phi_table<2>::values_init(){
+	values = std::make_unique<float[]>(VALUE_RANGE);
 
-	for(auto i=0ui32; i<FG_VALUE_RANGE; ++i){
+	for(auto i=0ui32; i<VALUE_RANGE; ++i){
 		auto x = std::bit_cast<float>(((i<<SHIFT_MINI_FLOAT)-EXPONENT_BIAS)&0x7fffffff);
 		auto y = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(x))));
-		val[i] = y;
+		values[i] = y;
 	}
-	return val;
 }
 
 phi_table<2>::phi_table(){
-	static bool init;
-	if(!init){
-		values = values_init();
-		init = true;
-	}
+	if(!values) values_init();
 }
 
 inline float phi_table<2>::get(float x) const{

@@ -61,6 +61,7 @@ template<std::size_t S, std::size_t C, std::size_t W>//S:Source length, C:Code l
 class CheckMatrix_regular{
 	static constexpr std::size_t Size = C-S;
 	inline static std::unique_ptr<std::size_t[]> col1;//検査行列の1がある列番号 大きさW*Size
+	// inline static std::unique_ptr<std::size_t[]> rowidx; 検査行列各行の先頭にあたるcol1のインデックス 大きさSize+1 幅が固定なので不要
 	static const char *path;
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
