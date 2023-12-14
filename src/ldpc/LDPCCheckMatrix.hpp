@@ -48,6 +48,7 @@ public:
 	static constexpr std::size_t codesize() noexcept{return C;}
 	static constexpr std::size_t sourcesize() noexcept{return S;}
 	static constexpr std::size_t size() noexcept{return Size;}
+	std::size_t countones() const noexcept{return rowidx[Size];}
 	// const std::size_t* begin() const noexcept{return col1.get();}
 	// const std::size_t* end() const noexcept{return col1.get()+rowidx[Size];}
 	// const std::size_t* data() const noexcept{return col1.get();}
@@ -87,6 +88,7 @@ public:
 	static constexpr std::size_t codesize() noexcept{return C;}
 	static constexpr std::size_t sourcesize() noexcept{return S;}
 	static constexpr std::size_t size() noexcept{return Size;}
+	static constexpr std::size_t countones() noexcept{return W*Size;}
 	// const std::size_t* begin() const noexcept{return sized_ptr<Size>(col1.get());}
 	// const std::size_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
 	// const std::size_t* data() const noexcept{return sized_ptr<Size>(col1.get());}
