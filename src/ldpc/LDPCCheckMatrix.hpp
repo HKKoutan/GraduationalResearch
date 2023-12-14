@@ -6,59 +6,93 @@
 #include <array>
 #include <vector>
 #include <string>
-#include <iterator>
 #include <ranges>
-#include <type_traits>
+#include <memory>
+#include <cassert>
 
 namespace code::LDPC {
 
 //以下で定義するクラスが満たすべきconcept
 template<class T>
-concept CheckMatrix = requires(std::remove_reference_t<T> &x){
+concept CheckMatrix = requires(T x){
 	{T::codesize()} -> std::same_as<std::size_t>;
 	{T::sourcesize()} -> std::same_as<std::size_t>;
 	{x.size()} -> std::same_as<std::size_t>;
-	{x.begin()} -> std::random_access_iterator;
-	{x.cbegin()} -> std::random_access_iterator;
-	{x.end()} -> std::random_access_iterator;
-	{x.cend()} -> std::random_access_iterator;
-	{x[0]} -> std::ranges::random_access_range;
 };
 
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class CheckMatrix_irregular{
-	inline static std::array<std::vector<std::uint64_t>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
+	static constexpr std::size_t Size = C-S;
+	inline static std::unique_ptr<std::size_t[]> col1;//検査行列の1がある列番号
+	inline static std::unique_ptr<std::size_t[]> rowidx;//検査行列各行の先頭にあたるcol1のインデックス 大きさSize+1
 	static const char *path;
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
-	static constexpr bool is_regular() noexcept{return false;}
+	class sized_ptr {
+		std::size_t* const ptr;
+		std::size_t Size;
+	public:
+		sized_ptr(std::size_t* ptr, std::size_t size):ptr(ptr),Size(size){}
+		const std::size_t* begin() const noexcept{return ptr;}
+		const std::size_t* end() const noexcept{return ptr+Size;}
+		const std::size_t* data() const noexcept{return ptr;}
+		std::size_t size() const noexcept{return Size;}
+		inline const std::size_t& operator[](std::size_t i) const{
+			assert(i<Size);
+			return *(ptr+i);
+		}
+	};
+
 	CheckMatrix_irregular();
-	static constexpr auto codesize() noexcept{return C;}
-	static constexpr auto sourcesize() noexcept{return S;}
-	static constexpr auto size() noexcept{return C-S;}
-	constexpr auto begin() const noexcept{return pos1.cbegin();}
-	constexpr auto cbegin() const noexcept{return pos1.cbegin();}
-	constexpr auto end() const noexcept{return pos1.cend();}
-	constexpr auto cend() const noexcept{return pos1.cend();}
-	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
+	static constexpr bool is_regular() noexcept{return false;}
+	static constexpr std::size_t codesize() noexcept{return C;}
+	static constexpr std::size_t sourcesize() noexcept{return S;}
+	static constexpr std::size_t size() noexcept{return Size;}
+	// const std::size_t* begin() const noexcept{return col1.get();}
+	// const std::size_t* end() const noexcept{return col1.get()+rowidx[Size];}
+	// const std::size_t* data() const noexcept{return col1.get();}
+	const sized_ptr operator[](std::size_t i) const noexcept{
+		assert(i<Size);
+		return sized_ptr(col1.get()+rowidx[i],rowidx[i+1]-rowidx[i]);
+	}
 };
 
 template<std::size_t S, std::size_t C, std::size_t W>//S:Source length, C:Code length, W:row weight
 class CheckMatrix_regular{
-	inline static std::array<std::array<std::uint64_t,W>,C-S> pos1;//行ごとに検査行列の1がある列番号を列挙
+	static constexpr std::size_t Size = C-S;
+	inline static std::unique_ptr<std::size_t[]> col1;//検査行列の1がある列番号 大きさW*Size
 	static const char *path;
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
-	static constexpr bool is_regular() noexcept{return true;}
+	template<std::size_t Size>
+	class sized_ptr {
+		const std::size_t* ptr;
+	public:
+		sized_ptr(const std::size_t* ptr):ptr(ptr){}
+		const std::size_t* begin() const noexcept{return ptr;}
+		const std::size_t* end() const noexcept{return ptr+Size;}
+		const std::size_t* data() const noexcept{return ptr;}
+		static constexpr std::size_t size(){return Size;}
+		// void operator++(){ptr+=Size;}
+		// bool operator==(sized_ptr &rhs) const{return ptr==rhs.ptr;}
+		inline const std::size_t& operator[](std::size_t i) const{
+			assert(i<Size);
+			return *(ptr+i);
+		}
+	};
+
 	CheckMatrix_regular();
-	static constexpr auto codesize() noexcept{return C;}
-	static constexpr auto sourcesize() noexcept{return S;}
-	static constexpr auto size() noexcept{return C-S;}
-	constexpr auto begin() const noexcept{return pos1.cbegin();}
-	constexpr auto cbegin() const noexcept{return pos1.cbegin();}
-	constexpr auto end() const noexcept{return pos1.cend();}
-	constexpr auto cend() const noexcept{return pos1.cend();}
-	constexpr const auto &operator[](std::size_t x) const noexcept{return pos1[x];}
+	static constexpr bool is_regular() noexcept{return true;}
+	static constexpr std::size_t codesize() noexcept{return C;}
+	static constexpr std::size_t sourcesize() noexcept{return S;}
+	static constexpr std::size_t size() noexcept{return Size;}
+	// const std::size_t* begin() const noexcept{return sized_ptr<Size>(col1.get());}
+	// const std::size_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
+	// const std::size_t* data() const noexcept{return sized_ptr<Size>(col1.get());}
+	const sized_ptr<W> operator[](std::size_t i) const noexcept{
+		assert(i<Size);
+		return sized_ptr<W>(col1.get()+W*i);
+	}
 };
 
 template<std::size_t S, std::size_t C> struct validCheckMatrixType {using type = void;};
@@ -89,36 +123,39 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 	std::ifstream file(path, std::ios_base::in);
 	if(!file.is_open()) throw std::runtime_error("LDPC: cannot open file.");
 
+	rowidx = std::make_unique<std::size_t[]>(Size+1);
+	std::vector<std::size_t> data;
+
 	std::string buf;
-	std::size_t colsize = 0;
-	for(auto &row: pos1){
+	std::size_t colsize=0;
+	for(std::size_t i=0; i<Size; ++i){
+		rowidx[i] = data.size();
 		if(!std::getline(file, buf)) throw std::runtime_error("Conflict between index data and file content detected.");
 
 		const char *bi = &buf.front();
 		const char *const bend = &buf.back();
 		while(bi!=bend){
-			uint64_t val;
+			std::size_t val;
 			auto r = std::from_chars(bi, bend, val);
-			//読み込みに失敗した場合
-			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");
-			//行列の列数を記録
-			if(val>colsize) colsize=val;
-			row.push_back(val-1);
+			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");//読み込みに失敗した場合
+			if(val>colsize) colsize=val;//行列の列数を記録
+			data.push_back(val-1);
 			bi=r.ptr;
 			while(bi!=bend&&*bi==' ') bi++;//空白を読み飛ばす
 		}
+		
 	}
 	if(std::getline(file, buf)||colsize!=C) throw std::runtime_error("Conflict between index data and file content detected.");
 	file.close();
+
+	rowidx[Size] = data.size();
+	col1 = std::make_unique<std::size_t[]>(rowidx[Size]);
+	for(std::size_t i=0, iend=rowidx[Size]; i<iend; ++i) col1[i] = data[i];
 }
 
 template<std::size_t S, std::size_t C>
 CheckMatrix_irregular<S,C>::CheckMatrix_irregular(){
-	static bool init;
-	if(!init){
-		readCheckMatrix();
-		init = true;
-	}
+	if(!col1) readCheckMatrix();
 }
 
 ////////////////////////////////////////////////////////////////
@@ -132,26 +169,27 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 	std::ifstream file(path, std::ios_base::in);
 	if(!file.is_open()) throw std::runtime_error("LDPC: cannot open file.");
 
+	col1 = std::make_unique<std::size_t[]>(W*Size);
+
 	std::string buf;
-	std::size_t colsize = 0;
-	for(auto &row: pos1){
+	std::size_t colsize=0;
+	std::size_t i=0;
+	for(std::size_t j=0; j<Size; ++j){
 		if(!std::getline(file, buf)) throw std::runtime_error("Conflict between index data and file content detected.");
 
 		const char *bi = &buf.front();
 		const char *const bend = &buf.back();
-		std::size_t i=0;
 		while(bi!=bend){
 			uint64_t val;
-			if(i==W) throw std::runtime_error("Conflict between index data and file content detected [].");//行重みは固定
+			if(i==W*(j+1)) throw std::runtime_error("Conflict between index data and file content detected.");//行重みは固定
 			auto r = std::from_chars(bi, bend, val);
-			//読み込みに失敗した場合
-			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");
-			//行列の列数を記録
-			if(val>colsize) colsize=val;
-			row[i++] = val-1;
+			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");//読み込みに失敗した場合
+			if(val>colsize) colsize=val;//行列の列数を記録
+			col1[i++] = val-1;
 			bi=r.ptr;
 			while(bi!=bend&&*bi==' ') bi++;//空白を読み飛ばす
 		}
+		if(i!=W*(j+1)) throw std::runtime_error("Conflict between index data and file content detected.");//行重みは固定
 	}
 	if(std::getline(file, buf)||colsize!=C) throw std::runtime_error("Conflict between index data and file content detected.");
 	file.close();
@@ -159,11 +197,7 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 
 template<std::size_t S, std::size_t C, std::size_t W>
 CheckMatrix_regular<S,C,W>::CheckMatrix_regular(){
-	static bool init;
-	if(!init){
-		readCheckMatrix();
-		init = true;
-	}
+	if(!col1) readCheckMatrix();
 }
 
 }

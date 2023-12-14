@@ -14,8 +14,8 @@ class SystematicLDPC {
 	static constexpr std::size_t C = T::codesize();
 
 	T H;
-	LDPC::GenerationMatrix_encoding<decltype(H)> encoder;
-	inline static thread_local std::optional<LDPC::Sumproduct_decoding<decltype(H)>> decoders;
+	LDPC::GenerationMatrix_encoding<T> encoder;
+	inline static thread_local std::optional<LDPC::Sumproduct_decoding<T>> decoders;
 	std::uint64_t iterationlimit;//反復回数上限
 public:
 	explicit SystematicLDPC(const T &H, std::uint64_t iterationlimit);

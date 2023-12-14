@@ -19,7 +19,7 @@ class Sumproduct_decoding {
 	static constexpr std::size_t S = T::sourcesize();
 	static constexpr std::size_t C = T::codesize();
 
-	const T H;//検査行列へのポインタ
+	const T H;//検査行列
 	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
 	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
 
@@ -37,7 +37,7 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	using fptype = float;
 
 	const CheckMatrix_regular<S,C,W> H;//検査行列
-	std::array<std::array<fptype,C>,W*S/C> alphabeta;
+	std::array<std::array<fptype,C>,W*(C-S)/C> alphabeta;
 	std::array<std::array<fptype*,W>,C-S> alphabetap;
 
 	static auto alphabetap_init(const CheckMatrix_regular<S,C,W> &H, std::array<std::array<fptype,C>,W*S/C> &alphabeta);
@@ -56,8 +56,9 @@ public:
 
 template<CheckMatrix T>
 auto Sumproduct_decoding<T>::alphabeta_size(const T &H){
+	constexpr std::size_t Hsize = C-S;
 	std::array<std::size_t,C> Hheight{};
-	for(const auto &Hi: H) for(auto j: Hi) ++Hheight[j];
+	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) ++Hheight[j];
 	return std::ranges::max(Hheight);
 }
 
@@ -116,9 +117,10 @@ bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C>
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] = LPR[j]-ai[j];
 	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	//parity check
-	for(const auto &Hi : H){
+	constexpr std::size_t Hsize = C-S;
+	for(std::size_t i=0; i<Hsize; ++i){
 		auto parity = false;
-		for(const auto &j : Hi) parity ^= LPR[j]<0;
+		for(const auto &j : H[i]) parity ^= LPR[j]<0;
 		if(parity) return false;
 	}
 	return true;
@@ -188,9 +190,10 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<U,C> &L
 	for(auto &abi: alphabeta) for(std::size_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
 	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	//parity check
-	for(const auto &Hi : H){
+	constexpr std::size_t Hsize = C-S;
+	for(std::size_t i=0; i<Hsize; ++i){
 		auto parity = false;
-		for(const auto &j : Hi) parity ^= LPR[j]<0;
+		for(const auto &j : H[i]) parity ^= LPR[j]<0;
 		if(parity) return false;
 	}
 	return true;
