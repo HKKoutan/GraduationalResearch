@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 #define INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 
 #include <fstream>
@@ -23,9 +23,11 @@ concept CheckMatrix = requires(T x){
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
 class CheckMatrix_irregular{
 	static constexpr std::size_t Size = C-S;
+	static const char *path;
+
 	inline static std::unique_ptr<std::size_t[]> col1;//検査行列の1がある列番号
 	inline static std::unique_ptr<std::size_t[]> rowidx;//検査行列各行の先頭にあたるcol1のインデックス 大きさSize+1
-	static const char *path;
+
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
 	class sized_ptr {
@@ -61,9 +63,12 @@ public:
 template<std::size_t S, std::size_t C, std::size_t W>//S:Source length, C:Code length, W:row weight
 class CheckMatrix_regular{
 	static constexpr std::size_t Size = C-S;
-	inline static std::unique_ptr<std::size_t[]> col1;//検査行列の1がある列番号 大きさW*Size
-	// inline static std::unique_ptr<std::size_t[]> rowidx; 検査行列各行の先頭にあたるcol1のインデックス 大きさSize+1 幅が固定なので不要
+	static constexpr std::size_t Ones = W*Size;
+	static constexpr std::size_t VW = Ones/C;
 	static const char *path;
+
+	inline static std::unique_ptr<std::size_t[]> col1;//検査行列の1がある列番号 大きさOnes 幅W
+
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
 	template<std::size_t Size>
@@ -173,7 +178,7 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 	std::ifstream file(path, std::ios_base::in);
 	if(!file.is_open()) throw std::runtime_error("LDPC: cannot open file.");
 
-	col1 = std::make_unique<std::size_t[]>(W*Size);
+	col1 = std::make_unique<std::size_t[]>(Ones);
 
 	std::string buf;
 	bool colsizecheck = false;
