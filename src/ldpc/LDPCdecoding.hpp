@@ -28,8 +28,8 @@ class Sumproduct_decoding {
 public:
 	explicit Sumproduct_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
-	template<std::floating_point U, boxplusclass P>
-	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR, const P &bp);
+	template<boxplusclass P>
+	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 };
 
 template<std::size_t S, std::size_t C, std::size_t W>
@@ -49,8 +49,8 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 public:
 	explicit Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H);
 	void decode_init();//decodeで使用する変数の初期化
-	template<std::floating_point U, boxplusclass P>
-	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR, const P &bp);
+	template<boxplusclass P>
+	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -106,8 +106,8 @@ void Sumproduct_decoding<T>::decode_init(){
 }
 
 template<CheckMatrix T>
-template<std::floating_point U, boxplusclass P>
-bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR, const P &bp){
+template<boxplusclass P>
+bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	//row update
@@ -175,8 +175,8 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
-template<std::floating_point U, boxplusclass P>
-bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR, const P &bp){
+template<boxplusclass P>
+bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
 	for(auto i=0; i<VW; ++i){
 		auto &bi = alphabeta[i];
