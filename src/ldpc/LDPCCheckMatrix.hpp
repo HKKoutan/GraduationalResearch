@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
+#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 #define INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 
 #include <fstream>
@@ -130,7 +130,7 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 	std::vector<std::size_t> data;
 
 	std::string buf;
-	std::size_t colsize=0;
+	bool colsizecheck = false;
 	for(std::size_t i=0; i<Size; ++i){
 		rowidx[i] = data.size();
 		if(!std::getline(file, buf)) throw std::runtime_error("Conflict between index data and file content detected.");
@@ -141,14 +141,15 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 			std::size_t val;
 			auto r = std::from_chars(bi, bend, val);
 			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");//読み込みに失敗した場合
-			if(val>colsize) colsize=val;//行列の列数を記録
+			if(val==C) colsizecheck = true;//行列の列数が正しいことを確認
+			if(val>C) throw std::runtime_error("Conflict between index data and file content detected.");//列数が多すぎる場合
 			data.push_back(val-1);
 			bi=r.ptr;
 			while(bi!=bend&&*bi==' ') bi++;//空白を読み飛ばす
 		}
 		
 	}
-	if(std::getline(file, buf)||colsize!=C) throw std::runtime_error("Conflict between index data and file content detected.");
+	if(std::getline(file, buf)||!colsizecheck) throw std::runtime_error("Conflict between index data and file content detected.");
 	file.close();
 
 	rowidx[Size] = data.size();
@@ -175,7 +176,7 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 	col1 = std::make_unique<std::size_t[]>(W*Size);
 
 	std::string buf;
-	std::size_t colsize=0;
+	bool colsizecheck = false;
 	std::size_t i=0;
 	for(std::size_t j=0; j<Size; ++j){
 		if(!std::getline(file, buf)) throw std::runtime_error("Conflict between index data and file content detected.");
@@ -187,14 +188,15 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 			if(i==W*(j+1)) throw std::runtime_error("Conflict between index data and file content detected.");//行重みは固定
 			auto r = std::from_chars(bi, bend, val);
 			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");//読み込みに失敗した場合
-			if(val>colsize) colsize=val;//行列の列数を記録
+			if(val==C) colsizecheck = true;//行列の列数が正しいことを確認
+			if(val>C) throw std::runtime_error("Conflict between index data and file content detected.");//列数が多すぎる場合
 			col1[i++] = val-1;
 			bi=r.ptr;
 			while(bi!=bend&&*bi==' ') bi++;//空白を読み飛ばす
 		}
 		if(i!=W*(j+1)) throw std::runtime_error("Conflict between index data and file content detected.");//行重みは固定
 	}
-	if(std::getline(file, buf)||colsize!=C) throw std::runtime_error("Conflict between index data and file content detected.");
+	if(std::getline(file, buf)||!colsizecheck) throw std::runtime_error("Conflict between index data and file content detected.");
 	file.close();
 }
 
