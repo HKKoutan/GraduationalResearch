@@ -1,8 +1,9 @@
 ﻿#ifndef INCLUDE_GUARD_ldpc_codeSystematicLDPC
 #define INCLUDE_GUARD_ldpc_codeSystematicLDPC
 
+#include <optional>
 #include "LDPCdecoding.cuh"
-#include "LDPCencoding.hpp"
+#include "LDPCencoding.cuh"
 
 namespace code {
 
@@ -14,7 +15,7 @@ class SystematicLDPC {
 
 	T H;
 	LDPC::GenerationMatrix_encoding<decltype(H)> encoder;
-	LDPC::Iterative_decoding<decltype(H)> decoder;
+	inline static thread_local std::optional<LDPC::Sumproduct_decoding<decltype(H)>> decoders;
 	std::uint64_t iterationlimit;//反復回数上限
 public:
 	explicit SystematicLDPC(const T &H, std::uint64_t iterationlimit);
@@ -35,7 +36,7 @@ class SystematicLDPC<LDPC::CheckMatrix_regular<S,C,W>> {
 
 	LDPC::CheckMatrix_regular<S,C,W> H;
 	LDPC::GenerationMatrix_encoding<decltype(H)> encoder;
-	LDPC::Iterative_decoding<decltype(H)> decoder;
+	inline static thread_local std::optional<LDPC::Sumproduct_decoding<decltype(H)>> decoders;
 	std::uint64_t iterationlimit;//反復回数上限
 public:
 	explicit SystematicLDPC(const LDPC::CheckMatrix_regular<S,C,W> &H, std::uint64_t iterationlimit);
@@ -71,7 +72,6 @@ template<LDPC::CheckMatrix T>
 SystematicLDPC<T>::SystematicLDPC(const T &H, std::uint64_t iterationlimit):
 	H(H),
 	encoder(H),
-	decoder(H),
 	iterationlimit(iterationlimit)
 {}
 
@@ -88,11 +88,13 @@ auto SystematicLDPC<T>::encode_redundancy(const std::bitset<S> &information) con
 template<LDPC::CheckMatrix T>
 template<std::floating_point F, LDPC::boxplusclass P>
 auto SystematicLDPC<T>::decode(const std::array<F,C> &LLR, const P &bp){
+	if(!decoders) decoders.emplace(H);
+
 	auto QLLR = encoder.inverse_substitution(LLR);
 	std::array<F,C> QLPR;//対数事後確率比：列ごとのalphaの和+QLLR
 
-	decoder.decode_init();
-	for(auto iter=0ui64; !decoder.iterate(QLPR, QLLR, bp) && iter<iterationlimit; ++iter);
+	decoders->decode_init();
+	for(auto iter=0ui64; !decoders->iterate(QLPR, QLLR, bp) && iter<iterationlimit; ++iter);
 
 	return encoder.substitution(QLPR);
 }
@@ -107,7 +109,6 @@ template<std::size_t S, std::size_t C, std::size_t W>
 SystematicLDPC<LDPC::CheckMatrix_regular<S,C,W>>::SystematicLDPC(const LDPC::CheckMatrix_regular<S,C,W> &H, std::uint64_t iterationlimit):
 	H(H),
 	encoder(H),
-	decoder(H),
 	iterationlimit(iterationlimit)
 {}
 
@@ -124,11 +125,22 @@ auto SystematicLDPC<LDPC::CheckMatrix_regular<S,C,W>>::encode_redundancy(const s
 template<std::size_t S, std::size_t C, std::size_t W>
 template<std::floating_point F, LDPC::boxplusclass P>
 auto SystematicLDPC<LDPC::CheckMatrix_regular<S,C,W>>::decode(const std::array<F,C> &LLR, const P &bp){
-	auto QLLR = encoder.inverse_substitution(LLR);
-	std::array<F,C> QLPR;//対数事後確率比：列ごとのalphaの和+QLLR
+	if(!decoders) decoders.emplace(H);
 
-	decoder.decode_init();
-	for(auto iter=0ui64; !decoder.iterate(QLPR, QLLR, bp) && iter<iterationlimit; ++iter);
+	auto QLLR = encoder.inverse_substitution(LLR);
+	F *QLPR_device = nullptr;//対数事後確率比：列ごとのalphaの和+QLLR
+	F *QLLR_device = nullptr;
+	cudaMalloc(&QLPR_device, sizeof(F)*C);
+	cudaMalloc(&QLLR_device, sizeof(F)*C);
+	cudaMemcpy(QLLR_device,QLLR.data(),sizeof(F)*C,cudaMemcpyHostToDevice);
+
+	decoders->decode_init();
+	for(auto iter=0ui64; !decoders->iterate(QLPR_device, QLLR_device, bp) && iter<iterationlimit; ++iter);
+
+	std::array<F,C> QLPR;
+	cudaMemcpy(QLPR.data(),QLPR_device,sizeof(F)*C,cudaMemcpyDeviceToHost);
+	cudaFree(QLPR_device);
+	cudaFree(QLLR_device);
 
 	return encoder.substitution(QLPR);
 }

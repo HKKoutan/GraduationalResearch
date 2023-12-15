@@ -2,7 +2,7 @@
 #include <tuple>
 #include "common/util.hpp"
 #include "common/codecommon.hpp"
-#include "ldpc/codeSystematicLDPC.hpp"
+#include "ldpc/codeSystematicLDPC.cuh"
 #include "ldpc/channelAWGN.hpp"
 
 using std::array, std::bitset, std::vector;
