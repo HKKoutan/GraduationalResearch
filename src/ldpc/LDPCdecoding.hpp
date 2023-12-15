@@ -40,14 +40,12 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	static constexpr std::size_t VW = Hones/C;//列重み
 
 	const CheckMatrix_regular<S,C,W> H;//検査行列
-	inline static std::unique_ptr<std::size_t[][W]> alphabetap_template;
 	std::unique_ptr<fptype[][C]> alphabeta;
 	std::unique_ptr<fptype*[][W]> alphabetap;
 	// std::array<std::array<fptype,C>,VW> alphabeta;
 	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
 
-	static auto template_init(const CheckMatrix_regular<S,C,W> &H);
-	auto alphabetap_init();
+	static auto alphabetap_init(const CheckMatrix_regular<S,C,W> &H, const std::unique_ptr<fptype[][C]> &alphabeta);
 public:
 	explicit Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H);
 	void decode_init();//decodeで使用する変数の初期化
@@ -140,63 +138,40 @@ bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C>
 ////////////////////////////////////////////////////////////////
 
 template<std::size_t S, std::size_t C, std::size_t W>
-auto Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::template_init(const CheckMatrix_regular<S,C,W> &H){
-	alphabetap_template = std::make_unique<std::size_t[][W]>(Hsize);
-
+auto Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(const CheckMatrix_regular<S,C,W> &H, const std::unique_ptr<fptype[][C]> &alphabeta){
+	auto alphabetap = std::make_unique<fptype*[][W]>(Hsize);
 	std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
 	{
 		std::array<std::size_t,C> HTc = {};
 		for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
 	}
-
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
-		auto &abpi = alphabetap_template[i];
+		auto &abpi = alphabetap[i];
 		//alpha<-alphap beta<-betap
 		for(std::size_t j=0; j<W; ++j){
 			auto &hij = Hi[j];
 			auto &Hj = HT[hij];
 			std::size_t k=0;
 			while(Hj[k]!=i) ++k;
-			abpi[j] = C*k+hij;
+			auto &abk = alphabeta[k];
+			abpi[j] = &abk[hij];
 		}
 	}
-}
-
-template<std::size_t S, std::size_t C, std::size_t W>
-auto Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
-	alphabetap = std::make_unique<fptype*[][W]>(Hsize);//Debugビルドでは間隔が設けられる
-
-	for(std::size_t i=0; i<Hsize; ++i){
-		auto &abpi = alphabetap[i];
-		auto &abpti = alphabetap_template[i];
-		for(std::size_t j=0; j<W; ++j){
-			auto abptij = abpti[j];
-			abpi[j] = &alphabeta[abptij/C][abptij%C];
-		}
-	}
-	// auto abh = &alphabeta[0][0];
-	// for(std::size_t i=0; i<Hsize; ++i){
-	// 	auto &abpi = alphabetap[i];
-	// 	auto &abpti = alphabetap_template[i];
-	// 	for(std::size_t j=0; j<W; ++j) abpi[j] = abh+abpti[j];
-	// }
+	return alphabetap;
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H):
 	H(H),
 	alphabeta(std::make_unique<fptype[][C]>(W)),
-	alphabetap()
-{
-	if(!alphabetap_template) template_init(H);
-	alphabetap_init();
-}
+	alphabetap(alphabetap_init(H,alphabeta))
+{}
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 	// for(auto &bi: alphabeta) for(auto &bij: bi) bij = 0;
-	for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij =0;
+	for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = 0;
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
