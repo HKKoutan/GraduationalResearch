@@ -45,7 +45,7 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	// std::array<std::array<fptype,C>,VW> alphabeta;
 	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
 
-	static auto alphabetap_init(const CheckMatrix_regular<S,C,W> &H, const std::unique_ptr<fptype[][C]> &alphabeta);
+	void alphabetap_init();
 public:
 	explicit Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H);
 	void decode_init();//decodeで使用する変数の初期化
@@ -138,8 +138,7 @@ bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C>
 ////////////////////////////////////////////////////////////////
 
 template<std::size_t S, std::size_t C, std::size_t W>
-auto Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(const CheckMatrix_regular<S,C,W> &H, const std::unique_ptr<fptype[][C]> &alphabeta){
-	auto alphabetap = std::make_unique<fptype*[][W]>(Hsize);
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
 	std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
 	{
 		std::array<std::size_t,C> HTc = {};
@@ -158,15 +157,16 @@ auto Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(const Chec
 			abpi[j] = &abk[hij];
 		}
 	}
-	return alphabetap;
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H):
 	H(H),
 	alphabeta(std::make_unique<fptype[][C]>(W)),
-	alphabetap(alphabetap_init(H,alphabeta))
-{}
+	alphabetap(std::make_unique<fptype*[][W]>(Hsize))
+{
+	alphabetap_init();
+}
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
