@@ -128,14 +128,14 @@ SET_CheckMatrix_irregular("H3.txt",5001,10000)
 
 template<std::size_t S, std::size_t C>
 void CheckMatrix_irregular<S,C>::readCheckMatrix(){
+	rowidx = std::make_unique<std::size_t[]>(Size+1);
+
 	std::ifstream file(path, std::ios_base::in);
 	if(!file.is_open()) throw std::runtime_error("LDPC: cannot open file.");
 
-	rowidx = std::make_unique<std::size_t[]>(Size+1);
-	std::vector<std::size_t> data;
-
 	std::string buf;
 	bool colsizecheck = false;
+	std::vector<std::size_t> data;
 	for(std::size_t i=0; i<Size; ++i){
 		rowidx[i] = data.size();
 		if(!std::getline(file, buf)) throw std::runtime_error("Conflict between index data and file content detected.");
@@ -152,7 +152,6 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 			bi=r.ptr;
 			while(bi!=bend&&*bi==' ') bi++;//空白を読み飛ばす
 		}
-		
 	}
 	if(std::getline(file, buf)||!colsizecheck) throw std::runtime_error("Conflict between index data and file content detected.");
 	file.close();
@@ -164,7 +163,7 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 
 template<std::size_t S, std::size_t C>
 CheckMatrix_irregular<S,C>::CheckMatrix_irregular(){
-	if(!col1) readCheckMatrix();
+	if(!rowidx) readCheckMatrix();
 }
 
 ////////////////////////////////////////////////////////////////
@@ -175,10 +174,10 @@ CheckMatrix_irregular<S,C>::CheckMatrix_irregular(){
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
+	col1 = std::make_unique<std::size_t[]>(Ones);
+
 	std::ifstream file(path, std::ios_base::in);
 	if(!file.is_open()) throw std::runtime_error("LDPC: cannot open file.");
-
-	col1 = std::make_unique<std::size_t[]>(Ones);
 
 	std::string buf;
 	bool colsizecheck = false;
