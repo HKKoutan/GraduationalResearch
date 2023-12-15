@@ -52,7 +52,7 @@ public:
 	// const std::size_t* begin() const noexcept{return col1.get();}
 	// const std::size_t* end() const noexcept{return col1.get()+rowidx[Size];}
 	// const std::size_t* data() const noexcept{return col1.get();}
-	const sized_ptr operator[](std::size_t i) const noexcept{
+	const sized_ptr operator[](std::size_t i) const{
 		assert(i<Size);
 		return sized_ptr(col1.get()+rowidx[i],rowidx[i+1]-rowidx[i]);
 	}
@@ -92,7 +92,7 @@ public:
 	// const std::size_t* begin() const noexcept{return sized_ptr<Size>(col1.get());}
 	// const std::size_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
 	// const std::size_t* data() const noexcept{return sized_ptr<Size>(col1.get());}
-	const sized_ptr<W> operator[](std::size_t i) const noexcept{
+	const sized_ptr<W> operator[](std::size_t i) const{
 		assert(i<Size);
 		return sized_ptr<W>(col1.get()+W*i);
 	}
