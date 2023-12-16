@@ -1,13 +1,7 @@
 ﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
-#include <bitset>
-#include <cstdint>
-#include <bit>
 #include <algorithm>
-#include <cmath>
-#include <limits>
-#include <exception>
 #include "LDPCCheckMatrix.hpp"
 #include "LDPCboxplus.hpp"
 
