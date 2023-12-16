@@ -1,13 +1,7 @@
 ﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
-#include <bitset>
-#include <cstdint>
-#include <bit>
 #include <algorithm>
-#include <cmath>
-#include <limits>
-#include <exception>
 #include "LDPCCheckMatrix.cuh"
 #include "LDPCboxplus.cuh"
 
@@ -18,6 +12,7 @@ class Sumproduct_decoding {
 	using fptype = float;
 	static constexpr std::size_t S = T::sourcesize();
 	static constexpr std::size_t C = T::codesize();
+	static constexpr std::size_t Hsize = C-S;
 
 	const T H;//検査行列
 	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
@@ -28,8 +23,8 @@ class Sumproduct_decoding {
 public:
 	explicit Sumproduct_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
-	template<std::floating_point U, boxplusclass P>
-	bool iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR, const P &bp);
+	template<boxplusclass P>
+	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 };
 
 template<std::size_t S, std::size_t C, std::size_t W>
@@ -49,8 +44,8 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 public:
 	explicit Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H);
 	void decode_init();//decodeで使用する変数の初期化
-	template<std::floating_point U, boxplusclass P>
-	bool iterate(U *LPR, U *LLR, const P &bp);
+	template<boxplusclass P>
+	bool iterate(fptype *LPR, fptype *LLR, const P &bp);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -62,17 +57,16 @@ public:
 template<CheckMatrix T>
 auto Sumproduct_decoding<T>::alphabeta_size(const T &H){
 	std::array<std::size_t,C> Hheight{};
-	for(const auto &Hi: H) for(auto j: Hi) ++Hheight[j];
+	for(std::size_t i=0; i<C; ++i) Hheight[i] = H.colsize(i);
 	return std::ranges::max(Hheight);
 }
 
 template<CheckMatrix T>
 auto Sumproduct_decoding<T>::alphabetap_init(const T &H, std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> &alphabeta){
-	constexpr std::size_t Hsize = C-S;
 	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
 
-	std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
-	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
+	// std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
+	// for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
 
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
@@ -82,7 +76,7 @@ auto Sumproduct_decoding<T>::alphabetap_init(const T &H, std::vector<std::pair<s
 		//alpha<-alphap beta<-betap
 		for(std::size_t j=0, jend=Hi.size(); j<jend; ++j){
 			auto &hij = Hi[j];
-			auto &Hj = HT[hij];
+			auto &Hj = H.T[hij];
 			std::size_t k=0;
 			while(Hj[k]!=i) ++k;
 			auto &[ai, bi] = alphabeta[k];
@@ -105,8 +99,8 @@ void Sumproduct_decoding<T>::decode_init(){
 }
 
 template<CheckMatrix T>
-template<std::floating_point U, boxplusclass P>
-bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C> &LLR, const P &bp){
+template<boxplusclass P>
+bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	//row update
@@ -121,9 +115,9 @@ bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C>
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] = LPR[j]-ai[j];
 	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	//parity check
-	for(const auto &Hi : H){
+	for(std::size_t i=0; i<Hsize; ++i){
 		auto parity = false;
-		for(const auto &j : Hi) parity ^= LPR[j]<0;
+		for(const auto &j : H[i]) parity ^= LPR[j]<0;
 		if(parity) return false;
 	}
 	return true;
@@ -137,18 +131,18 @@ bool Sumproduct_decoding<T>::iterate(std::array<U,C> &LPR, const std::array<U,C>
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
-	std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
-	{
-		std::array<std::size_t,C> HTc = {};
-		for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
-	}
+	// std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
+	// {
+	// 	std::array<std::size_t,C> HTc = {};
+	// 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
+	// }
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
 		auto &abpi = alphabetap[i];
 		//alpha<-alphap beta<-betap
 		for(std::size_t j=0; j<W; ++j){
 			auto &hij = Hi[j];
-			auto &Hj = HT[hij];
+			auto &Hj = H.T[hij];
 			std::size_t k=0;
 			while(Hj[k]!=i) ++k;
 			auto &abk = alphabeta[k];
@@ -173,8 +167,8 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
-template<std::floating_point U, boxplusclass P>
-bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(U *LPR, U *LLR, const P &bp){
+template<boxplusclass P>
+bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptype *LLR, const P &bp){
 	//apply LLR
 	for(auto i=0; i<VW; ++i){
 		auto &bi = alphabeta[i];
