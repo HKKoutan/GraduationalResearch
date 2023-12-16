@@ -17,7 +17,11 @@ template<class T>
 concept CheckMatrix = requires(T x){
 	{T::codesize()} -> std::same_as<std::size_t>;
 	{T::sourcesize()} -> std::same_as<std::size_t>;
-	{x.size()} -> std::same_as<std::size_t>;
+	{T::size()} -> std::same_as<std::size_t>;
+	{x.countones()} -> std::same_as<std::size_t>;
+	{x.colweight(0)} -> std::same_as<std::size_t>;
+	{x[0][0]} -> std::same_as<const std::size_t&>;
+	{x.T[0][0]} -> std::same_as<const std::size_t&>;
 };
 
 template<std::size_t S, std::size_t C>//S:Source length, C:Code length
