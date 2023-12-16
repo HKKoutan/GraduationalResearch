@@ -194,19 +194,19 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 
 namespace {
 	template<typename T>
-	__global__ void pararell_broadcast_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
+	__global__ void parallel_broadcast_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] += rhs[j];
 	}
 	template<typename T>
-	__global__ void pararell_broadcast_negsub(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
+	__global__ void parallel_broadcast_negsub(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] = rhs[j]-lhs[i*width+j];
 	}
 	template<typename T>
-	__global__ void pararell_reduce_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
+	__global__ void parallel_reduce_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int k = blockIdx.y*blockDim.y+threadIdx.y;
 		if(k==0&&j<width){
@@ -225,16 +225,18 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptyp
 	// 	auto &bi = alphabeta[i];
 	// 	for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	// }
-	pararell_broadcast_add<<<grid,thread>>>(&alphabeta[0][0], LLR, C, VW);
+	parallel_broadcast_add<<<grid,thread>>>(&alphabeta[0][0], LLR, C, VW);
 	//row update
-	for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = bp.forward(bij);
+	// for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = bp.forward(bij);
+	bp.forward_vec(&alphabeta[0][0], Hones);
 	for(auto i=0; i<Hsize; ++i){
 		auto &abpi = alphabetap[i];
 		accumlator_t<P,fptype> acc;
 		for(const auto bpij: abpi) acc += *bpij;
 		for(const auto abpij: abpi) *abpij = acc-*abpij;
 	}
-	for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
+	// for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
+	bp.backward_vec(&alphabeta[0][0], Hones);
 	//column update
 	// for(std::size_t j=0; j<C; ++j) LPR[j] = 0;
 	cudaMemset(LPR, 0, sizeof(fptype)*C);
@@ -242,14 +244,14 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptyp
 	// 	auto &ai = alphabeta[i];
 	// 	for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
 	// }
-	pararell_reduce_add<<<grid,thread>>>(LPR, &alphabeta[0][0], C, VW);
+	parallel_reduce_add<<<grid,thread>>>(LPR, &alphabeta[0][0], C, VW);
 	// for(auto i=0; i<VW; ++i){
 	// 	auto &abi = alphabeta[i];
 	// 	for(std::size_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
 	// }
-	pararell_broadcast_negsub<<<grid,thread>>>(&alphabeta[0][0], LPR, C, VW);
+	parallel_broadcast_negsub<<<grid,thread>>>(&alphabeta[0][0], LPR, C, VW);
 	// for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
-	pararell_broadcast_add<<<grid,thread>>>(LPR, LLR, C, 1);
+	parallel_broadcast_add<<<grid,thread>>>(LPR, LLR, C, 1);
 	//parity check
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto parity = false;
