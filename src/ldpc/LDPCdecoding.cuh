@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -29,12 +29,13 @@ public:
 
 template<std::size_t S, std::size_t C, std::size_t W>
 class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
+	using T = CheckMatrix_regular<S,C,W>;
 	using fptype = float;
 	static constexpr std::size_t Hsize = C-S;
 	static constexpr std::size_t Hones = W*Hsize;
 	static constexpr std::size_t VW = Hones/C;//列重み
 
-	const CheckMatrix_regular<S,C,W> H;//検査行列
+	const T H;//検査行列
 	std::unique_ptr<fptype[][C],util::cuda_delete<fptype[][C]>> alphabeta;
 	std::unique_ptr<fptype*[][W],util::cuda_delete<fptype*[][W]>> alphabetap;
 	// std::array<std::array<fptype,C>,VW> alphabeta;
@@ -42,7 +43,7 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 
 	void alphabetap_init();
 public:
-	explicit Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H);
+	explicit Sumproduct_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
 	template<boxplusclass P>
 	bool iterate(fptype *LPR, fptype *LLR, const P &bp);
@@ -152,7 +153,7 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
-Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const CheckMatrix_regular<S,C,W> &H):
+Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
 	H(H),
 	alphabeta(util::make_cuda_unique<fptype[][C]>(W)),
 	alphabetap(util::make_cuda_unique<fptype*[][W]>(Hsize))
