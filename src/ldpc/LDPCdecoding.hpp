@@ -63,7 +63,6 @@ auto Sumproduct_decoding<T>::alphabeta_size(const T &H){
 
 template<CheckMatrix T>
 auto Sumproduct_decoding<T>::alphabetap_init(const T &H, std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> &alphabeta){
-	constexpr std::size_t Hsize = C-S;
 	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
 
 	// std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
@@ -116,7 +115,6 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] = LPR[j]-ai[j];
 	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	//parity check
-	constexpr std::size_t Hsize = C-S;
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto parity = false;
 		for(const auto &j : H[i]) parity ^= LPR[j]<0;
