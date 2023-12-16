@@ -133,7 +133,7 @@ public:
 	internaldatatype data() const noexcept{return internaldatatype{col1.get(),col1_device.get(),row1.get(),row1_device.get()};}
 	// inline std::pair<std::size_t*,std::size_t*> device_data() const noexcept{return std::make_pair(col1_device.get(),row1_device.get());}
 	__host__ __device__ static constexpr std::size_t colweight(std::size_t i){
-		assert(i<Size);
+		assert(i<C);
 		return VW;
 	}
 	const sized_ptr<W> operator[](std::size_t i) const{
