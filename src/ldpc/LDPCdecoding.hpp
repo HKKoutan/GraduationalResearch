@@ -18,6 +18,7 @@ class Sumproduct_decoding {
 	using fptype = float;
 	static constexpr std::size_t S = T::sourcesize();
 	static constexpr std::size_t C = T::codesize();
+	static constexpr std::size_t Hsize = C-S;
 
 	const T H;//検査行列
 	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
@@ -61,9 +62,8 @@ public:
 
 template<CheckMatrix T>
 auto Sumproduct_decoding<T>::alphabeta_size(const T &H){
-	constexpr std::size_t Hsize = C-S;
 	std::array<std::size_t,C> Hheight{};
-	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) ++Hheight[j];
+	for(std::size_t i=0; i<C; ++i) Hheight[i] = H.colsize(i);
 	return std::ranges::max(Hheight);
 }
 
@@ -72,8 +72,8 @@ auto Sumproduct_decoding<T>::alphabetap_init(const T &H, std::vector<std::pair<s
 	constexpr std::size_t Hsize = C-S;
 	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
 
-	std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
-	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
+	// std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
+	// for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
 
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
@@ -83,7 +83,7 @@ auto Sumproduct_decoding<T>::alphabetap_init(const T &H, std::vector<std::pair<s
 		//alpha<-alphap beta<-betap
 		for(std::size_t j=0, jend=Hi.size(); j<jend; ++j){
 			auto &hij = Hi[j];
-			auto &Hj = HT[hij];
+			auto &Hj = H.T[hij];
 			std::size_t k=0;
 			while(Hj[k]!=i) ++k;
 			auto &[ai, bi] = alphabeta[k];
@@ -139,18 +139,18 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
-	std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
-	{
-		std::array<std::size_t,C> HTc = {};
-		for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
-	}
+	// std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
+	// {
+	// 	std::array<std::size_t,C> HTc = {};
+	// 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
+	// }
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
 		auto &abpi = alphabetap[i];
 		//alpha<-alphap beta<-betap
 		for(std::size_t j=0; j<W; ++j){
 			auto &hij = Hi[j];
-			auto &Hj = HT[hij];
+			auto &Hj = H.T[hij];
 			std::size_t k=0;
 			while(Hj[k]!=i) ++k;
 			auto &abk = alphabeta[k];
