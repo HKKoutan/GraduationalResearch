@@ -37,10 +37,10 @@ public:
 		std::size_t Size;
 	public:
 		sized_ptr(std::size_t* ptr, std::size_t size):ptr(ptr),Size(size){}
-		const std::size_t* begin() const noexcept{return ptr;}
-		const std::size_t* end() const noexcept{return ptr+Size;}
-		const std::size_t* data() const noexcept{return ptr;}
-		std::size_t size() const noexcept{return Size;}
+		inline const std::size_t* begin() const noexcept{return ptr;}
+		inline const std::size_t* end() const noexcept{return ptr+Size;}
+		inline const std::size_t* data() const noexcept{return ptr;}
+		inline std::size_t size() const noexcept{return Size;}
 		inline const std::size_t& operator[](std::size_t i) const{
 			assert(i<Size);
 			return *(ptr+i);
@@ -48,7 +48,7 @@ public:
 	};
 
 	struct col_ref {
-		const sized_ptr operator[](std::size_t i) const{
+		inline const sized_ptr operator[](std::size_t i) const{
 			assert(i<C);
 			return sized_ptr(row1.get()+idxcol[i],idxcol[i+1]-idxcol[i]);
 		}
@@ -59,11 +59,11 @@ public:
 	static constexpr std::size_t codesize() noexcept{return C;}
 	static constexpr std::size_t sourcesize() noexcept{return S;}
 	static constexpr std::size_t size() noexcept{return Size;}
-	std::size_t countones() const noexcept{return idxrow[Size];}
+	inline std::size_t countones() const noexcept{return idxrow[Size];}
 	// const std::size_t* begin() const noexcept{return col1.get();}
 	// const std::size_t* end() const noexcept{return col1.get()+idxrow[Size];}
 	// const std::size_t* data() const noexcept{return col1.get();}
-	std::size_t colweight(std::size_t i) const{
+	inline std::size_t colweight(std::size_t i) const{
 		assert(i<Size);
 		return idxcol[i+1]-idxcol[i];
 	}
@@ -90,9 +90,9 @@ public:
 		const std::size_t* ptr;
 	public:
 		sized_ptr(const std::size_t* ptr):ptr(ptr){}
-		const std::size_t* begin() const noexcept{return ptr;}
-		const std::size_t* end() const noexcept{return ptr+Size;}
-		const std::size_t* data() const noexcept{return ptr;}
+		inline const std::size_t* begin() const noexcept{return ptr;}
+		inline const std::size_t* end() const noexcept{return ptr+Size;}
+		inline const std::size_t* data() const noexcept{return ptr;}
 		static constexpr std::size_t size(){return Size;}
 		// void operator++(){ptr+=Size;}
 		// bool operator==(sized_ptr &rhs) const{return ptr==rhs.ptr;}
@@ -103,7 +103,7 @@ public:
 	};
 
 	struct col_ref {
-		const sized_ptr<VW> operator[](std::size_t i) const{
+		inline const sized_ptr<VW> operator[](std::size_t i) const{
 			assert(i<C);
 			return sized_ptr<VW>(row1.get()+VW*i);
 		}
