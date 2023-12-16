@@ -63,7 +63,7 @@ public:
 	// const std::size_t* begin() const noexcept{return col1.get();}
 	// const std::size_t* end() const noexcept{return col1.get()+idxrow[Size];}
 	// const std::size_t* data() const noexcept{return col1.get();}
-	std::size_t colsize(std::size_t i) const{
+	std::size_t colweight(std::size_t i) const{
 		assert(i<Size);
 		return idxcol[i+1]-idxcol[i];
 	}
@@ -118,7 +118,7 @@ public:
 	// const std::size_t* begin() const noexcept{return sized_ptr<Size>(col1.get());}
 	// const std::size_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
 	// const std::size_t* data() const noexcept{return sized_ptr<Size>(col1.get());}
-	static constexpr std::size_t colsize(std::size_t i){
+	static constexpr std::size_t colweight(std::size_t i){
 		assert(i<Size);
 		return VW;
 	}
