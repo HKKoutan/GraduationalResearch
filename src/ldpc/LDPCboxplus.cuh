@@ -82,17 +82,21 @@ class phi_table<0> {
 	static constexpr auto CACHE_FILENAME = "gallager_float.bin";
 
 	inline static std::unique_ptr<float[]> values;
+	inline static std::unique_ptr<float[],util::cuda_delete<float[]>> values_device;
 
 	static void values_init();//キャッシュファイルを読み込む。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(std::unique_ptr<float[]> &vec);
 	static bool write_values(const std::unique_ptr<float[]> &vec);
 	inline float get(float x) const;
+	__global__ friend void get_parallel(const phi_table<0> &p ,float *arr, std::size_t size, float *values);
 public:
 	phi_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
+	inline void forward_vec(float *arr, std::size_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
+	inline void backward_vec(float *arr, std::size_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<>
@@ -257,6 +261,9 @@ void phi_table<0>::values_init(){
 		}
 		if(!write_values(values)) std::cerr<<"phi_table<0>: Caching failed."<<std::endl;
 	}
+
+	values_device = util::make_cuda_unique<float[]>(VALUE_RANGE);
+	cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
 }
 
 bool phi_table<0>::read_values(std::unique_ptr<float[]> &vec){
@@ -287,25 +294,26 @@ inline float phi_table<0>::get(float x) const{
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
-	assert(std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U < VALUE_RANGE);
 	auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
 	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
 
-// inline float phi_table<0>::get(float x) const{
-// 	auto xa = std::fabs(x);
-// 	//定義域を限定
-// 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
-// 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
-// 	#ifdef __CUDA_ARCH__
-// 		auto ya = values_device[reinterpret_cast<uint32_t&>(xa) - LOWER_BOUND_U];
-// 		auto yu = reinterpret_cast<uint32_t&>(ya)|reinterpret_cast<uint32_t&>(x)&0x80000000;
-// 		return reinterpret_cast<float&>(yu);
-// 	#else
-// 		auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
-// 		return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
-// 	#endif
-// }
+__global__ void get_parallel(const phi_table<0> &p ,float *arr, std::size_t size, float *values){
+	int j = blockIdx.x*blockDim.x+threadIdx.x;
+	int i = blockIdx.y*blockDim.y+threadIdx.y;
+	int idx = (gridDim.x*blockDim.x)*i+j;
+	if(idx<size){
+		auto x = arr[idx];
+		auto xa = std::fabs(x);
+		//定義域を限定
+		if(xa<phi_table<0>::LOWER_BOUND) xa = phi_table<0>::LOWER_BOUND;
+		if(xa>phi_table<0>::UPPER_BOUND) xa = phi_table<0>::UPPER_BOUND;
+		assert(reinterpret_cast<uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U < phi_table<0>::VALUE_RANGE);
+		auto ya = values[reinterpret_cast<uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U];
+		auto yu = reinterpret_cast<uint32_t&>(ya)|reinterpret_cast<uint32_t&>(x)&0x80000000;
+		arr[idx] = reinterpret_cast<float&>(yu);
+	}
+}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
