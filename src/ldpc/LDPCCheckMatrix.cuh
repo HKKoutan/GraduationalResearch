@@ -5,6 +5,7 @@
 #include <charconv>
 #include <array>
 #include <vector>
+#include <tuple>
 #include <string>
 #include <cassert>
 #include "..\common\memory.cuh"
@@ -84,10 +85,19 @@ class CheckMatrix_regular{
 	static const char *path;
 
 	inline static std::unique_ptr<std::size_t[]> col1;//検査行列の1がある列番号 大きさOnes 幅W
+	inline static std::unique_ptr<std::size_t[],util::cuda_delete<std::size_t[]>> col1_device;//device側メモリ
 	inline static std::unique_ptr<std::size_t[]> row1;//検査行列の1がある列番号 大きさOnes 幅VW
+	inline static std::unique_ptr<std::size_t[],util::cuda_delete<std::size_t[]>> row1_device;
 
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
+	struct internaldatatype {
+		std::size_t *col1;
+		std::size_t *col1dev;
+		std::size_t *row1;
+		std::size_t *row1dev;
+	};
+
 	template<std::size_t Size>
 	class sized_ptr {
 		const std::size_t* ptr;
@@ -120,17 +130,30 @@ public:
 	static constexpr std::size_t countones() noexcept{return W*Size;}
 	// const std::size_t* begin() const noexcept{return sized_ptr<Size>(col1.get());}
 	// const std::size_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
-	// const std::size_t* data() const noexcept{return sized_ptr<Size>(col1.get());}
+	inline internaldatatype data() const noexcept{return internaldatatype{col1.get(),col1_device.get(),row1.get(),row1_device.get()};}
+	// inline std::pair<std::size_t*,std::size_t*> device_data() const noexcept{return std::make_pair(col1_device.get(),row1_device.get());}
 	static constexpr std::size_t colweight(std::size_t i){
 		assert(i<Size);
 		return VW;
 	}
 	const sized_ptr<W> operator[](std::size_t i) const{
 		assert(i<Size);
+		return sized_ptr<W>(col1.get()+W*i);
+	}
+	__host__ __device__ inline static sized_ptr<W> getrow(int i, const internaldatatype &data){
+		assert(i<Size);
 		#ifdef __CUDA_ARCH__
-			return sized_ptr<W>(col1_device.get()+W*i);
+			return sized_ptr<W>(data.col1dev+W*i);
 		#else
-			return sized_ptr<W>(col1.get()+W*i);
+			return sized_ptr<W>(data.col1+W*i);
+		#endif
+	}
+	__host__ __device__ inline static sized_ptr<W> getcol(int i, const internaldatatype &data){
+		assert(i<C);
+		#ifdef __CUDA_ARCH__
+			return sized_ptr<W>(data.row1dev+VW*i);
+		#else
+			return sized_ptr<W>(data.row1+VW*i);
 		#endif
 	}
 };
@@ -254,7 +277,10 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 		row1[VW*k+colcount[k]++] = i;
 	}
 
-	// cudaMemcpy(col1_device.get(),col1.get(),sizeof(size_t)*W*Size,cudaMemcpyHostToDevice);
+	col1_device = util::make_cuda_unique<std::size_t[]>(Ones);
+	row1_device = util::make_cuda_unique<std::size_t[]>(Ones);
+	cudaMemcpy(col1_device.get(),col1.get(),sizeof(size_t)*Ones,cudaMemcpyHostToDevice);
+	cudaMemcpy(row1_device.get(),row1.get(),sizeof(size_t)*Ones,cudaMemcpyHostToDevice);
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
