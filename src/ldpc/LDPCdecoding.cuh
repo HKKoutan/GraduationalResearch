@@ -160,16 +160,18 @@ namespace {
 	__global__ void alphabetap_init(T *alphabeta, T **alphabetap, U H, typename U::internaldatatype Hd){
 		int i = blockIdx.x*blockDim.x+threadIdx.x;
 		int j = blockIdx.y*blockDim.y+threadIdx.y;
-		int W = H.colweight(i);
-		if(i<H.size()&&j<W){
-			auto Hi = U::getrow(i,Hd);
-			fptype **abpi = alphabetap + W*i;
-			auto hij = Hi[j];
-			auto Hj = U::getcol(hij,Hd);
-			int k=0;
-			while(Hj[k]!=i) ++k;
-			auto abk = alphabeta + H.codesize()*k;
-			abpi[j] = &abk[hij];
+		if(i<H.size()){
+			int W = H.colweight(i);
+				if(j<W){
+				auto Hi = U::getrow(i,Hd);
+				fptype **abpi = alphabetap + W*i;
+				auto hij = Hi[j];
+				auto Hj = U::getcol(hij,Hd);
+				int k=0;
+				while(Hj[k]!=i) ++k;
+				auto abk = alphabeta + H.codesize()*k;
+				abpi[j] = &abk[hij];
+			}
 		}
 	}
 }
@@ -187,19 +189,43 @@ Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H)
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
-	// for(auto &bi: alphabeta) for(auto &bij: bi) bij = 0;
-	// for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = 0;
 	cudaMemset(&alphabeta[0][0], 0, sizeof(fptype)*Hones);
+}
+
+namespace {
+	template<typename T>
+	__global__ void pararell_broadcast_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
+		int j = blockIdx.x*blockDim.x+threadIdx.x;
+		int i = blockIdx.y*blockDim.y+threadIdx.y;
+		if(i<height&&j<width) lhs[i*width+j] += rhs[j];
+	}
+	template<typename T>
+	__global__ void pararell_broadcast_negsub(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
+		int j = blockIdx.x*blockDim.x+threadIdx.x;
+		int i = blockIdx.y*blockDim.y+threadIdx.y;
+		if(i<height&&j<width) lhs[i*width+j] = rhs[j]-lhs[i*width+j];
+	}
+	template<typename T>
+	__global__ void pararell_reduce_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
+		int j = blockIdx.x*blockDim.x+threadIdx.x;
+		int k = blockIdx.y*blockDim.y+threadIdx.y;
+		if(k==0&&j<width){
+			for(int i=0; i<height; ++i) lhs[j] += rhs[i*width+j];
+		}
+	}
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
 template<boxplusclass P>
 bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptype *LLR, const P &bp){
+	const dim3 grid(((C-1)/128+1),((VW-1)/8+1),1);
+	const dim3 thread(128,8,1);
 	//apply LLR
-	for(auto i=0; i<VW; ++i){
-		auto &bi = alphabeta[i];
-		for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
-	}
+	// for(auto i=0; i<VW; ++i){
+	// 	auto &bi = alphabeta[i];
+	// 	for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
+	// }
+	pararell_broadcast_add<<<grid,thread>>>(&alphabeta[0][0], LLR, C, VW);
 	//row update
 	for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = bp.forward(bij);
 	for(auto i=0; i<Hsize; ++i){
@@ -210,16 +236,20 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptyp
 	}
 	for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
 	//column update
-	for(std::size_t j=0; j<C; ++j) LPR[j] = 0;
-	for(auto i=0; i<VW; ++i){
-		auto &ai = alphabeta[i];
-		for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
-	}
-	for(auto i=0; i<VW; ++i){
-		auto &abi = alphabeta[i];
-		for(std::size_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
-	}
-	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
+	// for(std::size_t j=0; j<C; ++j) LPR[j] = 0;
+	cudaMemset(LPR, 0, sizeof(fptype)*C);
+	// for(auto i=0; i<VW; ++i){
+	// 	auto &ai = alphabeta[i];
+	// 	for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
+	// }
+	pararell_reduce_add<<<grid,thread>>>(LPR, &alphabeta[0][0], C, VW);
+	// for(auto i=0; i<VW; ++i){
+	// 	auto &abi = alphabeta[i];
+	// 	for(std::size_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
+	// }
+	pararell_broadcast_negsub<<<grid,thread>>>(&alphabeta[0][0], LPR, C, VW);
+	// for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
+	pararell_broadcast_add<<<grid,thread>>>(LPR, LLR, C, 1);
 	//parity check
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto parity = false;
