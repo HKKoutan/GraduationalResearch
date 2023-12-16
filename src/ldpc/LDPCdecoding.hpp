@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -155,7 +155,7 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
 template<std::size_t S, std::size_t C, std::size_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
 	H(H),
-	alphabeta(std::make_unique<fptype[][C]>(W)),
+	alphabeta(std::make_unique<fptype[][C]>(VW)),
 	alphabetap(std::make_unique<fptype*[][W]>(Hsize))
 {
 	alphabetap_init();

@@ -155,7 +155,7 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
 template<std::size_t S, std::size_t C, std::size_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
 	H(H),
-	alphabeta(util::make_cuda_unique<fptype[][C]>(W)),
+	alphabeta(util::make_cuda_unique<fptype[][C]>(VW)),
 	alphabetap(util::make_cuda_unique<fptype*[][W]>(Hsize))
 {
 	alphabetap_init();
