@@ -123,16 +123,16 @@ public:
 	} T;
 
 	CheckMatrix_regular();
-	static constexpr bool is_regular() noexcept{return true;}
-	static constexpr std::size_t codesize() noexcept{return C;}
-	static constexpr std::size_t sourcesize() noexcept{return S;}
-	static constexpr std::size_t size() noexcept{return Size;}
-	static constexpr std::size_t countones() noexcept{return W*Size;}
+	__host__ __device__ static constexpr bool is_regular() noexcept{return true;}
+	__host__ __device__ static constexpr std::size_t codesize() noexcept{return C;}
+	__host__ __device__ static constexpr std::size_t sourcesize() noexcept{return S;}
+	__host__ __device__ static constexpr std::size_t size() noexcept{return Size;}
+	__host__ __device__ static constexpr std::size_t countones() noexcept{return W*Size;}
 	// const std::size_t* begin() const noexcept{return sized_ptr<Size>(col1.get());}
 	// const std::size_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
-	inline internaldatatype data() const noexcept{return internaldatatype{col1.get(),col1_device.get(),row1.get(),row1_device.get()};}
+	internaldatatype data() const noexcept{return internaldatatype{col1.get(),col1_device.get(),row1.get(),row1_device.get()};}
 	// inline std::pair<std::size_t*,std::size_t*> device_data() const noexcept{return std::make_pair(col1_device.get(),row1_device.get());}
-	static constexpr std::size_t colweight(std::size_t i){
+	__host__ __device__ static constexpr std::size_t colweight(std::size_t i){
 		assert(i<Size);
 		return VW;
 	}
@@ -140,7 +140,7 @@ public:
 		assert(i<Size);
 		return sized_ptr<W>(col1.get()+W*i);
 	}
-	__host__ __device__ inline static sized_ptr<W> getrow(int i, const internaldatatype &data){
+	__host__ __device__ static sized_ptr<W> getrow(int i, const internaldatatype &data){
 		assert(i<Size);
 		#ifdef __CUDA_ARCH__
 			return sized_ptr<W>(data.col1dev+W*i);
@@ -148,7 +148,7 @@ public:
 			return sized_ptr<W>(data.col1+W*i);
 		#endif
 	}
-	__host__ __device__ inline static sized_ptr<W> getcol(int i, const internaldatatype &data){
+	__host__ __device__ static sized_ptr<W> getcol(int i, const internaldatatype &data){
 		assert(i<C);
 		#ifdef __CUDA_ARCH__
 			return sized_ptr<W>(data.row1dev+VW*i);

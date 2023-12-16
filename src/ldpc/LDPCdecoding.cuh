@@ -1,15 +1,20 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
+#include <type_traits>
 #include "LDPCCheckMatrix.cuh"
 #include "LDPCboxplus.cuh"
 
 namespace code::LDPC {
 
+namespace {
+	using fptype = float;
+}
+
 template<CheckMatrix T>
 class Sumproduct_decoding {
-	using fptype = float;
+	// using fptype = float;
 	static constexpr std::size_t S = T::sourcesize();
 	static constexpr std::size_t C = T::codesize();
 	static constexpr std::size_t Hsize = C-S;
@@ -30,7 +35,7 @@ public:
 template<std::size_t S, std::size_t C, std::size_t W>
 class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	using T = CheckMatrix_regular<S,C,W>;
-	using fptype = float;
+	// using fptype = float;
 	static constexpr std::size_t Hsize = C-S;
 	static constexpr std::size_t Hones = W*Hsize;
 	static constexpr std::size_t VW = Hones/C;//列重み
@@ -40,8 +45,6 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	std::unique_ptr<fptype*[][W],util::cuda_delete<fptype*[][W]>> alphabetap;
 	// std::array<std::array<fptype,C>,VW> alphabeta;
 	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
-
-	void alphabetap_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
@@ -130,23 +133,42 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-template<std::size_t S, std::size_t C, std::size_t W>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
-	// std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
-	// {
-	// 	std::array<std::size_t,C> HTc = {};
-	// 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
-	// }
-	for(std::size_t i=0; i<Hsize; ++i){
-		auto &Hi = H[i];
-		auto &abpi = alphabetap[i];
-		//alpha<-alphap beta<-betap
-		for(std::size_t j=0; j<W; ++j){
-			auto &hij = Hi[j];
-			auto &Hj = H.T[hij];
-			std::size_t k=0;
+// template<std::size_t S, std::size_t C, std::size_t W>
+// void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
+// 	// std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
+// 	// {
+// 	// 	std::array<std::size_t,C> HTc = {};
+// 	// 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
+// 	// }
+// 	for(std::size_t i=0; i<Hsize; ++i){
+// 		auto &Hi = H[i];
+// 		auto &abpi = alphabetap[i];
+// 		//alpha<-alphap beta<-betap
+// 		for(std::size_t j=0; j<W; ++j){
+// 			auto &hij = Hi[j];
+// 			auto &Hj = H.T[hij];
+// 			std::size_t k=0;
+// 			while(Hj[k]!=i) ++k;
+// 			auto &abk = alphabeta[k];
+// 			abpi[j] = &abk[hij];
+// 		}
+// 	}
+// }
+
+namespace {
+	template<typename T, CheckMatrix U>
+	__global__ void alphabetap_init(T *alphabeta, T **alphabetap, U H, typename U::internaldatatype Hd){
+		int i = blockIdx.x*blockDim.x+threadIdx.x;
+		int j = blockIdx.y*blockDim.y+threadIdx.y;
+		int W = H.colweight(i);
+		if(i<H.size()&&j<W){
+			auto Hi = U::getrow(i,Hd);
+			fptype **abpi = alphabetap + W*i;
+			auto hij = Hi[j];
+			auto Hj = U::getcol(hij,Hd);
+			int k=0;
 			while(Hj[k]!=i) ++k;
-			auto &abk = alphabeta[k];
+			auto abk = alphabeta + H.codesize()*k;
 			abpi[j] = &abk[hij];
 		}
 	}
@@ -158,13 +180,16 @@ Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H)
 	alphabeta(util::make_cuda_unique<fptype[][C]>(VW)),
 	alphabetap(util::make_cuda_unique<fptype*[][W]>(Hsize))
 {
-	alphabetap_init();
+	const dim3 grid(((C-1)/128+1),((VW-1)/8+1),1);
+	const dim3 thread(128,8,1);
+	alphabetap_init<<<grid,thread>>>(&alphabeta[0][0], &alphabetap[0][0], H, H.data());
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 	// for(auto &bi: alphabeta) for(auto &bij: bi) bij = 0;
-	for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = 0;
+	// for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = 0;
+	cudaMemset(&alphabeta[0][0], 0, sizeof(fptype)*Hones);
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
