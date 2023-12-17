@@ -213,13 +213,23 @@ namespace {
 			for(int i=0; i<height; ++i) lhs[j] += rhs[i*width+j];
 		}
 	}
+	template<typename T, class P>
+	__global__ void parallel_accumlate(T** ptr, std::size_t width, std::size_t height, const P &bp){
+		int j = blockIdx.x*blockDim.x+threadIdx.x;
+		int k = blockIdx.y*blockDim.y+threadIdx.y;
+		if(k==0&&j<height){
+			accumlator_t<P,fptype> acc;
+			for(int i=0; i<width; ++i) acc += *ptr[j*width+i];
+			for(int i=0; i<width; ++i) *ptr[j*width+i] = acc-*ptr[j*width+i];
+		}
+	}
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
 template<boxplusclass P>
 bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptype *LLR, const P &bp){
-	const dim3 grid(((C-1)/128+1),((VW-1)/8+1),1);
-	const dim3 thread(128,8,1);
+	const dim3 grid(((C-1)/256+1),((VW-1)/4+1),1);
+	const dim3 thread(256,4,1);
 	//apply LLR
 	// for(auto i=0; i<VW; ++i){
 	// 	auto &bi = alphabeta[i];
@@ -229,12 +239,13 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptyp
 	//row update
 	// for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = bp.forward(bij);
 	bp.forward_vec(&alphabeta[0][0], Hones);
-	for(auto i=0; i<Hsize; ++i){
-		auto &abpi = alphabetap[i];
-		accumlator_t<P,fptype> acc;
-		for(const auto bpij: abpi) acc += *bpij;
-		for(const auto abpij: abpi) *abpij = acc-*abpij;
-	}
+	// for(auto i=0; i<Hsize; ++i){
+	// 	auto &abpi = alphabetap[i];
+	// 	accumlator_t<P,fptype> acc;
+	// 	for(const auto bpij: abpi) acc += *bpij;
+	// 	for(const auto abpij: abpi) *abpij = acc-*abpij;
+	// }
+	parallel_accumlate<<<grid,thread>>>(&alphabetap[0][0], W, Hsize, bp);
 	// for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
 	bp.backward_vec(&alphabeta[0][0], Hones);
 	//column update

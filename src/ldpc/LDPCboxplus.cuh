@@ -35,6 +35,7 @@ namespace{
 	public:
 		__host__ __device__ sum_accumlator():abssum(0),signprod(0){}
 		__host__ __device__ void operator+=(T rhs);
+		__host__ __device__ void operator+=(sum_accumlator<T> rhs);
 		__host__ __device__ T operator-(T rhs) const;
 	};
 
@@ -184,6 +185,12 @@ __host__ __device__ inline void sum_accumlator<T>::operator+=(T rhs){
 	#else
 		signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
 	#endif
+}
+
+template<std::floating_point T>
+__host__ __device__ inline void sum_accumlator<T>::operator+=(sum_accumlator<T> rhs){
+	abssum += rhs.abssum;
+	signprod ^= rhs.signprod;
 }
 
 template<std::floating_point T>
