@@ -1,8 +1,8 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
-#include <type_traits>
+// #include <type_traits>
 #include "LDPCCheckMatrix.cuh"
 #include "LDPCboxplus.cuh"
 
@@ -10,6 +10,8 @@ namespace code::LDPC {
 
 namespace {
 	using fptype = float;
+	using uitype = unsigned int;
+	static_assert(sizeof(fptype)==sizeof(uitype));
 }
 
 template<CheckMatrix T>
@@ -195,20 +197,17 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 }
 
 namespace {
-	template<typename T>
-	__global__ void parallel_broadcast_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
+	__global__ void parallel_broadcast_add(fptype *lhs, fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] += rhs[j];
 	}
-	template<typename T>
-	__global__ void parallel_broadcast_negsub(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
+	__global__ void parallel_broadcast_negsub(fptype *lhs, fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] = rhs[j]-lhs[i*width+j];
 	}
-	template<typename T>
-	__global__ void parallel_reduce_add(T* lhs, T* rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
+	__global__ void parallel_reduce_add(fptype *lhs, fptype *rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int k = blockIdx.y*blockDim.y+threadIdx.y;
 		if(k==0&&j<width){
@@ -290,7 +289,6 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(fptype *LPR, fptype
 		++itr;
 	}
 }
-
 
 }
 
