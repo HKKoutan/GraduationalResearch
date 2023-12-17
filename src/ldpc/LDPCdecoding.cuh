@@ -290,9 +290,12 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C
 	bool *parity = nullptr;
 	fptype *LPR_device = nullptr;//対数事後確率比：列ごとのalphaの和+QLLR
 	fptype *LLR_device = nullptr;
-	cudaMalloc(&LPR_device, sizeof(fptype)*C);
-	cudaMalloc(&LLR_device, sizeof(fptype)*C);
-	cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice);
+	auto errc = ::cudaMalloc(&LPR_device, sizeof(fptype)*C);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
+	errc = ::cudaMalloc(&LLR_device, sizeof(fptype)*C);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
+	errc = ::cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
 	// cudaMalloc(&parity, sizeof(bool));
 	// cudaMemset(parity,0,sizeof(bool));
 	while(itr<iterationlimit){
@@ -300,9 +303,12 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C
 		++itr;
 	}
 
-	cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost);
-	cudaFree(LPR_device);
-	cudaFree(LLR_device);
+	errc = ::cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
+	errc = ::cudaFree(LPR_device);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
+	errc = ::cudaFree(LLR_device);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
 }
 
 }

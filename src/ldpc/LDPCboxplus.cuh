@@ -270,7 +270,9 @@ void phi_table<0>::values_init(){
 	}
 
 	values_device = util::make_cuda_unique<float[]>(VALUE_RANGE);
-	cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
+	auto errc = cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
+	cudaDeviceSynchronize();
 }
 
 bool phi_table<0>::read_values(std::unique_ptr<float[]> &vec){
