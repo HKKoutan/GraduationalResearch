@@ -1,7 +1,7 @@
-.vscode/
+.*/
 archive/
 build/
 data/
-result/
+out/
 sample/
 venv/
