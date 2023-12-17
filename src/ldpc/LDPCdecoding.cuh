@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -49,7 +49,9 @@ public:
 	explicit Sumproduct_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
 	template<boxplusclass P>
-	bool iterate(fptype *LPR, fptype *LLR, const P &bp);
+	void iterate(bool *parity, fptype *LPR, fptype *LLR, const P &bp);
+	template<boxplusclass P>
+	void decode(fptype *LPR, fptype *LLR, const P &bp, int iterationlimit);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -223,12 +225,17 @@ namespace {
 			for(int i=0; i<width; ++i) *ptr[j*width+i] = acc-*ptr[j*width+i];
 		}
 	}
+	// template<typename T,CheckMatrix U>
+	// __global__ void check_parity(T* ptr, U H, typename U::internaldatatype Hd){
+	// 	int j = blockIdx.x*blockDim.x+threadIdx.x;
+	// 	int k = blockIdx.y*blockDim.y+threadIdx.y;
+	// }
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
 template<boxplusclass P>
-bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptype *LLR, const P &bp){
-	const dim3 grid(((C-1)/256+1),((VW-1)/4+1),1);
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fptype *LPR, fptype *LLR, const P &bp){
+	const dim3 grid(((int(C)-1)/256+1),((int(VW)-1)/4+1),1);
 	const dim3 thread(256,4,1);
 	//apply LLR
 	// for(auto i=0; i<VW; ++i){
@@ -264,12 +271,24 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(fptype *LPR, fptyp
 	// for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	parallel_broadcast_add<<<grid,thread>>>(LPR, LLR, C, 1);
 	//parity check
-	for(std::size_t i=0; i<Hsize; ++i){
-		auto parity = false;
-		for(const auto &j : H[i]) parity ^= LPR[j]<0;
-		if(parity) return false;
+	// for(std::size_t i=0; i<Hsize; ++i){
+	// 	auto parity = false;
+	// 	for(const auto &j : H[i]) parity ^= LPR[j]<0;
+	// 	if(parity) return false;
+	// }
+}
+
+template<std::size_t S, std::size_t C, std::size_t W>
+template<boxplusclass P>
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(fptype *LPR, fptype *LLR, const P &bp, int iterationlimit){
+	int itr = 0;
+	bool *parity = nullptr;
+	// cudaMalloc(&parity, sizeof(bool));
+	// cudaMemset(parity,0,sizeof(bool));
+	while(itr<iterationlimit){
+		iterate(parity, LPR, LLR, bp);
+		++itr;
 	}
-	return true;
 }
 
 

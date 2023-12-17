@@ -134,8 +134,9 @@ auto SystematicLDPC<LDPC::CheckMatrix_regular<S,C,W>>::decode(const std::array<F
 	cudaMalloc(&QLLR_device, sizeof(F)*C);
 	cudaMemcpy(QLLR_device,QLLR.data(),sizeof(F)*C,cudaMemcpyHostToDevice);
 
-	decoders->decode_init();
-	for(auto iter=0ui64; !decoders->iterate(QLPR_device, QLLR_device, bp) && iter<iterationlimit; ++iter);
+	// decoders->decode_init();
+	// for(auto iter=0ui64; !decoders->iterate(QLPR_device, QLLR_device, bp) && iter<iterationlimit; ++iter);
+	decoders->decode(QLPR_device, QLLR_device, bp, iterationlimit);
 
 	std::array<F,C> QLPR;
 	cudaMemcpy(QLPR.data(),QLPR_device,sizeof(F)*C,cudaMemcpyDeviceToHost);
