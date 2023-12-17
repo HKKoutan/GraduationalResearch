@@ -128,7 +128,7 @@ auto SystematicLDPC<LDPC::CheckMatrix_regular<S,C,W>>::decode(const std::array<F
 	if(!decoders) decoders.emplace(H);
 
 	auto QLLR = encoder.inverse_substitution(LLR);
-	std::array<F,C> QLPR;
+	std::array<F,C> QLPR = {};
 
 	// decoders->decode_init();
 	// for(auto iter=0ui64; !decoders->iterate(QLPR_device, QLLR_device, bp) && iter<iterationlimit; ++iter);
