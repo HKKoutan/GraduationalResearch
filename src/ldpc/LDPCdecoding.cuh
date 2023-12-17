@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -55,7 +55,7 @@ public:
 	template<boxplusclass P>
 	void iterate(bool *parity, fptype *LPR, fptype *LLR, const P &bp);
 	template<boxplusclass P>
-	void decode(fptype *LPR, fptype *LLR, const P &bp, int iterationlimit);
+	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -186,7 +186,7 @@ Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H)
 	alphabeta(util::make_cuda_unique<fptype[][C]>(VW)),
 	alphabetaidx(util::make_cuda_unique<uitype[][W]>(Hsize))
 {
-	const dim3 grid(((C-1)/128+1),((VW-1)/8+1),1);
+	const dim3 grid(((Hsize-1)/128+1),((W-1)/8+1),1);
 	const dim3 thread(128,8,1);
 	alphabetap_init<<<grid,thread>>>(&alphabetaidx[0][0], H, H.data());
 }
@@ -242,9 +242,11 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fpty
 	// 	for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	// }
 	parallel_broadcast_add<<<grid,thread>>>(&alphabeta[0][0], LLR, C, VW);
+	cudaDeviceSynchronize();
 	//row update
 	// for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = bp.forward(bij);
 	bp.forward_vec(&alphabeta[0][0], Hones);
+	cudaDeviceSynchronize();
 	// for(auto i=0; i<Hsize; ++i){
 	// 	auto &abpi = alphabetap[i];
 	// 	accumlator_t<P,fptype> acc;
@@ -254,6 +256,7 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fpty
 	parallel_accumlate<<<grid,thread>>>(&alphabeta[0][0], &alphabetaidx[0][0], W, Hsize, bp);
 	// for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
 	bp.backward_vec(&alphabeta[0][0], Hones);
+	cudaDeviceSynchronize();
 	//column update
 	// for(std::size_t j=0; j<C; ++j) LPR[j] = 0;
 	cudaMemset(LPR, 0, sizeof(fptype)*C);
@@ -262,13 +265,16 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fpty
 	// 	for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
 	// }
 	parallel_reduce_add<<<grid,thread>>>(LPR, &alphabeta[0][0], C, VW);
+	cudaDeviceSynchronize();
 	// for(auto i=0; i<VW; ++i){
 	// 	auto &abi = alphabeta[i];
 	// 	for(std::size_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
 	// }
 	parallel_broadcast_negsub<<<grid,thread>>>(&alphabeta[0][0], LPR, C, VW);
+	cudaDeviceSynchronize();
 	// for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	parallel_broadcast_add<<<grid,thread>>>(LPR, LLR, C, 1);
+	cudaDeviceSynchronize();
 	//parity check
 	// for(std::size_t i=0; i<Hsize; ++i){
 	// 	auto parity = false;
