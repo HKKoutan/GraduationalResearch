@@ -39,10 +39,12 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	static constexpr std::size_t Hsize = C-S;
 	static constexpr std::size_t Hones = W*Hsize;
 	static constexpr std::size_t VW = Hones/C;//列重み
+	static_assert(Hones<(1ui64<<32));
 
 	const T H;//検査行列
 	std::unique_ptr<fptype[][C],util::cuda_delete<fptype[][C]>> alphabeta;
-	std::unique_ptr<fptype*[][W],util::cuda_delete<fptype*[][W]>> alphabetap;
+	std::unique_ptr<uitype[][W],util::cuda_delete<uitype[][W]>> alphabetaidx;
+	// std::unique_ptr<fptype*[][W],util::cuda_delete<fptype*[][W]>> alphabetap;
 	// std::array<std::array<fptype,C>,VW> alphabeta;
 	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
 public:
@@ -158,21 +160,19 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 // }
 
 namespace {
-	template<typename T, CheckMatrix U>
-	__global__ void alphabetap_init(T *alphabeta, T **alphabetap, U H, typename U::internaldatatype Hd){
+	template<CheckMatrix U>
+	__global__ void alphabetap_init(uitype *alphabetaidx, U H, typename U::internaldatatype Hd){
 		int i = blockIdx.x*blockDim.x+threadIdx.x;
 		int j = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<H.size()){
 			int W = H.colweight(i);
-				if(j<W){
+			if(j<W){
 				auto Hi = U::getrow(i,Hd);
-				fptype **abpi = alphabetap + W*i;
 				auto hij = Hi[j];
 				auto Hj = U::getcol(hij,Hd);
 				int k=0;
 				while(Hj[k]!=i) ++k;
-				auto abk = alphabeta + H.codesize()*k;
-				abpi[j] = &abk[hij];
+				alphabetaidx[W*i+j] = H.codesize()*k+hij;
 			}
 		}
 	}
@@ -182,11 +182,11 @@ template<std::size_t S, std::size_t C, std::size_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
 	H(H),
 	alphabeta(util::make_cuda_unique<fptype[][C]>(VW)),
-	alphabetap(util::make_cuda_unique<fptype*[][W]>(Hsize))
+	alphabetaidx(util::make_cuda_unique<uitype[][W]>(Hsize))
 {
 	const dim3 grid(((C-1)/128+1),((VW-1)/8+1),1);
 	const dim3 thread(128,8,1);
-	alphabetap_init<<<grid,thread>>>(&alphabeta[0][0], &alphabetap[0][0], H, H.data());
+	alphabetap_init<<<grid,thread>>>(&alphabetaidx[0][0], H, H.data());
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
@@ -215,14 +215,14 @@ namespace {
 			for(int i=0; i<height; ++i) lhs[j] += rhs[i*width+j];
 		}
 	}
-	template<typename T, class P>
-	__global__ void parallel_accumlate(T** ptr, std::size_t width, std::size_t height, const P &bp){
+	template<class P>
+	__global__ void parallel_accumlate(fptype *arr, uitype *idx, std::size_t width, std::size_t height, const P &bp){
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int k = blockIdx.y*blockDim.y+threadIdx.y;
 		if(k==0&&j<height){
 			accumlator_t<P,fptype> acc;
-			for(int i=0; i<width; ++i) acc += *ptr[j*width+i];
-			for(int i=0; i<width; ++i) *ptr[j*width+i] = acc-*ptr[j*width+i];
+			for(int i=0; i<width; ++i) acc += arr[idx[j*width+i]];
+			for(int i=0; i<width; ++i) arr[idx[j*width+i]] = acc-arr[idx[j*width+i]];
 		}
 	}
 	// template<typename T,CheckMatrix U>
@@ -252,7 +252,7 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fpty
 	// 	for(const auto bpij: abpi) acc += *bpij;
 	// 	for(const auto abpij: abpi) *abpij = acc-*abpij;
 	// }
-	parallel_accumlate<<<grid,thread>>>(&alphabetap[0][0], W, Hsize, bp);
+	parallel_accumlate<<<grid,thread>>>(&alphabeta[0][0], &alphabetaidx[0][0], W, Hsize, bp);
 	// for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
 	bp.backward_vec(&alphabeta[0][0], Hones);
 	//column update
