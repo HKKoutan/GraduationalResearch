@@ -47,6 +47,8 @@ public:
 	void decode_init();//decodeで使用する変数の初期化
 	template<boxplusclass P>
 	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
+	template<boxplusclass P>
+	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -202,6 +204,13 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,
 		if(parity) return false;
 	}
 	return true;
+}
+
+template<std::size_t S, std::size_t C, std::size_t W>
+template<boxplusclass P>
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit){
+	decode_init();
+	for(int iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
 // template<std::size_t S, std::size_t C, std::size_t W>

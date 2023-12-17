@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_codeSystematicLDPC
+﻿#ifndef INCLUDE_GUARD_ldpc_codeSystematicLDPC
 #define INCLUDE_GUARD_ldpc_codeSystematicLDPC
 
 #include <optional>
@@ -72,8 +72,9 @@ auto SystematicLDPC<T>::decode(const std::array<F,C> &LLR, const P &bp){
 	auto QLLR = encoder.inverse_substitution(LLR);
 	std::array<F,C> QLPR;//対数事後確率比：列ごとのalphaの和+QLLR
 
-	decoders->decode_init();
-	for(auto iter=0ui64; !decoders->iterate(QLPR, QLLR, bp) && iter<iterationlimit; ++iter);
+	// decoders->decode_init();
+	// for(auto iter=0ui64; !decoders->iterate(QLPR, QLLR, bp) && iter<iterationlimit; ++iter);
+	decoders->decode(QLPR, QLLR, bp, iterationlimit);
 
 	return encoder.substitution(QLPR);
 }
