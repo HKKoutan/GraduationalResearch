@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_codeSystematicLDPC
+#ifndef INCLUDE_GUARD_ldpc_codeSystematicLDPC
 #define INCLUDE_GUARD_ldpc_codeSystematicLDPC
 
 #include <optional>
@@ -9,16 +9,16 @@ namespace code {
 
 template<LDPC::CheckMatrix T>//S:Source length, C:Code length
 class SystematicLDPC {
-	static constexpr std::uint64_t DEFAULT_ITERATION_LIMIT = 100;
+	static constexpr int DEFAULT_ITERATION_LIMIT = 100;
 	static constexpr std::size_t S = T::sourcesize();
 	static constexpr std::size_t C = T::codesize();
 
 	T H;
 	LDPC::GenerationMatrix_encoding<T> encoder;
 	inline static thread_local std::optional<LDPC::Sumproduct_decoding<T>> decoders;
-	std::uint64_t iterationlimit;//反復回数上限
+	int iterationlimit;//反復回数上限
 public:
-	explicit SystematicLDPC(const T &H, std::uint64_t iterationlimit);
+	explicit SystematicLDPC(const T &H, int iterationlimit);
 	explicit SystematicLDPC(const T &H): SystematicLDPC(H, DEFAULT_ITERATION_LIMIT){}
 
 	auto encode(const std::bitset<S> &information) const;//引数から符号語を求める
@@ -48,7 +48,7 @@ auto make_SystematicLDPC(){
 ////////////////////////////////////////////////////////////////
 
 template<LDPC::CheckMatrix T>
-SystematicLDPC<T>::SystematicLDPC(const T &H, std::uint64_t iterationlimit):
+SystematicLDPC<T>::SystematicLDPC(const T &H, int iterationlimit):
 	H(H),
 	encoder(H),
 	iterationlimit(iterationlimit)
