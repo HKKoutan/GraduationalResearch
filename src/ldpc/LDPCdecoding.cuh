@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -279,15 +279,24 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fpty
 
 template<std::size_t S, std::size_t C, std::size_t W>
 template<boxplusclass P>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(fptype *LPR, fptype *LLR, const P &bp, int iterationlimit){
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit){
 	int itr = 0;
 	bool *parity = nullptr;
+	fptype *LPR_device = nullptr;//対数事後確率比：列ごとのalphaの和+QLLR
+	fptype *LLR_device = nullptr;
+	cudaMalloc(&LPR_device, sizeof(fptype)*C);
+	cudaMalloc(&LLR_device, sizeof(fptype)*C);
+	cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice);
 	// cudaMalloc(&parity, sizeof(bool));
 	// cudaMemset(parity,0,sizeof(bool));
 	while(itr<iterationlimit){
-		iterate(parity, LPR, LLR, bp);
+		iterate(parity, LPR_device, LLR_device, bp);
 		++itr;
 	}
+
+	cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost);
+	cudaFree(LPR_device);
+	cudaFree(LLR_device);
 }
 
 }

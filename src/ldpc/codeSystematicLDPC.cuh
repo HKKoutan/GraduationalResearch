@@ -128,20 +128,11 @@ auto SystematicLDPC<LDPC::CheckMatrix_regular<S,C,W>>::decode(const std::array<F
 	if(!decoders) decoders.emplace(H);
 
 	auto QLLR = encoder.inverse_substitution(LLR);
-	F *QLPR_device = nullptr;//対数事後確率比：列ごとのalphaの和+QLLR
-	F *QLLR_device = nullptr;
-	cudaMalloc(&QLPR_device, sizeof(F)*C);
-	cudaMalloc(&QLLR_device, sizeof(F)*C);
-	cudaMemcpy(QLLR_device,QLLR.data(),sizeof(F)*C,cudaMemcpyHostToDevice);
+	std::array<F,C> QLPR;
 
 	// decoders->decode_init();
 	// for(auto iter=0ui64; !decoders->iterate(QLPR_device, QLLR_device, bp) && iter<iterationlimit; ++iter);
-	decoders->decode(QLPR_device, QLLR_device, bp, iterationlimit);
-
-	std::array<F,C> QLPR;
-	cudaMemcpy(QLPR.data(),QLPR_device,sizeof(F)*C,cudaMemcpyDeviceToHost);
-	cudaFree(QLPR_device);
-	cudaFree(QLLR_device);
+	decoders->decode(QLPR, QLLR, bp, iterationlimit);
 
 	return encoder.substitution(QLPR);
 }
