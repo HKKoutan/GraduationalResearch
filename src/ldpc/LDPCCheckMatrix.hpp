@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
+#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 #define INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 
 #include <fstream>
@@ -67,7 +67,7 @@ public:
 	// const std::size_t* end() const noexcept{return col1.get()+idxrow[Size];}
 	// const std::size_t* data() const noexcept{return col1.get();}
 	inline std::size_t colweight(std::size_t i) const{
-		assert(i<Size);
+		assert(i<C);
 		return idxcol[i+1]-idxcol[i];
 	}
 	const sized_ptr operator[](std::size_t i) const{
@@ -122,7 +122,7 @@ public:
 	// const std::size_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
 	// const std::size_t* data() const noexcept{return sized_ptr<Size>(col1.get());}
 	static constexpr std::size_t colweight(std::size_t i){
-		assert(i<Size);
+		assert(i<C);
 		return VW;
 	}
 	const sized_ptr<W> operator[](std::size_t i) const{
