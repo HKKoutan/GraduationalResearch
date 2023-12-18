@@ -196,7 +196,7 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 	for(std::size_t i=0; i<C; ++i) idxcol[i+1] = idxcol[i] + colidxcount[i];
 
 	std::array<std::size_t,C> colcount = {};
-	for(std::size_t i=0; i<Size; ++i) for(std::size_t j=idxcol[i], jend=idxcol[i+1]; j<jend; ++j){
+	for(std::size_t i=0; i<Size; ++i) for(std::size_t j=idxrow[i], jend=idxrow[i+1]; j<jend; ++j){
 		auto k = col1[j];
 		row1[idxcol[k]+colcount[k]++] = i;
 	}
