@@ -7,9 +7,15 @@
 
 namespace code::LDPC {
 
+namespace {
+	using fptype = float;
+	using uitype = unsigned int;
+	static_assert(sizeof(fptype)==sizeof(uitype));
+}
+
 template<CheckMatrix T>
 class Sumproduct_decoding {
-	using fptype = float;
+	// using fptype = float;
 	static constexpr std::size_t S = T::sourcesize();
 	static constexpr std::size_t C = T::codesize();
 	static constexpr std::size_t Hsize = C-S;
@@ -30,14 +36,15 @@ public:
 template<std::size_t S, std::size_t C, std::size_t W>
 class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	using T = CheckMatrix_regular<S,C,W>;
-	using fptype = float;
+	// using fptype = float;
 	static constexpr std::size_t Hsize = C-S;
 	static constexpr std::size_t Hones = W*Hsize;
 	static constexpr std::size_t VW = Hones/C;//列重み
+	static_assert(Hones<(1ui64<<32));
 
 	const T H;//検査行列
-	std::unique_ptr<fptype[][C]> alphabeta;
-	std::unique_ptr<fptype*[][W]> alphabetap;
+	std::unique_ptr<fptype[]> alphabeta;
+	std::unique_ptr<fptype*[]> alphabetap;
 	// std::array<std::array<fptype,C>,VW> alphabeta;
 	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
 
@@ -141,14 +148,14 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
 	// }
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
-		auto &abpi = alphabetap[i];
+		auto abpi = alphabetap.get()+W*i;
 		//alpha<-alphap beta<-betap
 		for(std::size_t j=0; j<W; ++j){
 			auto &hij = Hi[j];
 			auto &Hj = H.T[hij];
 			std::size_t k=0;
 			while(Hj[k]!=i) ++k;
-			auto &abk = alphabeta[k];
+			auto abk = alphabeta.get()+C*k;
 			abpi[j] = &abk[hij];
 		}
 	}
@@ -157,8 +164,8 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
 template<std::size_t S, std::size_t C, std::size_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
 	H(H),
-	alphabeta(std::make_unique<fptype[][C]>(VW)),
-	alphabetap(std::make_unique<fptype*[][W]>(Hsize))
+	alphabeta(std::make_unique<fptype[]>(Hones)),
+	alphabetap(std::make_unique<fptype*[]>(Hones))
 {
 	alphabetap_init();
 }
@@ -166,7 +173,7 @@ Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H)
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 	// for(auto &bi: alphabeta) for(auto &bij: bi) bij = 0;
-	for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = 0;
+	for(auto i=0; i<Hones; ++i) alphabeta[i] = 0;
 }
 
 template<std::size_t S, std::size_t C, std::size_t W>
@@ -174,26 +181,26 @@ template<boxplusclass P>
 bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
 	for(auto i=0; i<VW; ++i){
-		auto &bi = alphabeta[i];
+		auto bi = alphabeta.get()+C*i;
 		for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
 	}
 	//row update
-	for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = bp.forward(bij);
+	for(auto i=0; i<Hones; ++i) alphabeta[i] = bp.forward(alphabeta[i]);
 	for(auto i=0; i<Hsize; ++i){
-		auto &abpi = alphabetap[i];
+		auto abpi = alphabetap.get()+W*i;
 		accumlator_t<P,fptype> acc;
-		for(const auto bpij: abpi) acc += *bpij;
-		for(const auto abpij: abpi) *abpij = acc-*abpij;
+		for(std::size_t j=0; j<W; ++j) acc += *abpi[j];
+		for(std::size_t j=0; j<W; ++j) *abpi[j] = acc-*abpi[j];
 	}
-	for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
+	for(auto i=0; i<Hones; ++i) alphabeta[i] = bp.backward(alphabeta[i]);
 	//column update
 	for(auto &lpj: LPR) lpj = 0;
 	for(auto i=0; i<VW; ++i){
-		auto &ai = alphabeta[i];
+		auto ai = alphabeta.get()+C*i;
 		for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
 	}
 	for(auto i=0; i<VW; ++i){
-		auto &abi = alphabeta[i];
+		auto abi = alphabeta.get()+C*i;
 		for(std::size_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
 	}
 	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
