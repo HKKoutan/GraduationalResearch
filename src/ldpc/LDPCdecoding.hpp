@@ -44,7 +44,8 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 
 	const T H;//検査行列
 	std::unique_ptr<fptype[]> alphabeta;
-	std::unique_ptr<fptype*[]> alphabetap;
+	std::unique_ptr<uitype[]> alphabetaidx;
+	// std::unique_ptr<fptype*[]> alphabetap;
 	// std::array<std::array<fptype,C>,VW> alphabeta;
 	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
 
@@ -141,22 +142,16 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 
 template<std::size_t S, std::size_t C, std::size_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
-	// std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
-	// {
-	// 	std::array<std::size_t,C> HTc = {};
-	// 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
-	// }
 	for(std::size_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
-		auto abpi = alphabetap.get()+W*i;
+		auto abxi = alphabetaidx.get()+W*i;
 		//alpha<-alphap beta<-betap
 		for(std::size_t j=0; j<W; ++j){
-			auto &hij = Hi[j];
+			uitype hij = Hi[j];
 			auto &Hj = H.T[hij];
-			std::size_t k=0;
+			int k=0;
 			while(Hj[k]!=i) ++k;
-			auto abk = alphabeta.get()+C*k;
-			abpi[j] = &abk[hij];
+			abxi[j] = static_cast<uitype>(C)*k+hij;
 		}
 	}
 }
@@ -165,7 +160,7 @@ template<std::size_t S, std::size_t C, std::size_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
 	H(H),
 	alphabeta(std::make_unique<fptype[]>(Hones)),
-	alphabetap(std::make_unique<fptype*[]>(Hones))
+	alphabetaidx(std::make_unique<uitype[]>(Hones))
 {
 	alphabetap_init();
 }
@@ -187,10 +182,10 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,
 	//row update
 	for(auto i=0; i<Hones; ++i) alphabeta[i] = bp.forward(alphabeta[i]);
 	for(auto i=0; i<Hsize; ++i){
-		auto abpi = alphabetap.get()+W*i;
+		auto abxi = alphabetaidx.get()+W*i;
 		accumlator_t<P,fptype> acc;
-		for(std::size_t j=0; j<W; ++j) acc += *abpi[j];
-		for(std::size_t j=0; j<W; ++j) *abpi[j] = acc-*abpi[j];
+		for(std::size_t j=0; j<W; ++j) acc += alphabeta[abxi[j]];
+		for(std::size_t j=0; j<W; ++j) alphabeta[abxi[j]] = acc-alphabeta[abxi[j]];
 	}
 	for(auto i=0; i<Hones; ++i) alphabeta[i] = bp.backward(alphabeta[i]);
 	//column update
