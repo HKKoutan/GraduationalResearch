@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -31,6 +31,8 @@ public:
 	void decode_init();//decodeで使用する変数の初期化
 	template<boxplusclass P>
 	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
+	template<boxplusclass P>
+	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit);
 };
 
 template<std::size_t S, std::size_t C, std::size_t W>
@@ -132,6 +134,13 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 		if(parity) return false;
 	}
 	return true;
+}
+
+template<CheckMatrix T>
+template<boxplusclass P>
+void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit){
+	decode_init();
+	for(int iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
 ////////////////////////////////////////////////////////////////
