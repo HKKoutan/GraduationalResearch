@@ -10,8 +10,8 @@ namespace code {
 template<LDPC::CheckMatrix T>//S:Source length, C:Code length
 class SystematicLDPC {
 	static constexpr int DEFAULT_ITERATION_LIMIT = 100;
-	static constexpr std::size_t S = T::sourcesize();
-	static constexpr std::size_t C = T::codesize();
+	static constexpr std::uint32_t S = T::sourcesize();
+	static constexpr std::uint32_t C = T::codesize();
 
 	T H;
 	LDPC::GenerationMatrix_encoding<T> encoder;
@@ -31,12 +31,12 @@ public:
 };
 
 //ヘルパ関数
-template<std::size_t S, std::size_t C>
+template<std::uint32_t S, std::uint32_t C>
 auto make_SystematicLDPC(std::uint64_t iterationlimit){
 	return SystematicLDPC(LDPC::validCheckMatrixType_t<S,C>(), iterationlimit);
 }
 
-template<std::size_t S, std::size_t C>
+template<std::uint32_t S, std::uint32_t C>
 auto make_SystematicLDPC(){
 	return SystematicLDPC(LDPC::validCheckMatrixType_t<S,C>());
 }
