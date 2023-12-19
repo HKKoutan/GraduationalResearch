@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -43,7 +43,8 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	static constexpr std::uint32_t VW = Hones/C;//列重み
 
 	const T H;//検査行列
-	inline static std::unique_ptr<uitype[],util::cuda_delete> alphabetaidx;
+	inline static std::unique_ptr<uitype[]> alphabetaidx;
+	inline static std::unique_ptr<uitype[],util::cuda_delete> alphabetaidx_device;
 
 	void alphabetaidx_init();
 public:
@@ -151,30 +152,25 @@ void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-namespace {
-	template<CheckMatrix U>
-	__global__ void parallel_idx_init(uitype *idx, U H, typename U::internaldatatype Hd){
-		std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
-		std::uint32_t j = blockIdx.y*blockDim.y+threadIdx.y;
-		std::uint32_t W = U::weightrowmax(Hd);
-		if(i<H.size()&&j<W){
-			auto &Hi = U::getrow(i,Hd);
-			std::uint32_t hij = Hi[j];
-			auto &Hj = U::getcol(hij,Hd);
-			std::uint32_t k=0;
-			while(Hj[k]!=i) ++k;
-			idx[W*i+j] = H.codesize()*k+hij;
-		}
-	}
-}
-
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
-	alphabetaidx = util::make_cuda_unique<uitype[]>(Hones);
+	alphabetaidx = std::make_unique<uitype[]>(Hones);
 
-	const dim3 grid((((Hsize-1)>>7)+1),(((W-1)>>3)+1),1);
-	const dim3 thread(128,8,1);
-	parallel_idx_init<<<grid,thread>>>(alphabetaidx.get(), H, H.data());
+	for(std::uint32_t i=0; i<Hsize; ++i){
+		auto &Hi = H[i];
+		auto abxi = alphabetaidx.get()+H.headidxcol(i);
+		//alpha<-alphap beta<-betap
+		for(std::uint32_t j=0; j<W; ++j){
+			std::uint32_t  hij = Hi[j];
+			auto &Hj = H.T[hij];
+			std::uint32_t  k=0;
+			while(Hj[k]!=i) ++k;
+			abxi[j] = C*k+hij;
+		}
+	}
+
+	alphabetaidx_device = util::make_cuda_unique<uitype[]>(Hones);
+	cudaMemcpy(alphabetaidx_device.get(), alphabetaidx.get(), sizeof(uitype)*Hones, cudaMemcpyHostToDevice);
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
@@ -228,7 +224,7 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std:
 	parallel_broadcast_add<<<grid,thread>>>(alphabeta.get(), LLR, C, VW);
 	//row update
 	bp.forward_vec(alphabeta.get(), Hones);
-	parallel_accumlate<<<grid,thread>>>(alphabeta.get(), alphabetaidx.get(), W, Hsize, bp);
+	parallel_accumlate<<<grid,thread>>>(alphabeta.get(), alphabetaidx_device.get(), W, Hsize, bp);
 	bp.backward_vec(alphabeta.get(), Hones);
 	//column update
 	cudaMemset(LPR, 0, sizeof(fptype)*C);
