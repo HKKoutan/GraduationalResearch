@@ -16,46 +16,43 @@ namespace {
 
 template<CheckMatrix T>
 class Sumproduct_decoding {
-	// using fptype = float;
-	static constexpr std::size_t S = T::sourcesize();
-	static constexpr std::size_t C = T::codesize();
-	static constexpr std::size_t Hsize = C-S;
+	static constexpr std::uint32_t S = T::sourcesize();
+	static constexpr std::uint32_t C = T::codesize();
+	static constexpr std::uint32_t Hsize = C-S;
 
 	const T H;//検査行列
-	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
-	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
+	const std::uint32_t Hones;
+	const std::uint32_t VW;
+	inline static std::unique_ptr<uitype[]> alphabetaidx;
 
-	static auto alphabeta_size(const T &H);
-	static auto alphabetap_init(const T &H, std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> &alphabeta);
+	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
-	void decode_init();//decodeで使用する変数の初期化
+	std::size_t alphabetasize() const{return C*VW;}
 	template<boxplusclass P>
-	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
+	bool iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
+	template<boxplusclass P>
+	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
 
-template<std::size_t S, std::size_t C, std::size_t W>
+template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	using T = CheckMatrix_regular<S,C,W>;
-	// using fptype = float;
-	static constexpr std::size_t Hsize = C-S;
-	static constexpr std::size_t Hones = W*Hsize;
-	static constexpr std::size_t VW = Hones/C;//列重み
-	static_assert(Hones<(1ui64<<32));
+	static constexpr std::uint32_t Hsize = C-S;
+	static constexpr std::uint32_t Hones = W*Hsize;
+	static constexpr std::uint32_t VW = Hones/C;//列重み
 
 	const T H;//検査行列
-	std::unique_ptr<fptype[][C],util::cuda_delete<fptype[][C]>> alphabeta;
-	std::unique_ptr<uitype[][W],util::cuda_delete<uitype[][W]>> alphabetaidx;
-	// std::unique_ptr<fptype*[][W],util::cuda_delete<fptype*[][W]>> alphabetap;
-	// std::array<std::array<fptype,C>,VW> alphabeta;
-	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
+	inline static std::unique_ptr<uitype[]> alphabetaidx;
+
+	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
-	void decode_init();//decodeで使用する変数の初期化
+	static constexpr std::size_t alphabetasize(){return Hones;}
 	template<boxplusclass P>
-	void iterate(bool *parity, fptype *LPR, fptype *LLR, const P &bp);
+	void iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete<fptype[]>> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp);
 	template<boxplusclass P>
-	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit);
+	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -65,72 +62,87 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template<CheckMatrix T>
-auto Sumproduct_decoding<T>::alphabeta_size(const T &H){
-	std::array<std::size_t,C> Hheight{};
-	for(std::size_t i=0; i<C; ++i) Hheight[i] = H.colsize(i);
-	return std::ranges::max(Hheight);
-}
+void Sumproduct_decoding<T>::alphabetaidx_init(){
+	alphabetaidx = std::make_unique<uitype[]>(Hones);
 
-template<CheckMatrix T>
-auto Sumproduct_decoding<T>::alphabetap_init(const T &H, std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> &alphabeta){
-	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
-
-	// std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
-	// for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
-
-	for(std::size_t i=0; i<Hsize; ++i){
+	for(std::uint32_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
-		auto &abpi = alphabetap[i];
-		//Hとalphabetapの要素数を揃える
-		abpi.resize(Hi.size());
+		auto abpi = alphabetaidx.get()+H.headidxcol(i);
 		//alpha<-alphap beta<-betap
-		for(std::size_t j=0, jend=Hi.size(); j<jend; ++j){
-			auto &hij = Hi[j];
+		for(std::uint32_t j=0, jend=Hi.size(); j<jend; ++j){
+			std::uint32_t hij = Hi[j];
 			auto &Hj = H.T[hij];
-			std::size_t k=0;
+			std::uint32_t k=0;
 			while(Hj[k]!=i) ++k;
-			auto &[ai, bi] = alphabeta[k];
-			abpi[j] = std::make_pair(&ai[hij],&bi[hij]);
+			abpi[j] = C*k+hij;
 		}
 	}
-	return alphabetap;
 }
 
 template<CheckMatrix T>
 Sumproduct_decoding<T>::Sumproduct_decoding(const T &H):
 	H(H),
-	alphabeta(alphabeta_size(H)),
-	alphabetap(alphabetap_init(H,alphabeta))
-{}
-
-template<CheckMatrix T>
-void Sumproduct_decoding<T>::decode_init(){
-	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = 0;
+	Hones(H.countones()),
+	VW(H.weightcolmax())
+{
+	if(!alphabetaidx) alphabetaidx_init();
 }
 
 template<CheckMatrix T>
 template<boxplusclass P>
-bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
+bool Sumproduct_decoding<T>::iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
-	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto bi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) bi[j] += LLR[j];
+	}
 	//row update
-	for(auto &abpi: alphabetap){
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto bi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j){
+			if(i<H.weightcol(j)) bi[j] = bp.forward(bi[j]);
+			else bi[j]=0;
+		}
+	}
+	for(std::uint32_t i=0; i<Hsize; ++i){
+		auto abxi = alphabetaidx.get()+H.headidxcol(i);
+		auto abxiend = alphabetaidx.get()+H.headidxcol(i+1);
 		accumlator_t<P,fptype> acc;
-		for(const auto [apij,bpij]: abpi) acc += bp.forward(*bpij);
-		for(const auto [apij,bpij]: abpi) *apij = bp.backward(acc-bp.forward(*bpij));
+		for(auto abxij=abxi; abxij!=abxiend; ++abxij) acc += alphabeta[*abxij];
+		for(auto abxij=abxi; abxij!=abxiend; ++abxij) alphabeta[*abxij] = acc-alphabeta[*abxij];
+	}
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto bi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j){
+			if(i<H.weightcol(j)) bi[j] = bp.backward(bi[j]);
+			else bi[j]=0;
+		}
 	}
 	//column update
 	for(auto &lpj: LPR) lpj = 0;
-	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
-	for(auto &[ai, bi]: alphabeta) for(std::size_t j=0; j<C; ++j) bi[j] = LPR[j]-ai[j];
-	for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto ai = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) LPR[j] += ai[j];
+	}
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto abi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
+	}
+	for(std::uint32_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	//parity check
-	for(std::size_t i=0; i<Hsize; ++i){
+	for(std::uint32_t i=0; i<Hsize; ++i){
 		auto parity = false;
 		for(const auto &j : H[i]) parity ^= LPR[j]<0;
 		if(parity) return false;
 	}
 	return true;
+}
+
+template<CheckMatrix T>
+template<boxplusclass P>
+void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
+	auto alphabeta = std::make_unique<fptype[]>(alphabetasize());
+	for(std::uint32_t iter=0; !iterate(alphabeta, LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -139,75 +151,63 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 //                                                            //
 ////////////////////////////////////////////////////////////////
 
-// template<std::size_t S, std::size_t C, std::size_t W>
-// void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
-// 	// std::array<std::array<std::size_t,VW>,C> HT;//Hの転置
-// 	// {
-// 	// 	std::array<std::size_t,C> HTc = {};
-// 	// 	for(std::size_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j][HTc[j]++] = i;
-// 	// }
-// 	for(std::size_t i=0; i<Hsize; ++i){
-// 		auto &Hi = H[i];
-// 		auto &abpi = alphabetap[i];
-// 		//alpha<-alphap beta<-betap
-// 		for(std::size_t j=0; j<W; ++j){
-// 			auto &hij = Hi[j];
-// 			auto &Hj = H.T[hij];
-// 			std::size_t k=0;
-// 			while(Hj[k]!=i) ++k;
-// 			auto &abk = alphabeta[k];
-// 			abpi[j] = &abk[hij];
-// 		}
-// 	}
-// }
-
 namespace {
 	template<CheckMatrix U>
-	__global__ void alphabetap_init(uitype *alphabetaidx, U H, typename U::internaldatatype Hd){
+	__global__ void parallel_idx_init(uitype *idx, U H, typename U::internaldatatype Hd){
 		int i = blockIdx.x*blockDim.x+threadIdx.x;
 		int j = blockIdx.y*blockDim.y+threadIdx.y;
-		if(i<H.size()){
-			int W = H.colweight(i);
-			if(j<W){
-				auto Hi = U::getrow(i,Hd);
-				auto hij = Hi[j];
-				auto Hj = U::getcol(hij,Hd);
-				int k=0;
-				while(Hj[k]!=i) ++k;
-				alphabetaidx[W*i+j] = H.codesize()*k+hij;
-			}
+		std::uint32_t W = U::weightrowmax(Hd);
+		if(i<H.size()&&j<W){
+			auto Hi = U::getrow(i,Hd);
+			auto hij = Hi[j];
+			auto Hj = U::getcol(hij,Hd);
+			int k=0;
+			while(Hj[k]!=i) ++k;
+			idx[W*i+j] = H.codesize()*k+hij;
 		}
 	}
 }
 
-template<std::size_t S, std::size_t C, std::size_t W>
-Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
-	H(H),
-	alphabeta(util::make_cuda_unique<fptype[][C]>(VW)),
-	alphabetaidx(util::make_cuda_unique<uitype[][W]>(Hsize))
-{
+template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
+	alphabetaidx = std::make_unique<uitype[]>(Hones);
+
+	// for(std::uint32_t i=0; i<Hsize; ++i){
+	// 	auto &Hi = H[i];
+	// 	auto abxi = alphabetaidx.get()+H.headidxcol(i);
+	// 	//alpha<-alphap beta<-betap
+	// 	for(std::uint32_t j=0; j<W; ++j){
+	// 		std::uint32_t  hij = Hi[j];
+	// 		auto &Hj = H.T[hij];
+	// 		std::uint32_t  k=0;
+	// 		while(Hj[k]!=i) ++k;
+	// 		abxi[j] = C*k+hij;
+	// 	}
+	// }
 	const dim3 grid(((Hsize-1)/128+1),((W-1)/8+1),1);
 	const dim3 thread(128,8,1);
-	alphabetap_init<<<grid,thread>>>(&alphabetaidx[0][0], H, H.data());
+	parallel_idx_init<<<grid,thread>>>(alphabetaidx.get(), H, H.data());
 }
 
-template<std::size_t S, std::size_t C, std::size_t W>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
-	cudaMemset(&alphabeta[0][0], 0, sizeof(fptype)*Hones);
+template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
+Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
+	H(H)
+{
+	if(!alphabetaidx) alphabetaidx_init();
 }
 
 namespace {
-	__global__ void parallel_broadcast_add(fptype *lhs, fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
+	__global__ void parallel_broadcast_add(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] += rhs[j];
 	}
-	__global__ void parallel_broadcast_negsub(fptype *lhs, fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
+	__global__ void parallel_broadcast_negsub(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] = rhs[j]-lhs[i*width+j];
 	}
-	__global__ void parallel_reduce_add(fptype *lhs, fptype *rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
+	__global__ void parallel_reduce_add(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
 		int j = blockIdx.x*blockDim.x+threadIdx.x;
 		int k = blockIdx.y*blockDim.y+threadIdx.y;
 		if(k==0&&j<width){
@@ -231,50 +231,22 @@ namespace {
 	// }
 }
 
-template<std::size_t S, std::size_t C, std::size_t W>
+template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fptype *LPR, fptype *LLR, const P &bp){
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete<fptype[]>> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp){
 	const dim3 grid(((int(C)-1)/256+1),((int(VW)-1)/4+1),1);
 	const dim3 thread(256,4,1);
 	//apply LLR
-	// for(auto i=0; i<VW; ++i){
-	// 	auto &bi = alphabeta[i];
-	// 	for(std::size_t j=0; j<C; ++j) bi[j] += LLR[j];
-	// }
-	parallel_broadcast_add<<<grid,thread>>>(&alphabeta[0][0], LLR, C, VW);
-	cudaDeviceSynchronize();
+	parallel_broadcast_add<<<grid,thread>>>(alphabeta.get(), LLR, C, VW);
 	//row update
-	// for(auto i=0; i<VW; ++i) for(auto &bij: alphabeta[i]) bij = bp.forward(bij);
-	bp.forward_vec(&alphabeta[0][0], Hones);
-	cudaDeviceSynchronize();
-	// for(auto i=0; i<Hsize; ++i){
-	// 	auto &abpi = alphabetap[i];
-	// 	accumlator_t<P,fptype> acc;
-	// 	for(const auto bpij: abpi) acc += *bpij;
-	// 	for(const auto abpij: abpi) *abpij = acc-*abpij;
-	// }
-	parallel_accumlate<<<grid,thread>>>(&alphabeta[0][0], &alphabetaidx[0][0], W, Hsize, bp);
-	// for(auto i=0; i<VW; ++i) for(auto &aij: alphabeta[i]) aij = bp.backward(aij);
-	bp.backward_vec(&alphabeta[0][0], Hones);
-	cudaDeviceSynchronize();
+	bp.forward_vec(alphabeta.get(), Hones);
+	parallel_accumlate<<<grid,thread>>>(alphabeta.get(), alphabetaidx.get(), W, Hsize, bp);
+	bp.backward_vec(alphabeta.get(), Hones);
 	//column update
-	// for(std::size_t j=0; j<C; ++j) LPR[j] = 0;
 	cudaMemset(LPR, 0, sizeof(fptype)*C);
-	// for(auto i=0; i<VW; ++i){
-	// 	auto &ai = alphabeta[i];
-	// 	for(std::size_t j=0; j<C; ++j) LPR[j] += ai[j];
-	// }
-	parallel_reduce_add<<<grid,thread>>>(LPR, &alphabeta[0][0], C, VW);
-	cudaDeviceSynchronize();
-	// for(auto i=0; i<VW; ++i){
-	// 	auto &abi = alphabeta[i];
-	// 	for(std::size_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
-	// }
-	parallel_broadcast_negsub<<<grid,thread>>>(&alphabeta[0][0], LPR, C, VW);
-	cudaDeviceSynchronize();
-	// for(std::size_t j=0; j<C; ++j) LPR[j] += LLR[j];
+	parallel_reduce_add<<<grid,thread>>>(LPR, alphabeta.get(), C, VW);
+	parallel_broadcast_negsub<<<grid,thread>>>(alphabeta.get(), LPR, C, VW);
 	parallel_broadcast_add<<<grid,thread>>>(LPR, LLR, C, 1);
-	cudaDeviceSynchronize();
 	//parity check
 	// for(std::size_t i=0; i<Hsize; ++i){
 	// 	auto parity = false;
@@ -283,28 +255,30 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, fpty
 	// }
 }
 
-template<std::size_t S, std::size_t C, std::size_t W>
+template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit){
-	int itr = 0;
-	bool *parity = nullptr;
-	fptype *LPR_device = nullptr;//対数事後確率比：列ごとのalphaの和+QLLR
-	fptype *LLR_device = nullptr;
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
+	auto alphabeta = util::make_cuda_unique<fptype[]>(alphabetasize());
+
+	fptype *LPR_device;//対数事後確率比：列ごとのalphaの和+QLLR
+	fptype *LLR_device;
 	auto errc = ::cudaMalloc(&LPR_device, sizeof(fptype)*C);
 	if(errc!=0) throw std::runtime_error("CUDA Error");
 	errc = ::cudaMalloc(&LLR_device, sizeof(fptype)*C);
 	if(errc!=0) throw std::runtime_error("CUDA Error");
 	errc = ::cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice);
 	if(errc!=0) throw std::runtime_error("CUDA Error");
-	// cudaMalloc(&parity, sizeof(bool));
-	// cudaMemset(parity,0,sizeof(bool));
+
+	int itr = 0;
+	bool *parity = nullptr;
 	while(itr<iterationlimit){
-		iterate(parity, LPR_device, LLR_device, bp);
+		iterate(parity, alphabeta, LPR_device, LLR_device, bp);
 		++itr;
 	}
 
 	errc = ::cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost);
 	if(errc!=0) throw std::runtime_error("CUDA Error");
+
 	errc = ::cudaFree(LPR_device);
 	if(errc!=0) throw std::runtime_error("CUDA Error");
 	errc = ::cudaFree(LLR_device);

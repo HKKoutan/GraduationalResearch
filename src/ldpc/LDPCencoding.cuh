@@ -13,13 +13,14 @@ namespace code::LDPC {
 
 template<CheckMatrix T>
 class GenerationMatrix_encoding {
-	static constexpr std::size_t S = T::sourcesize();
-	static constexpr std::size_t C = T::codesize();
-	static constexpr std::size_t Hsize = C-S;
+	static constexpr std::uint32_t S = T::sourcesize();
+	static constexpr std::uint32_t C = T::codesize();
+	static constexpr std::uint32_t Hsize = C-S;
 
-	inline static std::pair<std::vector<std::bitset<S>>,std::vector<std::pair<std::size_t,std::size_t>>> G;//組織符号の生成行列の右側の転置と対応する行置換
+	inline static std::unique_ptr<std::bitset<S>[]> G;//組織符号の生成行列の右側の転置
+	inline static std::vector<std::pair<std::uint32_t,std::uint32_t>> Q;//Gに対応する行置換
 
-	static void G_init(const T &H);//Gはインスタンスを生成したときに初めて初期化される
+	static void init(const T &H);
 	auto GT_product(const std::bitset<S> &vec) const;//matpos1とvecの積を取る
 public:
 	explicit GenerationMatrix_encoding(const T &H);
@@ -41,18 +42,17 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template<CheckMatrix T>
-void GenerationMatrix_encoding<T>::G_init(const T &H){
+void GenerationMatrix_encoding<T>::init(const T &H){
 	//Hをbitset形式に変換
 	std::vector<std::bitset<C>> Hb(Hsize);
-	for(std::size_t i=0; i<Hsize; ++i) for(const auto &j: H[i]) Hb[i].set(j);
+	for(std::uint32_t i=0; i<Hsize; ++i) for(const auto &j: H[i]) Hb[i].set(j);
 
-	// std::vector<std::pair<std::size_t,std::size_t>> Q;
 	{//Hbを掃き出し、右側を単位行列にする
 		auto Hp = Hb.rbegin();
 		const auto Hend = Hb.rend();
-		for(std::size_t pivot=C-1; Hp!=Hend; --pivot, ++Hp){
+		for(std::uint32_t pivot=C-1; Hp!=Hend; --pivot, ++Hp){
 
-			std::size_t j=pivot;
+			std::uint32_t j=pivot;
 			decltype(Hp) Hi;
 			do{//pivotとその左から列ごとに1を探す
 				Hi=Hp;
@@ -73,7 +73,7 @@ void GenerationMatrix_encoding<T>::G_init(const T &H){
 					Hk[pivot] = Hk[j];
 					Hk[j] = temp;
 				}
-				G.second.push_back({pivot,j});
+				Q.push_back({pivot,j});
 			}
 			//掃き出し
 			for(auto Hk=Hb.rbegin(); Hk!=Hend; ++Hk) if(Hk->test(pivot) && Hk!=Hp) *Hk^=*Hp;
@@ -81,11 +81,11 @@ void GenerationMatrix_encoding<T>::G_init(const T &H){
 	}
 
 	//単位行列部分は省略して生成行列を作成　Hbの左側の転置=生成行列の右側
-	G.first.resize(Hsize);
-	for(std::size_t i=0; i<Hsize; ++i){
+	G = std::make_unique<std::bitset<S>[]>(Hsize);
+	for(std::uint32_t i=0; i<Hsize; ++i){
 		auto &Hbi=Hb[i];
-		auto &GTi=G.first[i];
-		for(std::size_t j=0; j<S; ++j) GTi[j] = Hbi[j];
+		auto &GTi=G[i];
+		for(std::uint32_t j=0; j<S; ++j) GTi[j] = Hbi[j];
 	}
 }
 
@@ -93,8 +93,8 @@ void GenerationMatrix_encoding<T>::G_init(const T &H){
 template<CheckMatrix T>
 auto GenerationMatrix_encoding<T>::GT_product(const std::bitset<S> &vec) const{
 	std::bitset<Hsize> sol;
-	for(std::size_t i=0; i<Hsize; ++i){
-		std::bitset<S> prod = vec&G.first[i];
+	for(std::uint32_t i=0; i<Hsize; ++i){
+		std::bitset<S> prod = vec&G[i];
 		auto num = prod.count();
 		sol.set(i,static_cast<bool>(num&1));
 	}
@@ -103,11 +103,7 @@ auto GenerationMatrix_encoding<T>::GT_product(const std::bitset<S> &vec) const{
 
 template<CheckMatrix T>
 GenerationMatrix_encoding<T>::GenerationMatrix_encoding(const T &H){
-	static bool init;
-	if(!init){
-		G_init(H);
-		init = true;
-	}
+	if(!G) init(H);
 }
 
 template<CheckMatrix T>
@@ -119,14 +115,14 @@ template<CheckMatrix T>
 auto GenerationMatrix_encoding<T>::systematic_encode(const std::bitset<S> &information) const{
 	std::bitset<C> code;
 	auto parity = GT_product(information);
-	for(std::size_t i=0, iend=S; i<iend; ++i) code[i]=information[i];
-	for(std::size_t i=S, iend=C; i<iend; ++i) code[i]=parity[i-S];
+	for(std::uint32_t i=0, iend=S; i<iend; ++i) code[i]=information[i];
+	for(std::uint32_t i=S, iend=C; i<iend; ++i) code[i]=parity[i-S];
 	return code;
 }
 
 template<CheckMatrix T>
 auto GenerationMatrix_encoding<T>::substitution(std::bitset<C> vec) const{
-	for(auto [qa, qb]: G.second){
+	for(auto [qa, qb]: Q){
 		bool temp = vec[qa];
 		vec[qa] = vec[qb];
 		vec[qb] = temp;
@@ -137,7 +133,7 @@ auto GenerationMatrix_encoding<T>::substitution(std::bitset<C> vec) const{
 template<CheckMatrix T>
 template<typename U>
 auto GenerationMatrix_encoding<T>::substitution(std::array<U,C> vec) const{
-	for(auto [qa, qb]: G.second){
+	for(auto [qa, qb]: Q){
 		U temp = vec[qa];
 		vec[qa] = vec[qb];
 		vec[qb] = temp;
@@ -147,7 +143,7 @@ auto GenerationMatrix_encoding<T>::substitution(std::array<U,C> vec) const{
 
 template<CheckMatrix T>
 auto GenerationMatrix_encoding<T>::inverse_substitution(std::bitset<C> vec) const{
-	for(auto [qa, qb]: G.second|std::views::reverse){
+	for(auto [qa, qb]: Q|std::views::reverse){
 		bool temp = vec[qa];
 		vec[qa] = vec[qb];
 		vec[qb] = temp;
@@ -158,7 +154,7 @@ auto GenerationMatrix_encoding<T>::inverse_substitution(std::bitset<C> vec) cons
 template<CheckMatrix T>
 template<typename U>
 auto GenerationMatrix_encoding<T>::inverse_substitution(std::array<U,C> vec) const{
-	for(auto [qa, qb]: G.second|std::views::reverse){
+	for(auto [qa, qb]: Q|std::views::reverse){
 		U temp = vec[qa];
 		vec[qa] = vec[qb];
 		vec[qb] = temp;
