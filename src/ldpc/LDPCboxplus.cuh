@@ -83,7 +83,7 @@ class phi_table<0> {
 	static constexpr auto CACHE_FILENAME = "gallager_float.bin";
 
 	inline static std::unique_ptr<float[]> values;
-	inline static std::unique_ptr<float[],util::cuda_delete<float[]>> values_device;
+	inline static std::unique_ptr<float[],util::cuda_delete> values_device;
 
 	static void values_init();//キャッシュファイルを読み込む。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(std::unique_ptr<float[]> &vec);

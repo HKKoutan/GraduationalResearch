@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -43,14 +43,14 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	static constexpr std::uint32_t VW = Hones/C;//列重み
 
 	const T H;//検査行列
-	inline static std::unique_ptr<uitype[]> alphabetaidx;
+	inline static std::unique_ptr<uitype[],util::cuda_delete> alphabetaidx;
 
 	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
 	static constexpr std::size_t alphabetasize(){return Hones;}
 	template<boxplusclass P>
-	void iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete<fptype[]>> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp);
+	void iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp);
 	template<boxplusclass P>
 	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
@@ -233,7 +233,7 @@ namespace {
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete<fptype[]>> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp){
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp){
 	const dim3 grid(((int(C)-1)/256+1),((int(VW)-1)/4+1),1);
 	const dim3 thread(256,4,1);
 	//apply LLR

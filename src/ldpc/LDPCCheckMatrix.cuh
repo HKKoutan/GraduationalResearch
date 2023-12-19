@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
+#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 #define INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 
 #include <fstream>
@@ -103,9 +103,9 @@ class CheckMatrix_regular{
 	static const char *path;
 
 	inline static std::unique_ptr<std::uint32_t[]> col1;//検査行列の1がある列番号 大きさOnes 幅W
-	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete<std::uint32_t[]>> col1_device;//device側メモリ
+	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete> col1_device;//device側メモリ
 	inline static std::unique_ptr<std::uint32_t[]> row1;//検査行列の1がある列番号 大きさOnes 幅VW
-	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete<std::uint32_t[]>> row1_device;
+	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete> row1_device;
 
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
