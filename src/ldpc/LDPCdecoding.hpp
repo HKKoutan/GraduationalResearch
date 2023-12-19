@@ -23,7 +23,7 @@ class Sumproduct_decoding {
 	const std::uint32_t Hones;
 	const std::uint32_t VW;
 	std::unique_ptr<fptype[]> alphabeta;
-	std::unique_ptr<uitype[]> alphabetaidx;
+	inline static std::unique_ptr<uitype[]> alphabetaidx;
 
 	void alphabetaidx_init();
 public:
@@ -44,7 +44,7 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 
 	const T H;//検査行列
 	std::unique_ptr<fptype[]> alphabeta;
-	std::unique_ptr<uitype[]> alphabetaidx;
+	inline static std::unique_ptr<uitype[]> alphabetaidx;
 
 	void alphabetaidx_init();
 public:
@@ -64,6 +64,8 @@ public:
 
 template<CheckMatrix T>
 void Sumproduct_decoding<T>::alphabetaidx_init(){
+	alphabetaidx = std::make_unique<uitype[]>(Hones);
+
 	for(std::uint32_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
 		auto abpi = alphabetaidx.get()+H.headidxcol(i);
@@ -83,10 +85,9 @@ Sumproduct_decoding<T>::Sumproduct_decoding(const T &H):
 	H(H),
 	Hones(H.countones()),
 	VW(H.weightcolmax()),
-	alphabeta(std::make_unique<fptype[]>(C*VW)),
-	alphabetaidx(std::make_unique<uitype[]>(Hones))
+	alphabeta(std::make_unique<fptype[]>(C*VW))
 {
-	alphabetaidx_init();
+	if(!alphabetaidx) alphabetaidx_init();
 }
 
 template<CheckMatrix T>
@@ -159,6 +160,8 @@ void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
+	alphabetaidx = std::make_unique<uitype[]>(Hones);
+
 	for(std::uint32_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
 		auto abxi = alphabetaidx.get()+H.headidxcol(i);
@@ -176,10 +179,9 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
 	H(H),
-	alphabeta(std::make_unique<fptype[]>(Hones)),
-	alphabetaidx(std::make_unique<uitype[]>(Hones))
+	alphabeta(std::make_unique<fptype[]>(Hones))
 {
-	alphabetaidx_init();
+	if(!alphabetaidx) alphabetaidx_init();
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
