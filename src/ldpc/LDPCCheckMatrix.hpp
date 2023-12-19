@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
+#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 #define INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 
 #include <fstream>
@@ -30,9 +30,9 @@ class CheckMatrix_irregular{
 	static const char *path;
 
 	inline static std::unique_ptr<std::uint32_t[]> col1;//検査行列の1がある列番号
-	inline static std::unique_ptr<std::uint32_t[]> idxrow;//検査行列各行の先頭にあたるcol1のインデックス 大きさSize+1
+	inline static std::unique_ptr<std::uint32_t[]> colhead;//検査行列各行の先頭にあたるcol1のインデックス 大きさSize+1 colhead[Size]=Ones
 	inline static std::unique_ptr<std::uint32_t[]> row1;//検査行列の1がある行番号
-	inline static std::unique_ptr<std::uint32_t[]> idxcol;//検査行列各列の先頭にあたるrow1のインデックス 大きさC+1
+	inline static std::unique_ptr<std::uint32_t[]> rowhead;//検査行列各列の先頭にあたるrow1のインデックス 大きさC+1 rowhead[C]=Ones
 
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
@@ -54,7 +54,7 @@ public:
 	struct col_ref {
 		inline const sized_ptr operator[](std::uint32_t i) const{
 			assert(i<C);
-			return sized_ptr(row1.get()+idxcol[i],idxcol[i+1]-idxcol[i]);
+			return sized_ptr(row1.get()+rowhead[i],rowhead[i+1]-rowhead[i]);
 		}
 	} T;
 
@@ -63,17 +63,17 @@ public:
 	static constexpr std::uint32_t codesize() noexcept{return C;}
 	static constexpr std::uint32_t sourcesize() noexcept{return S;}
 	static constexpr std::uint32_t size() noexcept{return Size;}
-	inline std::uint32_t countones() const noexcept{return idxrow[Size];}
+	inline std::uint32_t countones() const noexcept{return colhead[Size];}
 	// const std::uint32_t* begin() const noexcept{return col1.get();}
-	// const std::uint32_t* end() const noexcept{return col1.get()+idxrow[Size];}
+	// const std::uint32_t* end() const noexcept{return col1.get()+colhead[Size];}
 	// const std::uint32_t* data() const noexcept{return col1.get();}
 	inline std::uint32_t colweight(std::uint32_t i) const{
 		assert(i<C);
-		return idxcol[i+1]-idxcol[i];
+		return rowhead[i+1]-rowhead[i];
 	}
 	const sized_ptr operator[](std::uint32_t i) const{
 		assert(i<Size);
-		return sized_ptr(col1.get()+idxrow[i],idxrow[i+1]-idxrow[i]);
+		return sized_ptr(col1.get()+colhead[i],colhead[i+1]-colhead[i]);
 	}
 };
 
@@ -157,8 +157,8 @@ SET_CheckMatrix_irregular("H3.txt",5001,10000)
 
 template<std::uint32_t S, std::uint32_t C>
 void CheckMatrix_irregular<S,C>::readCheckMatrix(){
-	idxrow = std::make_unique<std::uint32_t[]>(Size+1);
-	idxcol = std::make_unique<std::uint32_t[]>(C+1);
+	colhead = std::make_unique<std::uint32_t[]>(Size+1);
+	rowhead = std::make_unique<std::uint32_t[]>(C+1);
 
 	std::ifstream file(path, std::ios_base::in);
 	if(!file.is_open()) throw std::runtime_error("LDPC: cannot open file.");
@@ -168,7 +168,7 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 	std::array<std::uint32_t,C> colidxcount = {};
 	std::vector<std::uint32_t> data;
 	for(std::uint32_t i=0; i<Size; ++i){
-		idxrow[i] = static_cast<std::uint32_t>(data.size());
+		colhead[i] = static_cast<std::uint32_t>(data.size());
 		if(!std::getline(file, buf)) throw std::runtime_error("Conflict between index data and file content detected.");
 
 		const char *bi = &buf.front();
@@ -188,24 +188,24 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 	if(std::getline(file, buf)||!colsizecheck) throw std::runtime_error("Conflict between index data and file content detected.");
 	file.close();
 
-	idxrow[Size] = static_cast<std::uint32_t>(data.size());
-	col1 = std::make_unique<std::uint32_t[]>(idxrow[Size]);
-	row1 = std::make_unique<std::uint32_t[]>(idxrow[Size]);
-	for(std::uint32_t i=0, iend=idxrow[Size]; i<iend; ++i) col1[i] = data[i];
+	colhead[Size] = static_cast<std::uint32_t>(data.size());
+	col1 = std::make_unique<std::uint32_t[]>(colhead[Size]);
+	row1 = std::make_unique<std::uint32_t[]>(colhead[Size]);
+	for(std::uint32_t i=0, iend=colhead[Size]; i<iend; ++i) col1[i] = data[i];
 
-	idxcol[0] = 0;
-	for(std::uint32_t i=0; i<C; ++i) idxcol[i+1] = idxcol[i] + colidxcount[i];
+	rowhead[0] = 0;
+	for(std::uint32_t i=0; i<C; ++i) rowhead[i+1] = rowhead[i] + colidxcount[i];
 
 	std::array<std::uint32_t,C> colcount = {};
-	for(std::uint32_t i=0; i<Size; ++i) for(std::uint32_t j=idxrow[i], jend=idxrow[i+1]; j<jend; ++j){
+	for(std::uint32_t i=0; i<Size; ++i) for(std::uint32_t j=colhead[i], jend=colhead[i+1]; j<jend; ++j){
 		auto k = col1[j];
-		row1[idxcol[k]+colcount[k]++] = i;
+		row1[rowhead[k]+colcount[k]++] = i;
 	}
 }
 
 template<std::uint32_t S, std::uint32_t C>
 CheckMatrix_irregular<S,C>::CheckMatrix_irregular(){
-	if(!idxrow) readCheckMatrix();
+	if(!colhead) readCheckMatrix();
 }
 
 ////////////////////////////////////////////////////////////////
