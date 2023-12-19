@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 #define INCLUDE_GUARD_ldpc_LDPCCheckMatrix
 
 #include <fstream>
@@ -19,7 +19,11 @@ concept CheckMatrix = requires(T x){
 	{T::sourcesize()} -> std::same_as<std::uint32_t>;
 	{T::size()} -> std::same_as<std::uint32_t>;
 	{x.countones()} -> std::same_as<std::uint32_t>;
-	{x.colweight(0)} -> std::same_as<std::uint32_t>;
+	{x.weightcol(0)} -> std::same_as<std::uint32_t>;
+	// {x.headidxrow(0)} -> std::same_as<std::uint32_t>;
+	// {x.weightrow(0)} -> std::same_as<std::uint32_t>;
+	{x.headidxcol(0)} -> std::same_as<std::uint32_t>;
+	{x.weightcolmax()} -> std::same_as<std::uint32_t>;
 	{x[0][0]} -> std::same_as<const std::uint32_t&>;
 	{x.T[0][0]} -> std::same_as<const std::uint32_t&>;
 };
@@ -33,6 +37,7 @@ class CheckMatrix_irregular{
 	inline static std::unique_ptr<std::uint32_t[]> colhead;//検査行列各行の先頭にあたるcol1のインデックス 大きさSize+1 colhead[Size]=Ones
 	inline static std::unique_ptr<std::uint32_t[]> row1;//検査行列の1がある行番号
 	inline static std::unique_ptr<std::uint32_t[]> rowhead;//検査行列各列の先頭にあたるrow1のインデックス 大きさC+1 rowhead[C]=Ones
+	inline static std::uint32_t maxcolweight;
 
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
@@ -67,10 +72,23 @@ public:
 	// const std::uint32_t* begin() const noexcept{return col1.get();}
 	// const std::uint32_t* end() const noexcept{return col1.get()+colhead[Size];}
 	// const std::uint32_t* data() const noexcept{return col1.get();}
-	inline std::uint32_t colweight(std::uint32_t i) const{
+	inline std::uint32_t weightcol(std::uint32_t i) const{
 		assert(i<C);
 		return rowhead[i+1]-rowhead[i];
 	}
+	// inline std::uint32_t headidxrow(std::uint32_t i) const{
+	// 	assert(i<C+1);
+	// 	return rowhead[i];
+	// }
+	// inline std::uint32_t weightrow(std::uint32_t i) const{
+	// 	assert(i<Size);
+	// 	return colhead[i+1]-colhead[i];
+	// }
+	inline std::uint32_t headidxcol(std::uint32_t i) const{
+		assert(i<Size+1);
+		return colhead[i];
+	}
+	inline std::uint32_t weightcolmax() const{return maxcolweight;}
 	const sized_ptr operator[](std::uint32_t i) const{
 		assert(i<Size);
 		return sized_ptr(col1.get()+colhead[i],colhead[i+1]-colhead[i]);
@@ -85,7 +103,7 @@ class CheckMatrix_regular{
 	static const char *path;
 
 	inline static std::unique_ptr<std::uint32_t[]> col1;//検査行列の1がある列番号 大きさOnes 幅W
-	inline static std::unique_ptr<std::uint32_t[]> row1;//検査行列の1がある列番号 大きさOnes 幅VW
+	inline static std::unique_ptr<std::uint32_t[]> row1;//検査行列の1がある行番号 大きさOnes 幅VW
 
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
@@ -122,10 +140,23 @@ public:
 	// const std::uint32_t* begin() const noexcept{return sized_ptr<Size>(col1.get());}
 	// const std::uint32_t* end() const noexcept{return sized_ptr<Size>(col1.get()+W*Size);}
 	// const std::uint32_t* data() const noexcept{return sized_ptr<Size>(col1.get());}
-	static constexpr std::uint32_t colweight(std::uint32_t i){
+	static constexpr std::uint32_t weightcol(std::uint32_t i){
 		assert(i<C);
 		return VW;
 	}
+	// static constexpr std::uint32_t headidxrow(std::uint32_t i){
+	// 	assert(i<C+1);
+	// 	return VW*i;
+	// }
+	// static constexpr std::uint32_t weightrow(std::uint32_t i){
+	// 	assert(i<Size);
+	// 	return W;
+	// }
+	static constexpr std::uint32_t headidxcol(std::uint32_t i){
+		assert(i<Size+1);
+		return W*i;
+	}
+	static constexpr std::uint32_t weightcolmax() noexcept{return VW;}
 	const sized_ptr<W> operator[](std::uint32_t i) const{
 		assert(i<Size);
 		return sized_ptr<W>(col1.get()+W*i);
@@ -195,6 +226,7 @@ void CheckMatrix_irregular<S,C>::readCheckMatrix(){
 
 	rowhead[0] = 0;
 	for(std::uint32_t i=0; i<C; ++i) rowhead[i+1] = rowhead[i] + colidxcount[i];
+	for(std::uint32_t i=0; i<C; ++i) if(colidxcount[i]>maxcolweight) maxcolweight=colidxcount[i];
 
 	std::array<std::uint32_t,C> colcount = {};
 	for(std::uint32_t i=0; i<Size; ++i) for(std::uint32_t j=colhead[i], jend=colhead[i+1]; j<jend; ++j){
