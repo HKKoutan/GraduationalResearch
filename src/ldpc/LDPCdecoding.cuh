@@ -51,6 +51,8 @@ public:
 	explicit Sumproduct_decoding(const T &H);
 	static constexpr std::size_t alphabetasize(){return Hones;}
 	template<boxplusclass P>
+	bool iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
+	template<boxplusclass P>
 	void iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp);
 	template<boxplusclass P>
 	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
@@ -208,11 +210,43 @@ namespace {
 			for(std::uint32_t i=0; i<width; ++i) arr[idx[j*width+i]] = acc-arr[idx[j*width+i]];
 		}
 	}
-	// template<typename T,CheckMatrix U>
-	// __global__ void check_parity(T* ptr, U H, typename U::internaldatatype Hd){
-	// 	std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
-	// 	std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
-	// }
+}
+
+template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
+template<boxplusclass P>
+bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
+	//apply LLR
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto bi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) bi[j] += LLR[j];
+	}
+	//row update
+	for(std::uint32_t i=0; i<Hones; ++i) alphabeta[i] = bp.forward(alphabeta[i]);
+	for(std::uint32_t i=0; i<Hsize; ++i){
+		auto abxi = alphabetaidx.get()+H.headidxcol(i);
+		accumlator_t<P,fptype> acc;
+		for(std::uint32_t j=0; j<W; ++j) acc += alphabeta[abxi[j]];
+		for(std::uint32_t j=0; j<W; ++j) alphabeta[abxi[j]] = acc-alphabeta[abxi[j]];
+	}
+	for(std::uint32_t i=0; i<Hones; ++i) alphabeta[i] = bp.backward(alphabeta[i]);
+	//column update
+	for(auto &lpj: LPR) lpj = 0;
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto ai = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) LPR[j] += ai[j];
+	}
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto abi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
+	}
+	for(std::uint32_t j=0; j<C; ++j) LPR[j] += LLR[j];
+	//parity check
+	for(std::uint32_t i=0; i<Hsize; ++i){
+		auto parity = false;
+		for(const auto &j : H[i]) parity ^= LPR[j]<0;
+		if(parity) return false;
+	}
+	return true;
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
