@@ -172,7 +172,7 @@ template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
 	alphabetaidx = util::make_cuda_unique<uitype[]>(Hones);
 
-	const dim3 grid(((Hsize-1)/128+1),((W-1)/8+1),1);
+	const dim3 grid((((Hsize-1)>>7)+1),(((W-1)>>3)+1),1);
 	const dim3 thread(128,8,1);
 	parallel_idx_init<<<grid,thread>>>(alphabetaidx.get(), H, H.data());
 }
@@ -222,7 +222,7 @@ namespace {
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp){
-	const dim3 grid(((int(C)-1)/256+1),((int(VW)-1)/4+1),1);
+	const dim3 grid((((C-1)>>8)+1),(((VW-1)>>2)+1),1);
 	const dim3 thread(256,4,1);
 	//apply LLR
 	parallel_broadcast_add<<<grid,thread>>>(alphabeta.get(), LLR, C, VW);

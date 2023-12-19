@@ -96,8 +96,8 @@ public:
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
-	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
-	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
+	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
+	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<>
