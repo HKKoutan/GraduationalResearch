@@ -321,10 +321,8 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 
 	col1_device = util::make_cuda_unique<std::uint32_t[]>(Ones);
 	row1_device = util::make_cuda_unique<std::uint32_t[]>(Ones);
-	auto errc = cudaMemcpy(col1_device.get(),col1.get(),sizeof(std::uint32_t)*Ones,cudaMemcpyHostToDevice);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
-	errc = cudaMemcpy(row1_device.get(),row1.get(),sizeof(std::uint32_t)*Ones,cudaMemcpyHostToDevice);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
+	util::check_cuda_error(::cudaMemcpy(col1_device.get(),col1.get(),sizeof(std::uint32_t)*Ones,cudaMemcpyHostToDevice));
+	util::check_cuda_error(::cudaMemcpy(row1_device.get(),row1.get(),sizeof(std::uint32_t)*Ones,cudaMemcpyHostToDevice));
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>

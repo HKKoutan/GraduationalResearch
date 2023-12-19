@@ -278,8 +278,7 @@ void phi_table<0>::values_init(){
 	}
 
 	values_device = util::make_cuda_unique<float[]>(VALUE_RANGE);
-	auto errc = cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
+	util::check_cuda_error(::cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice));
 }
 
 bool phi_table<0>::read_values(std::unique_ptr<float[]> &vec){
@@ -349,8 +348,7 @@ void phi_table<1>::values_init(){
 	}
 
 	values_device = util::make_cuda_unique<float[]>(VALUE_RANGE);
-	auto errc = cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
+	util::check_cuda_error(::cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice));
 }
 
 bool phi_table<1>::read_values(std::unique_ptr<float[]> &vec){
@@ -430,8 +428,7 @@ void phi_table<2>::values_init(){
 	}
 
 	values_device = util::make_cuda_unique<float[]>(VALUE_RANGE);
-	auto errc = cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
+	util::check_cuda_error(::cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice));
 }
 
 phi_table<2>::phi_table(){

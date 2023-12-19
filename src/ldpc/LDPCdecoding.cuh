@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCdecoding
 #define INCLUDE_GUARD_ldpc_LDPCdecoding
 
 #include <algorithm>
@@ -172,7 +172,7 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
 	}
 
 	alphabetaidx_device = util::make_cuda_unique<uitype[]>(Hones);
-	cudaMemcpy(alphabetaidx_device.get(), alphabetaidx.get(), sizeof(uitype)*Hones, cudaMemcpyHostToDevice);
+	util::check_cuda_error(cudaMemcpy(alphabetaidx_device.get(), alphabetaidx.get(), sizeof(uitype)*Hones, cudaMemcpyHostToDevice));
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
@@ -288,17 +288,13 @@ template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
 	auto alphabeta = util::make_cuda_unique<fptype[]>(alphabetasize());
-	auto errc = ::cudaMemset(alphabeta.get(),0,alphabetasize());
-	if(errc!=0) throw std::runtime_error("CUDA Error");
+	util::check_cuda_error(::cudaMemset(alphabeta.get(),0,alphabetasize()));
 
 	fptype *LPR_device;//対数事後確率比：列ごとのalphaの和+QLLR
 	fptype *LLR_device;
-	errc = ::cudaMalloc(&LPR_device, sizeof(fptype)*C);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
-	errc = ::cudaMalloc(&LLR_device, sizeof(fptype)*C);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
-	errc = ::cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
+	util::check_cuda_error(::cudaMalloc(&LPR_device, sizeof(fptype)*C));
+	util::check_cuda_error(::cudaMalloc(&LLR_device, sizeof(fptype)*C));
+	util::check_cuda_error(::cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice));
 
 	int itr = 0;
 	bool *parity = nullptr;
@@ -307,13 +303,9 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C
 		++itr;
 	}
 
-	errc = ::cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
-
-	errc = ::cudaFree(LPR_device);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
-	errc = ::cudaFree(LLR_device);
-	if(errc!=0) throw std::runtime_error("CUDA Error");
+	util::check_cuda_error(::cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost));
+	util::check_cuda_error(::cudaFree(LPR_device));
+	util::check_cuda_error(::cudaFree(LLR_device));
 }
 
 }
