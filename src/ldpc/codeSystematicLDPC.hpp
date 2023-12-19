@@ -9,16 +9,16 @@ namespace code {
 
 template<LDPC::CheckMatrix T>//S:Source length, C:Code length
 class SystematicLDPC {
-	static constexpr int DEFAULT_ITERATION_LIMIT = 100;
+	static constexpr std::uint32_t DEFAULT_ITERATION_LIMIT = 100;
 	static constexpr std::uint32_t S = T::sourcesize();
 	static constexpr std::uint32_t C = T::codesize();
 
 	T H;
 	LDPC::GenerationMatrix_encoding<T> encoder;
 	LDPC::Sumproduct_decoding<T> decoder;
-	int iterationlimit;//反復回数上限
+	std::uint32_t iterationlimit;//反復回数上限
 public:
-	explicit SystematicLDPC(const T &H, int iterationlimit);
+	explicit SystematicLDPC(const T &H, std::uint32_t iterationlimit);
 	explicit SystematicLDPC(const T &H): SystematicLDPC(H, DEFAULT_ITERATION_LIMIT){}
 
 	auto encode(const std::bitset<S> &information) const;//引数から符号語を求める
@@ -32,7 +32,7 @@ public:
 
 //ヘルパ関数
 template<std::uint32_t S, std::uint32_t C>
-auto make_SystematicLDPC(std::uint64_t iterationlimit){
+auto make_SystematicLDPC(std::uint32_t iterationlimit){
 	return SystematicLDPC(LDPC::validCheckMatrixType_t<S,C>(), iterationlimit);
 }
 
@@ -48,7 +48,7 @@ auto make_SystematicLDPC(){
 ////////////////////////////////////////////////////////////////
 
 template<LDPC::CheckMatrix T>
-SystematicLDPC<T>::SystematicLDPC(const T &H, int iterationlimit):
+SystematicLDPC<T>::SystematicLDPC(const T &H, std::uint32_t iterationlimit):
 	H(H),
 	encoder(H),
 	decoder(H),
