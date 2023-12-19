@@ -15,50 +15,45 @@ namespace {
 
 template<CheckMatrix T>
 class Sumproduct_decoding {
-	// using fptype = float;
 	static constexpr std::uint32_t S = T::sourcesize();
 	static constexpr std::uint32_t C = T::codesize();
 	static constexpr std::uint32_t Hsize = C-S;
 
 	const T H;//検査行列
-	std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> alphabeta;
-	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
+	const std::uint32_t Hones;
+	const std::uint32_t VW;
+	std::unique_ptr<fptype[]> alphabeta;
+	std::unique_ptr<uitype[]> alphabetaidx;
 
-	static auto alphabeta_size(const T &H);
-	static auto alphabetap_init(const T &H, std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> &alphabeta);
+	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
 	template<boxplusclass P>
 	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 	template<boxplusclass P>
-	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit);
+	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	using T = CheckMatrix_regular<S,C,W>;
-	// using fptype = float;
 	static constexpr std::uint32_t Hsize = C-S;
 	static constexpr std::uint32_t Hones = W*Hsize;
 	static constexpr std::uint32_t VW = Hones/C;//列重み
-	static_assert(Hones<(1ui64<<32));
 
 	const T H;//検査行列
 	std::unique_ptr<fptype[]> alphabeta;
 	std::unique_ptr<uitype[]> alphabetaidx;
-	// std::unique_ptr<fptype*[]> alphabetap;
-	// std::array<std::array<fptype,C>,VW> alphabeta;
-	// std::array<std::array<fptype*,W>,Hsize> alphabetap;
 
-	void alphabetap_init();
+	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
 	void decode_init();//decodeで使用する変数の初期化
 	template<boxplusclass P>
 	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 	template<boxplusclass P>
-	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit);
+	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
 
 ////////////////////////////////////////////////////////////////
@@ -68,64 +63,77 @@ public:
 ////////////////////////////////////////////////////////////////
 
 template<CheckMatrix T>
-auto Sumproduct_decoding<T>::alphabeta_size(const T &H){
-	std::array<std::uint32_t,C> Hheight{};
-	for(std::uint32_t i=0; i<C; ++i) Hheight[i] = H.colweight(i);
-	return std::ranges::max(Hheight);
-}
-
-template<CheckMatrix T>
-auto Sumproduct_decoding<T>::alphabetap_init(const T &H, std::vector<std::pair<std::array<fptype,C>,std::array<fptype,C>>> &alphabeta){
-	std::array<std::vector<std::pair<fptype*,const fptype*>>,C-S> alphabetap;
-
-	// std::array<std::vector<std::uint64_t>,C> HT{};//Hの転置
-	// for(std::uint32_t i=0; i<Hsize; ++i) for(auto j: H[i]) HT[j].push_back(i);
-
+void Sumproduct_decoding<T>::alphabetaidx_init(){
 	for(std::uint32_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
-		auto &abpi = alphabetap[i];
-		//Hとalphabetapの要素数を揃える
-		abpi.resize(Hi.size());
+		auto abpi = alphabetaidx.get()+H.headidxcol(i);
 		//alpha<-alphap beta<-betap
 		for(std::uint32_t j=0, jend=Hi.size(); j<jend; ++j){
 			std::uint32_t hij = Hi[j];
 			auto &Hj = H.T[hij];
 			std::uint32_t k=0;
 			while(Hj[k]!=i) ++k;
-			auto &[ai, bi] = alphabeta[k];
-			abpi[j] = std::make_pair(&ai[hij],&bi[hij]);
+			abpi[j] = C*k+hij;
 		}
 	}
-	return alphabetap;
 }
 
 template<CheckMatrix T>
 Sumproduct_decoding<T>::Sumproduct_decoding(const T &H):
 	H(H),
-	alphabeta(alphabeta_size(H)),
-	alphabetap(alphabetap_init(H,alphabeta))
-{}
+	Hones(H.countones()),
+	VW(H.weightcolmax()),
+	alphabeta(std::make_unique<fptype[]>(C*VW)),
+	alphabetaidx(std::make_unique<uitype[]>(Hones))
+{
+	alphabetaidx_init();
+}
 
 template<CheckMatrix T>
 void Sumproduct_decoding<T>::decode_init(){
-	for(auto &[ai, bi]: alphabeta) for(auto &bij: bi) bij = 0;
+	for(std::uint32_t i=0, iend=C*VW; i<iend; ++i) alphabeta[i] = 0;
 }
 
 template<CheckMatrix T>
 template<boxplusclass P>
 bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
-	for(auto &[ai, bi]: alphabeta) for(std::uint32_t j=0; j<C; ++j) bi[j] += LLR[j];
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto bi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) bi[j] += LLR[j];
+	}
 	//row update
-	for(auto &abpi: alphabetap){
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto bi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j){
+			if(i<H.weightcol(j)) bi[j] = bp.forward(bi[j]);
+			else bi[j]=0;
+		}
+	}
+	for(std::uint32_t i=0; i<Hsize; ++i){
+		auto abxi = alphabetaidx.get()+H.headidxcol(i);
+		auto abxiend = alphabetaidx.get()+H.headidxcol(i+1);
 		accumlator_t<P,fptype> acc;
-		for(const auto [apij,bpij]: abpi) acc += bp.forward(*bpij);
-		for(const auto [apij,bpij]: abpi) *apij = bp.backward(acc-bp.forward(*bpij));
+		for(auto abxij=abxi; abxij!=abxiend; ++abxij) acc += alphabeta[*abxij];
+		for(auto abxij=abxi; abxij!=abxiend; ++abxij) alphabeta[*abxij] = acc-alphabeta[*abxij];
+	}
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto bi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j){
+			if(i<H.weightcol(j)) bi[j] = bp.backward(bi[j]);
+			else bi[j]=0;
+		}
 	}
 	//column update
 	for(auto &lpj: LPR) lpj = 0;
-	for(auto &[ai, bi]: alphabeta) for(std::uint32_t j=0; j<C; ++j) LPR[j] += ai[j];
-	for(auto &[ai, bi]: alphabeta) for(std::uint32_t j=0; j<C; ++j) bi[j] = LPR[j]-ai[j];
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto ai = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) LPR[j] += ai[j];
+	}
+	for(std::uint32_t i=0; i<VW; ++i){
+		auto abi = alphabeta.get()+C*i;
+		for(std::uint32_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
+	}
 	for(std::uint32_t j=0; j<C; ++j) LPR[j] += LLR[j];
 	//parity check
 	for(std::uint32_t i=0; i<Hsize; ++i){
@@ -138,9 +146,9 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 
 template<CheckMatrix T>
 template<boxplusclass P>
-void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit){
+void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
 	decode_init();
-	for(int iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
+	for(std::uint32_t iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -150,17 +158,17 @@ void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<
 ////////////////////////////////////////////////////////////////
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetap_init(){
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
 	for(std::uint32_t i=0; i<Hsize; ++i){
 		auto &Hi = H[i];
-		auto abxi = alphabetaidx.get()+W*i;
+		auto abxi = alphabetaidx.get()+H.headidxcol(i);
 		//alpha<-alphap beta<-betap
 		for(std::uint32_t j=0; j<W; ++j){
-			uitype hij = Hi[j];
+			std::uint32_t  hij = Hi[j];
 			auto &Hj = H.T[hij];
-			int k=0;
+			std::uint32_t  k=0;
 			while(Hj[k]!=i) ++k;
-			abxi[j] = static_cast<uitype>(C)*k+hij;
+			abxi[j] = C*k+hij;
 		}
 	}
 }
@@ -171,39 +179,39 @@ Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H)
 	alphabeta(std::make_unique<fptype[]>(Hones)),
 	alphabetaidx(std::make_unique<uitype[]>(Hones))
 {
-	alphabetap_init();
+	alphabetaidx_init();
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
 	// for(auto &bi: alphabeta) for(auto &bij: bi) bij = 0;
-	for(auto i=0; i<Hones; ++i) alphabeta[i] = 0;
+	for(std::uint32_t i=0; i<Hones; ++i) alphabeta[i] = 0;
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
 bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
-	for(auto i=0; i<VW; ++i){
+	for(std::uint32_t i=0; i<VW; ++i){
 		auto bi = alphabeta.get()+C*i;
 		for(std::uint32_t j=0; j<C; ++j) bi[j] += LLR[j];
 	}
 	//row update
-	for(auto i=0; i<Hones; ++i) alphabeta[i] = bp.forward(alphabeta[i]);
-	for(auto i=0; i<Hsize; ++i){
-		auto abxi = alphabetaidx.get()+W*i;
+	for(std::uint32_t i=0; i<Hones; ++i) alphabeta[i] = bp.forward(alphabeta[i]);
+	for(std::uint32_t i=0; i<Hsize; ++i){
+		auto abxi = alphabetaidx.get()+H.headidxcol(i);
 		accumlator_t<P,fptype> acc;
 		for(std::uint32_t j=0; j<W; ++j) acc += alphabeta[abxi[j]];
 		for(std::uint32_t j=0; j<W; ++j) alphabeta[abxi[j]] = acc-alphabeta[abxi[j]];
 	}
-	for(auto i=0; i<Hones; ++i) alphabeta[i] = bp.backward(alphabeta[i]);
+	for(std::uint32_t i=0; i<Hones; ++i) alphabeta[i] = bp.backward(alphabeta[i]);
 	//column update
 	for(auto &lpj: LPR) lpj = 0;
-	for(auto i=0; i<VW; ++i){
+	for(std::uint32_t i=0; i<VW; ++i){
 		auto ai = alphabeta.get()+C*i;
 		for(std::uint32_t j=0; j<C; ++j) LPR[j] += ai[j];
 	}
-	for(auto i=0; i<VW; ++i){
+	for(std::uint32_t i=0; i<VW; ++i){
 		auto abi = alphabeta.get()+C*i;
 		for(std::uint32_t j=0; j<C; ++j) abi[j] = LPR[j]-abi[j];
 	}
@@ -219,9 +227,9 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, int iterationlimit){
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
 	decode_init();
-	for(int iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
+	for(std::uint32_t iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
 }
