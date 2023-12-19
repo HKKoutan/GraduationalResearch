@@ -5,8 +5,8 @@
 #include <charconv>
 #include <array>
 #include <vector>
-#include <tuple>
 #include <string>
+#include <cstdint>
 #include <cassert>
 #include "..\common\memory.cuh"
 
@@ -103,9 +103,9 @@ class CheckMatrix_regular{
 	static const char *path;
 
 	inline static std::unique_ptr<std::uint32_t[]> col1;//検査行列の1がある列番号 大きさOnes 幅W
-	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete<std::uint32_t[]>> col1_device;//device側メモリ
+	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete> col1_device;//device側メモリ
 	inline static std::unique_ptr<std::uint32_t[]> row1;//検査行列の1がある列番号 大きさOnes 幅VW
-	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete<std::uint32_t[]>> row1_device;
+	inline static std::unique_ptr<std::uint32_t[],util::cuda_delete> row1_device;
 
 	static void readCheckMatrix();//pos1はインスタンスを生成して初めて初期化される
 public:
@@ -165,7 +165,7 @@ public:
 	// 	assert(i<Size);
 	// 	return W;
 	// }
-	__host__ __device__ static constexpr std::uint32_t headidxcol(std::uint32_t i){
+	static constexpr std::uint32_t headidxcol(std::uint32_t i){
 		assert(i<Size+1);
 		return W*i;
 	}
@@ -181,7 +181,7 @@ public:
 		assert(i<Size);
 		return sized_ptr<W>(col1.get()+W*i);
 	}
-	__host__ __device__ static sized_ptr<W> getrow(int i, const internaldatatype &data){
+	__host__ __device__ static const sized_ptr<W> getrow(std::uint32_t i, const internaldatatype &data){
 		assert(i<Size);
 		#ifdef __CUDA_ARCH__
 			return sized_ptr<W>(data.col1dev+W*i);
@@ -189,7 +189,7 @@ public:
 			return sized_ptr<W>(data.col1+W*i);
 		#endif
 	}
-	__host__ __device__ static sized_ptr<VW> getcol(int i, const internaldatatype &data){
+	__host__ __device__ static const sized_ptr<VW> getcol(std::uint32_t i, const internaldatatype &data){
 		assert(i<C);
 		#ifdef __CUDA_ARCH__
 			return sized_ptr<VW>(data.row1dev+VW*i);

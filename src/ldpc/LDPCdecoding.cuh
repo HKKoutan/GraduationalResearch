@@ -43,14 +43,14 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	static constexpr std::uint32_t VW = Hones/C;//列重み
 
 	const T H;//検査行列
-	inline static std::unique_ptr<uitype[]> alphabetaidx;
+	inline static std::unique_ptr<uitype[],util::cuda_delete> alphabetaidx;
 
 	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
 	static constexpr std::size_t alphabetasize(){return Hones;}
 	template<boxplusclass P>
-	void iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete<fptype[]>> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp);
+	void iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp);
 	template<boxplusclass P>
 	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
@@ -154,14 +154,14 @@ void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<
 namespace {
 	template<CheckMatrix U>
 	__global__ void parallel_idx_init(uitype *idx, U H, typename U::internaldatatype Hd){
-		int i = blockIdx.x*blockDim.x+threadIdx.x;
-		int j = blockIdx.y*blockDim.y+threadIdx.y;
+		std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
+		std::uint32_t j = blockIdx.y*blockDim.y+threadIdx.y;
 		std::uint32_t W = U::weightrowmax(Hd);
 		if(i<H.size()&&j<W){
-			auto Hi = U::getrow(i,Hd);
-			auto hij = Hi[j];
-			auto Hj = U::getcol(hij,Hd);
-			int k=0;
+			auto &Hi = U::getrow(i,Hd);
+			std::uint32_t hij = Hi[j];
+			auto &Hj = U::getcol(hij,Hd);
+			std::uint32_t k=0;
 			while(Hj[k]!=i) ++k;
 			idx[W*i+j] = H.codesize()*k+hij;
 		}
@@ -170,20 +170,8 @@ namespace {
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
-	alphabetaidx = std::make_unique<uitype[]>(Hones);
+	alphabetaidx = util::make_cuda_unique<uitype[]>(Hones);
 
-	// for(std::uint32_t i=0; i<Hsize; ++i){
-	// 	auto &Hi = H[i];
-	// 	auto abxi = alphabetaidx.get()+H.headidxcol(i);
-	// 	//alpha<-alphap beta<-betap
-	// 	for(std::uint32_t j=0; j<W; ++j){
-	// 		std::uint32_t  hij = Hi[j];
-	// 		auto &Hj = H.T[hij];
-	// 		std::uint32_t  k=0;
-	// 		while(Hj[k]!=i) ++k;
-	// 		abxi[j] = C*k+hij;
-	// 	}
-	// }
 	const dim3 grid(((Hsize-1)/128+1),((W-1)/8+1),1);
 	const dim3 thread(128,8,1);
 	parallel_idx_init<<<grid,thread>>>(alphabetaidx.get(), H, H.data());
@@ -198,42 +186,42 @@ Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H)
 
 namespace {
 	__global__ void parallel_broadcast_add(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
-		int j = blockIdx.x*blockDim.x+threadIdx.x;
-		int i = blockIdx.y*blockDim.y+threadIdx.y;
+		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
+		std::uint32_t i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] += rhs[j];
 	}
 	__global__ void parallel_broadcast_negsub(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
-		int j = blockIdx.x*blockDim.x+threadIdx.x;
-		int i = blockIdx.y*blockDim.y+threadIdx.y;
+		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
+		std::uint32_t i = blockIdx.y*blockDim.y+threadIdx.y;
 		if(i<height&&j<width) lhs[i*width+j] = rhs[j]-lhs[i*width+j];
 	}
 	__global__ void parallel_reduce_add(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
-		int j = blockIdx.x*blockDim.x+threadIdx.x;
-		int k = blockIdx.y*blockDim.y+threadIdx.y;
+		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
+		std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
 		if(k==0&&j<width){
-			for(int i=0; i<height; ++i) lhs[j] += rhs[i*width+j];
+			for(std::uint32_t i=0; i<height; ++i) lhs[j] += rhs[i*width+j];
 		}
 	}
 	template<class P>
 	__global__ void parallel_accumlate(fptype *arr, uitype *idx, std::size_t width, std::size_t height, const P &bp){
-		int j = blockIdx.x*blockDim.x+threadIdx.x;
-		int k = blockIdx.y*blockDim.y+threadIdx.y;
+		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
+		std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
 		if(k==0&&j<height){
 			accumlator_t<P,fptype> acc;
-			for(int i=0; i<width; ++i) acc += arr[idx[j*width+i]];
-			for(int i=0; i<width; ++i) arr[idx[j*width+i]] = acc-arr[idx[j*width+i]];
+			for(std::uint32_t i=0; i<width; ++i) acc += arr[idx[j*width+i]];
+			for(std::uint32_t i=0; i<width; ++i) arr[idx[j*width+i]] = acc-arr[idx[j*width+i]];
 		}
 	}
 	// template<typename T,CheckMatrix U>
 	// __global__ void check_parity(T* ptr, U H, typename U::internaldatatype Hd){
-	// 	int j = blockIdx.x*blockDim.x+threadIdx.x;
-	// 	int k = blockIdx.y*blockDim.y+threadIdx.y;
+	// 	std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
+	// 	std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
 	// }
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete<fptype[]>> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp){
+void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp){
 	const dim3 grid(((int(C)-1)/256+1),((int(VW)-1)/4+1),1);
 	const dim3 thread(256,4,1);
 	//apply LLR
