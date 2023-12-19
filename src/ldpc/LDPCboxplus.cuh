@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
 #define INCLUDE_GUARD_ldpc_LDPCboxplus
 
 #include <iostream>
@@ -112,17 +112,21 @@ class phi_table<1> {
 	static constexpr auto CACHE_FILENAME = "gallager_half.bin";
 
 	inline static std::unique_ptr<float[]> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
+	inline static std::unique_ptr<float[],util::cuda_delete> values_device;
 
 	static void values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	static bool read_values(std::unique_ptr<float[]> &vec);
 	static bool write_values(const std::unique_ptr<float[]> &vec);
 	inline float get(float x) const;
+	__global__ friend void get_parallel(const phi_table<1> &p ,float *arr, std::uint32_t size, float *values);
 public:
 	phi_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
+	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
+	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<>
@@ -136,15 +140,19 @@ class phi_table<2> {
 	static constexpr auto VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 
 	inline static std::unique_ptr<float[]> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
+	inline static std::unique_ptr<float[],util::cuda_delete> values_device;
 
 	static void values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	inline float get(float x) const;
+	__global__ friend void get_parallel(const phi_table<2> &p ,float *arr, std::uint32_t size, float *values);
 public:
 	phi_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
+	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
+	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<class B, std::floating_point T> struct accumlator;
@@ -339,6 +347,10 @@ void phi_table<1>::values_init(){
 		}
 		if(!write_values(values)) std::cerr<<"phi_table<1>: Caching failed."<<std::endl;
 	}
+
+	values_device = util::make_cuda_unique<float[]>(VALUE_RANGE);
+	auto errc = cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
 }
 
 bool phi_table<1>::read_values(std::unique_ptr<float[]> &vec){
@@ -372,7 +384,7 @@ inline float phi_table<1>::get(float x) const{
 	auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&UPPER_BOUND_U;
 	auto ya = values[xu];
 	//線形補間
-	constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_HALF_FLOAT);
+	constexpr std::uint32_t bottommask = ~0ui32>>(32-SHIFT_HALF_FLOAT);
 	constexpr float ratiounit = 1.0f/(1<<SHIFT_HALF_FLOAT);
 	auto y2 = values[xu+1];
 	ya += (y2-ya)*static_cast<float>(std::bit_cast<std::uint32_t>(xa)&bottommask)*ratiounit;
@@ -380,34 +392,27 @@ inline float phi_table<1>::get(float x) const{
 	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
 
-// inline float phi_table<1>::get(float x) const{
-// 	auto xa = std::fabs(x);
-// 	//定義域を限定
-// 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
-// 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
-// 	#ifdef __CUDA_ARCH__
-// 		auto xu = ((reinterpret_cast<uint32_t&>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&UPPER_BOUND_U;
-// 		auto ya = values_device[xu];
-// 		//線形補間
-// 		constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_HALF_FLOAT);
-// 		constexpr float ratiounit = 1.0f/(1<<SHIFT_HALF_FLOAT);
-// 		auto y2 = values_device[xu+1];
-// 		ya += (y2-ya)*static_cast<float>(reinterpret_cast<uint32_t&>(xa)&bottommask)*ratiounit;
+__global__ void get_parallel(const phi_table<1> &p ,float *arr, std::uint32_t size, float *values){
+	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
+	if(i<size){
+		auto x = arr[i];
+		auto xa = std::fabs(x);
+		//定義域を限定
+		if(xa<phi_table<1>::LOWER_BOUND) xa = phi_table<1>::LOWER_BOUND;
+		if(xa>phi_table<1>::UPPER_BOUND) xa = phi_table<1>::UPPER_BOUND;
+		auto xu = ((reinterpret_cast<std::uint32_t&>(xa) + phi_table<1>::EXPONENT_BIAS)>>phi_table<1>::SHIFT_HALF_FLOAT)&phi_table<1>::UPPER_BOUND_U;
+		assert(xu < phi_table<1>::VALUE_RANGE);
+		auto ya = values[xu];
+		//線形補間
+		constexpr std::uint32_t bottommask = ~0ui32>>(32-phi_table<1>::SHIFT_HALF_FLOAT);
+		constexpr float ratiounit = 1.0f/(1<<phi_table<1>::SHIFT_HALF_FLOAT);
+		auto y2 = values[xu+1];
+		ya += (y2-ya)*static_cast<float>(reinterpret_cast<std::uint32_t&>(xa)&bottommask)*ratiounit;
 
-// 		auto yu = reinterpret_cast<uint32_t&>(ya)|reinterpret_cast<uint32_t&>(x)&0x80000000;
-// 		return reinterpret_cast<float&>(yu);
-// 	#else
-// 		auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&UPPER_BOUND_U;
-// 		auto ya = values[xu];
-// 		//線形補間
-// 		constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_HALF_FLOAT);
-// 		constexpr float ratiounit = 1.0f/(1<<SHIFT_HALF_FLOAT);
-// 		auto y2 = values[xu+1];
-// 		ya += (y2-ya)*static_cast<float>(std::bit_cast<std::uint32_t>(xa)&bottommask)*ratiounit;
-
-// 		return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
-// 	#endif
-// }
+		auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
+		arr[i] = reinterpret_cast<float&>(yu);
+	}
+}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -423,6 +428,10 @@ void phi_table<2>::values_init(){
 		auto y = static_cast<float>(std::log1p(2.0/std::expm1(static_cast<double>(x))));
 		values[i] = y;
 	}
+
+	values_device = util::make_cuda_unique<float[]>(VALUE_RANGE);
+	auto errc = cudaMemcpy(values_device.get(), values.get(), sizeof(float)*VALUE_RANGE, cudaMemcpyHostToDevice);
+	if(errc!=0) throw std::runtime_error("CUDA Error");
 }
 
 phi_table<2>::phi_table(){
@@ -437,7 +446,7 @@ inline float phi_table<2>::get(float x) const{
 	auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT)&UPPER_BOUND_U;
 	auto ya = values[xu];
 	//線形補間
-	// constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_MINI_FLOAT);
+	// constexpr std::uint32_t bottommask = ~0ui32>>(32-SHIFT_MINI_FLOAT);
 	// constexpr float ratiounit = 1.0f/(1<<SHIFT_MINI_FLOAT);
 	// auto y2 = values[xu+1];
 	// ya += (y2-ya)*static_cast<float>(std::bit_cast<std::uint32_t>(xa)&bottommask)*ratiounit;
@@ -445,35 +454,27 @@ inline float phi_table<2>::get(float x) const{
 	return std::bit_cast<float>(std::bit_cast<std::uint32_t>(ya)|std::bit_cast<std::uint32_t>(x)&0x80000000);
 }
 
-// inline float phi_table<2>::get(float x) const{
-// 	auto xa = std::fabs(x);
-// 	//定義域を限定
-// 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
-// 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
-// 	#ifdef __CUDA_ARCH__
-// 		auto xu = ((reinterpret_cast<uint32_t&>(xa)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT)&UPPER_BOUND_U;
-// 		auto ya = values_device[xu];
-// 		//線形補間
-// 		// constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_MINI_FLOAT);
-// 		// constexpr float ratiounit = 1.0f/(1<<SHIFT_MINI_FLOAT);
-// 		// auto y2 = values_device[xu+1];
-// 		// ya += (y2-ya)*static_cast<float>(reinterpret_cast<uint32_t&>(xa)&bottommask)*ratiounit;
+__global__ void get_parallel(const phi_table<2> &p ,float *arr, std::uint32_t size, float *values){
+	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
+	if(i<size){
+		auto x = arr[i];
+		auto xa = std::fabs(x);
+		//定義域を限定
+		if(xa<phi_table<2>::LOWER_BOUND) xa = phi_table<2>::LOWER_BOUND;
+		if(xa>phi_table<2>::UPPER_BOUND) xa = phi_table<2>::UPPER_BOUND;
+		auto xu = ((reinterpret_cast<std::uint32_t&>(xa) + phi_table<2>::EXPONENT_BIAS)>>phi_table<2>::SHIFT_MINI_FLOAT)&phi_table<2>::UPPER_BOUND_U;
+		assert(xu < phi_table<2>::VALUE_RANGE);
+		auto ya = values[xu];
+		//線形補間
+		// constexpr std::uint32_t bottommask = ~0ui32>>(32-phi_table<2>::SHIFT_MINI_FLOAT);
+		// constexpr float ratiounit = 1.0f/(1<<phi_table<2>::SHIFT_MINI_FLOAT);
+		// auto y2 = values[xu+1];
+		// ya += (y2-ya)*static_cast<float>(reinterpret_cast<std::uint32_t&>(xa)&bottommask)*ratiounit;
 
-// 		auto yu = reinterpret_cast<uint32_t&>(ya)|reinterpret_cast<uint32_t&>(x)&0x80000000;
-// 		return reinterpret_cast<float&>(yu);
-// 	#else
-// 		auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT)&UPPER_BOUND_U;
-// 		auto ya = values[xu];
-// 		//線形補間
-// 		// constexpr std::uint32_t bottommask = ~static_cast<std::uint32_t>(0)>>(32-SHIFT_MINI_FLOAT);
-// 		// constexpr float ratiounit = 1.0f/(1<<SHIFT_MINI_FLOAT);
-// 		// auto y2 = values[xu+1];
-// 		// ya += (y2-ya)*static_cast<float>(std::bit_cast<std::uint32_t>(xa)&bottommask)*ratiounit;
-
-// 		return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
-// 	#endif
-// }
-
+		auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
+		arr[i] = reinterpret_cast<float&>(yu);
+	}
+}
 
 }
 
