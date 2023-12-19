@@ -1,0 +1,9 @@
+time
+809ms
+2111185ms
+Noise factor	Sum-Product
+0.04	4.19778e-05
+0.035	0
+0.03	0
+0.025	0
+0.02	0
