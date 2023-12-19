@@ -210,6 +210,17 @@ namespace {
 			for(std::uint32_t i=0; i<width; ++i) arr[idx[j*width+i]] = acc-arr[idx[j*width+i]];
 		}
 	}
+	template<typename T,CheckMatrix U>
+	__global__ void check_parity(bool* parity, fptype *est, U H, typename U::internaldatatype Hd){
+		std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
+		std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
+		std::uint32_t W = U::weightrowmax(Hd);
+		if(i<H.size()&&k==0){
+			auto &Hi = U::getrow(i,Hd);
+			bool parity = false;
+			for(std::uint32_t j=0; j<W; ++j) parity^=(est[Hi[j]]<0);
+		}
+	}
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
