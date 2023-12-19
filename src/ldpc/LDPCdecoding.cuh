@@ -247,10 +247,12 @@ template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
 	auto alphabeta = util::make_cuda_unique<fptype[]>(alphabetasize());
+	auto errc = ::cudaMemset(alphabeta.get(),0,alphabetasize());
+	if(errc!=0) throw std::runtime_error("CUDA Error");
 
 	fptype *LPR_device;//対数事後確率比：列ごとのalphaの和+QLLR
 	fptype *LLR_device;
-	auto errc = ::cudaMalloc(&LPR_device, sizeof(fptype)*C);
+	errc = ::cudaMalloc(&LPR_device, sizeof(fptype)*C);
 	if(errc!=0) throw std::runtime_error("CUDA Error");
 	errc = ::cudaMalloc(&LLR_device, sizeof(fptype)*C);
 	if(errc!=0) throw std::runtime_error("CUDA Error");
