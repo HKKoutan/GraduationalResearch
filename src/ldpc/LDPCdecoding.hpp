@@ -22,15 +22,14 @@ class Sumproduct_decoding {
 	const T H;//検査行列
 	const std::uint32_t Hones;
 	const std::uint32_t VW;
-	std::unique_ptr<fptype[]> alphabeta;
 	inline static std::unique_ptr<uitype[]> alphabetaidx;
 
 	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
-	void decode_init();//decodeで使用する変数の初期化
+	std::size_t alphabetasize() const{return C*VW;}
 	template<boxplusclass P>
-	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
+	bool iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 	template<boxplusclass P>
 	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
@@ -43,15 +42,14 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	static constexpr std::uint32_t VW = Hones/C;//列重み
 
 	const T H;//検査行列
-	std::unique_ptr<fptype[]> alphabeta;
 	inline static std::unique_ptr<uitype[]> alphabetaidx;
 
 	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
-	void decode_init();//decodeで使用する変数の初期化
+	static constexpr std::size_t alphabetasize(){return Hones;}
 	template<boxplusclass P>
-	bool iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
+	bool iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 	template<boxplusclass P>
 	void decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit);
 };
@@ -84,20 +82,14 @@ template<CheckMatrix T>
 Sumproduct_decoding<T>::Sumproduct_decoding(const T &H):
 	H(H),
 	Hones(H.countones()),
-	VW(H.weightcolmax()),
-	alphabeta(std::make_unique<fptype[]>(C*VW))
+	VW(H.weightcolmax())
 {
 	if(!alphabetaidx) alphabetaidx_init();
 }
 
 template<CheckMatrix T>
-void Sumproduct_decoding<T>::decode_init(){
-	for(std::uint32_t i=0, iend=C*VW; i<iend; ++i) alphabeta[i] = 0;
-}
-
-template<CheckMatrix T>
 template<boxplusclass P>
-bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
+bool Sumproduct_decoding<T>::iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
 	for(std::uint32_t i=0; i<VW; ++i){
 		auto bi = alphabeta.get()+C*i;
@@ -148,8 +140,8 @@ bool Sumproduct_decoding<T>::iterate(std::array<fptype,C> &LPR, const std::array
 template<CheckMatrix T>
 template<boxplusclass P>
 void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
-	decode_init();
-	for(std::uint32_t iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
+	auto alphabeta = std::make_unique<fptype[]>(alphabetasize());
+	for(std::uint32_t iter=0; !iterate(alphabeta, LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -178,21 +170,14 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::alphabetaidx_init(){
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H):
-	H(H),
-	alphabeta(std::make_unique<fptype[]>(Hones))
+	H(H)
 {
 	if(!alphabetaidx) alphabetaidx_init();
 }
 
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode_init(){
-	// for(auto &bi: alphabeta) for(auto &bij: bi) bij = 0;
-	for(std::uint32_t i=0; i<Hones; ++i) alphabeta[i] = 0;
-}
-
-template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
-bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
+bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
 	//apply LLR
 	for(std::uint32_t i=0; i<VW; ++i){
 		auto bi = alphabeta.get()+C*i;
@@ -230,8 +215,8 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::array<fptype,
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
-	decode_init();
-	for(std::uint32_t iter=0; !iterate(LPR, LLR, bp) && iter<iterationlimit; ++iter);
+	auto alphabeta = std::make_unique<fptype[]>(alphabetasize());
+	for(std::uint32_t iter=0; !iterate(alphabeta, LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
 }
