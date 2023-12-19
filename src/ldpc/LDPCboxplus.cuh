@@ -89,25 +89,25 @@ class phi_table<0> {
 	static bool read_values(std::unique_ptr<float[]> &vec);
 	static bool write_values(const std::unique_ptr<float[]> &vec);
 	inline float get(float x) const;
-	__global__ friend void get_parallel(const phi_table<0> &p ,float *arr, std::size_t size, float *values);
+	__global__ friend void get_parallel(const phi_table<0> &p ,float *arr, std::uint32_t size, float *values);
 public:
 	phi_table();
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
-	inline void forward_vec(float *arr, std::size_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
-	inline void backward_vec(float *arr, std::size_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
+	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
+	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<((size-1)/1024+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<>
 class phi_table<1> {
 	static constexpr auto LOWER_BOUND = 0x1p-10f;
-	static constexpr auto LOWER_BOUND_U = 0x00000000;
+	static constexpr auto LOWER_BOUND_U = 0x00000000u;
 	static constexpr auto UPPER_BOUND = 0x1.ffdp4f;
-	static constexpr auto UPPER_BOUND_U = 0x0000ffff;
+	static constexpr auto UPPER_BOUND_U = 0x0000ffffu;
 	static constexpr auto EXPONENT_BIAS = (11+0x00000080)<<23;//指数の内部表現の差
-	static constexpr auto SHIFT_HALF_FLOAT = 11;//仮数部の長さの差
+	static constexpr auto SHIFT_HALF_FLOAT = 11u;//仮数部の長さの差
 	static constexpr auto VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 	static constexpr auto CACHE_FILENAME = "gallager_half.bin";
 
@@ -128,11 +128,11 @@ public:
 template<>
 class phi_table<2> {
 	static constexpr auto LOWER_BOUND = 0x1p-10f;
-	static constexpr auto LOWER_BOUND_U = 0x00000000;
+	static constexpr auto LOWER_BOUND_U = 0x00000000u;
 	static constexpr auto UPPER_BOUND = 0x1.ffdp4f;
-	static constexpr auto UPPER_BOUND_U = 0x000000ff;
+	static constexpr auto UPPER_BOUND_U = 0x000000ffu;
 	static constexpr auto EXPONENT_BIAS = (11+0x00000080)<<23;//指数の内部表現の差
-	static constexpr auto SHIFT_MINI_FLOAT = 19;//仮数部の長さの差
+	static constexpr auto SHIFT_MINI_FLOAT = 19u;//仮数部の長さの差
 	static constexpr auto VALUE_RANGE = UPPER_BOUND_U - LOWER_BOUND_U + 1u;
 
 	inline static std::unique_ptr<float[]> values;//インデックスは符号なし浮動小数点数[指数4bits(-10~+5)+仮数12bits(ケチ表現)]の内部表現
@@ -303,24 +303,22 @@ inline float phi_table<0>::get(float x) const{
 	//定義域を限定
 	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
 	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
-	auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
-	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
+	auto ya = values[std::bit_cast<std::uint32_t>(xa) - LOWER_BOUND_U];
+	return std::bit_cast<float>(std::bit_cast<std::uint32_t>(ya)|std::bit_cast<std::uint32_t>(x)&0x80000000);
 }
 
-__global__ void get_parallel(const phi_table<0> &p ,float *arr, std::size_t size, float *values){
-	int j = blockIdx.x*blockDim.x+threadIdx.x;
-	int i = blockIdx.y*blockDim.y+threadIdx.y;
-	int idx = (gridDim.x*blockDim.x)*i+j;
-	if(idx<size){
-		auto x = arr[idx];
+__global__ void get_parallel(const phi_table<0> &p ,float *arr, std::uint32_t size, float *values){
+	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
+	if(i<size){
+		auto x = arr[i];
 		auto xa = std::fabs(x);
 		//定義域を限定
 		if(xa<phi_table<0>::LOWER_BOUND) xa = phi_table<0>::LOWER_BOUND;
 		if(xa>phi_table<0>::UPPER_BOUND) xa = phi_table<0>::UPPER_BOUND;
-		assert(reinterpret_cast<uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U < phi_table<0>::VALUE_RANGE);
-		auto ya = values[reinterpret_cast<uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U];
-		auto yu = reinterpret_cast<uint32_t&>(ya)|reinterpret_cast<uint32_t&>(x)&0x80000000;
-		arr[idx] = reinterpret_cast<float&>(yu);
+		assert(reinterpret_cast<std::uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U < phi_table<0>::VALUE_RANGE);
+		auto ya = values[reinterpret_cast<std::uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U];
+		auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
+		arr[i] = reinterpret_cast<float&>(yu);
 	}
 }
 
