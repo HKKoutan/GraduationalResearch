@@ -1,3 +1,6 @@
+#ifndef INCLUDE_GUARD_common_memory
+#define INCLUDE_GUARD_common_memory
+
 #include <memory>
 #include <exception>
 
@@ -27,3 +30,4 @@ typename std::unique_ptr<T,cuda_delete>::type make_cuda_unique(){
 }
 
 }
+#endif
