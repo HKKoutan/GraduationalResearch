@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
 #define INCLUDE_GUARD_ldpc_LDPCboxplus
 
 #include <iostream>
@@ -89,13 +89,36 @@ class phi_table<0> {
 	static bool read_values(std::unique_ptr<float[]> &vec);
 	static bool write_values(const std::unique_ptr<float[]> &vec);
 	inline float get(float x) const;
+	__host__ __device__ inline static float get(float x, const float *values);
 	__global__ friend void get_parallel(const phi_table<0> &p ,float *arr, std::uint32_t size, float *values);
 public:
+	struct internaldatatype {
+		const float *host;
+		const float *device;
+	};
+
 	phi_table();
+	internaldatatype data() const{return {values.get(), values_device.get()};}
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
+	template<std::floating_point T>
+	__host__ __device__ inline static T forward(T x, internaldatatype vd){
+		#ifdef __CUDA_ARCH__
+			return static_cast<T>(get(static_cast<float>(x), vd.device));
+		#else
+			return static_cast<T>(get(static_cast<float>(x), vd.host));
+		#endif
+	}
+	template<std::floating_point T>
+	__host__ __device__ inline static T backward(T x, internaldatatype vd){
+		#ifdef __CUDA_ARCH__
+			return static_cast<T>(get(static_cast<float>(x), vd.device));
+		#else
+			return static_cast<T>(get(static_cast<float>(x), vd.host));
+		#endif
+	}
 	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
@@ -118,13 +141,36 @@ class phi_table<1> {
 	static bool read_values(std::unique_ptr<float[]> &vec);
 	static bool write_values(const std::unique_ptr<float[]> &vec);
 	inline float get(float x) const;
+	__host__ __device__ inline static float get(float x, const float *values);
 	__global__ friend void get_parallel(const phi_table<1> &p ,float *arr, std::uint32_t size, float *values);
 public:
+	struct internaldatatype {
+		const float *host;
+		const float *device;
+	};
+
 	phi_table();
+	internaldatatype data() const{return {values.get(), values_device.get()};}
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
+	template<std::floating_point T>
+	__host__ __device__ inline static T forward(T x, internaldatatype vd){
+		#ifdef __CUDA_ARCH__
+			return static_cast<T>(get(static_cast<float>(x), vd.device));
+		#else
+			return static_cast<T>(get(static_cast<float>(x), vd.host));
+		#endif
+	}
+	template<std::floating_point T>
+	__host__ __device__ inline static T backward(T x, internaldatatype vd){
+		#ifdef __CUDA_ARCH__
+			return static_cast<T>(get(static_cast<float>(x), vd.device));
+		#else
+			return static_cast<T>(get(static_cast<float>(x), vd.host));
+		#endif
+	}
 	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
@@ -144,13 +190,36 @@ class phi_table<2> {
 
 	static void values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	inline float get(float x) const;
+	__host__ __device__ inline static float get(float x, const float *values);
 	__global__ friend void get_parallel(const phi_table<2> &p ,float *arr, std::uint32_t size, float *values);
 public:
+	struct internaldatatype {
+		const float *host;
+		const float *device;
+	};
+
 	phi_table();
+	internaldatatype data() const{return {values.get(), values_device.get()};}
 	template<std::floating_point T>
 	inline T forward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
 	template<std::floating_point T>
 	inline T backward(T x) const{return static_cast<T>(get(static_cast<float>(x)));}
+	template<std::floating_point T>
+	__host__ __device__ inline static T forward(T x, internaldatatype vd){
+		#ifdef __CUDA_ARCH__
+			return static_cast<T>(get(static_cast<float>(x), vd.device));
+		#else
+			return static_cast<T>(get(static_cast<float>(x), vd.host));
+		#endif
+	}
+	template<std::floating_point T>
+	__host__ __device__ inline static T backward(T x, internaldatatype vd){
+		#ifdef __CUDA_ARCH__
+			return static_cast<T>(get(static_cast<float>(x), vd.device));
+		#else
+			return static_cast<T>(get(static_cast<float>(x), vd.host));
+		#endif
+	}
 	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
@@ -313,6 +382,18 @@ inline float phi_table<0>::get(float x) const{
 	return std::bit_cast<float>(std::bit_cast<std::uint32_t>(ya)|std::bit_cast<std::uint32_t>(x)&0x80000000);
 }
 
+__host__ __device__ inline float phi_table<0>::get(float x, const float *values){
+	auto xa = std::fabs(x);
+	//定義域を限定
+	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
+	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	auto xu = reinterpret_cast<std::uint32_t&>(xa) - LOWER_BOUND_U;
+	assert(xu < VALUE_RANGE);
+	auto ya = values[xu];
+	auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
+	return reinterpret_cast<float&>(yu);
+}
+
 __global__ void get_parallel(const phi_table<0> &p ,float *arr, std::uint32_t size, float *values){
 	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
 	if(i<size){
@@ -390,6 +471,24 @@ inline float phi_table<1>::get(float x) const{
 	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
 }
 
+__host__ __device__ inline float phi_table<1>::get(float x, const float *values){
+	auto xa = std::fabs(x);
+	//定義域を限定
+	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
+	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	auto xu = ((reinterpret_cast<std::uint32_t&>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&UPPER_BOUND_U;
+	assert(xu < VALUE_RANGE);
+	auto ya = values[xu];
+	//線形補間
+	constexpr std::uint32_t bottommask = ~0ui32>>(32-SHIFT_HALF_FLOAT);
+	constexpr float ratiounit = 1.0f/(1<<SHIFT_HALF_FLOAT);
+	auto y2 = values[xu+1];
+	ya += (y2-ya)*static_cast<float>(reinterpret_cast<std::uint32_t&>(xa)&bottommask)*ratiounit;
+
+	auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
+	return reinterpret_cast<float&>(yu);
+}
+
 __global__ void get_parallel(const phi_table<1> &p ,float *arr, std::uint32_t size, float *values){
 	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
 	if(i<size){
@@ -449,6 +548,24 @@ inline float phi_table<2>::get(float x) const{
 	// ya += (y2-ya)*static_cast<float>(std::bit_cast<std::uint32_t>(xa)&bottommask)*ratiounit;
 	//符号を復元
 	return std::bit_cast<float>(std::bit_cast<std::uint32_t>(ya)|std::bit_cast<std::uint32_t>(x)&0x80000000);
+}
+
+__host__ __device__ inline float phi_table<2>::get(float x, const float *values){
+	auto xa = std::fabs(x);
+	//定義域を限定
+	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
+	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+		auto xu = ((reinterpret_cast<std::uint32_t&>(xa)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT)&UPPER_BOUND_U;
+	assert(xu < VALUE_RANGE);
+	auto ya = values[xu];
+	//線形補間
+	// constexpr std::uint32_t bottommask = ~0ui32>>(32-SHIFT_MINI_FLOAT);
+	// constexpr float ratiounit = 1.0f/(1<<SHIFT_MINI_FLOAT);
+	// auto y2 = values[xu+1];
+	// ya += (y2-ya)*static_cast<float>(reinterpret_cast<std::uint32_t&>(xa)&bottommask)*ratiounit;
+
+	auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
+	return reinterpret_cast<float&>(yu);
 }
 
 __global__ void get_parallel(const phi_table<2> &p ,float *arr, std::uint32_t size, float *values){
