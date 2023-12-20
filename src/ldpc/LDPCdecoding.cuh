@@ -182,47 +182,6 @@ Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::Sumproduct_decoding(const T &H)
 	if(!alphabetaidx) alphabetaidx_init();
 }
 
-namespace {
-	__global__ void parallel_broadcast_add(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]+=rhs[j] for all i<height, j<width
-		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
-		std::uint32_t i = blockIdx.y*blockDim.y+threadIdx.y;
-		if(i<height&&j<width) lhs[i*width+j] += rhs[j];
-	}
-	__global__ void parallel_broadcast_negsub(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[i][j]=rhs[j]-lhs[i][j] for all i<height, j<width
-		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
-		std::uint32_t i = blockIdx.y*blockDim.y+threadIdx.y;
-		if(i<height&&j<width) lhs[i*width+j] = rhs[j]-lhs[i*width+j];
-	}
-	__global__ void parallel_reduce_add(fptype *lhs, const fptype *rhs, std::size_t width, std::size_t height){//lhs[j]+=rhs[i][j] for all i<height, j<width
-		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
-		std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
-		if(k==0&&j<width){
-			for(std::uint32_t i=0; i<height; ++i) lhs[j] += rhs[i*width+j];
-		}
-	}
-	template<class P>
-	__global__ void parallel_accumlate(fptype *arr, uitype *idx, std::size_t width, std::size_t height, const P &bp){
-		std::uint32_t j = blockIdx.x*blockDim.x+threadIdx.x;
-		std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
-		if(k==0&&j<height){
-			accumlator_t<P,fptype> acc;
-			for(std::uint32_t i=0; i<width; ++i) acc += arr[idx[j*width+i]];
-			for(std::uint32_t i=0; i<width; ++i) arr[idx[j*width+i]] = acc-arr[idx[j*width+i]];
-		}
-	}
-	template<typename T,CheckMatrix U>
-	__global__ void check_parity(bool* parity, fptype *est, U H, typename U::internaldatatype Hd){
-		std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
-		std::uint32_t k = blockIdx.y*blockDim.y+threadIdx.y;
-		std::uint32_t W = U::weightrowmax(Hd);
-		if(i<H.size()&&k==0){
-			auto &Hi = U::getrow(i,Hd);
-			bool parity = false;
-			for(std::uint32_t j=0; j<W; ++j) parity^=(est[Hi[j]]<0);
-		}
-	}
-}
-
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
 bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp){
@@ -258,30 +217,6 @@ bool Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(std::unique_ptr<fp
 		if(parity) return false;
 	}
 	return true;
-}
-
-template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
-template<boxplusclass P>
-void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std::unique_ptr<fptype[],util::cuda_delete> &alphabeta, fptype *LPR, const fptype *LLR, const P &bp){
-	const dim3 grid((((C-1)>>8)+1),(((VW-1)>>2)+1),1);
-	const dim3 thread(256,4,1);
-	//apply LLR
-	parallel_broadcast_add<<<grid,thread>>>(alphabeta.get(), LLR, C, VW);
-	//row update
-	bp.forward_vec(alphabeta.get(), Hones);
-	parallel_accumlate<<<grid,thread>>>(alphabeta.get(), alphabetaidx_device.get(), W, Hsize, bp);
-	bp.backward_vec(alphabeta.get(), Hones);
-	//column update
-	cudaMemset(LPR, 0, sizeof(fptype)*C);
-	parallel_reduce_add<<<grid,thread>>>(LPR, alphabeta.get(), C, VW);
-	parallel_broadcast_negsub<<<grid,thread>>>(alphabeta.get(), LPR, C, VW);
-	parallel_broadcast_add<<<grid,thread>>>(LPR, LLR, C, 1);
-	//parity check
-	// for(std::size_t i=0; i<Hsize; ++i){
-	// 	auto parity = false;
-	// 	for(const auto &j : H[i]) parity ^= LPR[j]<0;
-	// 	if(parity) return false;
-	// }
 }
 
 namespace {
@@ -333,7 +268,7 @@ namespace {
 			// for(auto i=tid; i<Hsize; i+=tsize){
 			// 	auto &Hi = U::getrow(i,Hd);
 			// 	bool parity = false;
-			// 	for(std::uint32_t j=0; j<W; ++j) parity^=(LPR[Hi[j]]<0);
+			// 	for(std::uint32_t j=0; j<W; ++j) parity^=LPR[Hi[j]]<0;
 			// }
 			// __syncthreads();
 		}
@@ -352,12 +287,6 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C
 	util::check_cuda_error(::cudaMalloc(&LLR_device, sizeof(fptype)*C));
 	util::check_cuda_error(::cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice));
 
-	// int itr = 0;
-	// bool *parity = nullptr;
-	// while(itr<iterationlimit){
-	// 	iterate(parity, alphabeta, LPR_device, LLR_device, bp);
-	// 	++itr;
-	// }
 	parallel_decode<<<1,1024>>>(alphabeta.get(), alphabetaidx_device.get(), LPR_device, LLR_device, bp, bp.data(), H, H.data(), iterationlimit);
 
 	util::check_cuda_error(::cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost));

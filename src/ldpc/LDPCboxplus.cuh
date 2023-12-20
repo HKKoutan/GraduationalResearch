@@ -90,7 +90,6 @@ class phi_table<0> {
 	static bool write_values(const std::unique_ptr<float[]> &vec);
 	inline float get(float x) const;
 	__host__ __device__ inline static float get(float x, const float *values);
-	__global__ friend void get_parallel(const phi_table<0> &p ,float *arr, std::uint32_t size, float *values);
 public:
 	struct internaldatatype {
 		const float *host;
@@ -119,8 +118,6 @@ public:
 			return static_cast<T>(get(static_cast<float>(x), vd.host));
 		#endif
 	}
-	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
-	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<>
@@ -142,7 +139,6 @@ class phi_table<1> {
 	static bool write_values(const std::unique_ptr<float[]> &vec);
 	inline float get(float x) const;
 	__host__ __device__ inline static float get(float x, const float *values);
-	__global__ friend void get_parallel(const phi_table<1> &p ,float *arr, std::uint32_t size, float *values);
 public:
 	struct internaldatatype {
 		const float *host;
@@ -171,8 +167,6 @@ public:
 			return static_cast<T>(get(static_cast<float>(x), vd.host));
 		#endif
 	}
-	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
-	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<>
@@ -191,7 +185,6 @@ class phi_table<2> {
 	static void values_init();//キャッシュファイルを読み込み値を返す。失敗したら、値を計算してキャッシュファイルに保存する。
 	inline float get(float x) const;
 	__host__ __device__ inline static float get(float x, const float *values);
-	__global__ friend void get_parallel(const phi_table<2> &p ,float *arr, std::uint32_t size, float *values);
 public:
 	struct internaldatatype {
 		const float *host;
@@ -220,8 +213,6 @@ public:
 			return static_cast<T>(get(static_cast<float>(x), vd.host));
 		#endif
 	}
-	inline void forward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
-	inline void backward_vec(float *arr, std::uint32_t size) const{get_parallel<<<(((size-1)>>10)+1),1024>>>(*this,arr,size,values_device.get());}
 };
 
 template<class B, std::floating_point T> struct accumlator;
@@ -394,21 +385,6 @@ __host__ __device__ inline float phi_table<0>::get(float x, const float *values)
 	return reinterpret_cast<float&>(yu);
 }
 
-__global__ void get_parallel(const phi_table<0> &p ,float *arr, std::uint32_t size, float *values){
-	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
-	if(i<size){
-		auto x = arr[i];
-		auto xa = std::fabs(x);
-		//定義域を限定
-		if(xa<phi_table<0>::LOWER_BOUND) xa = phi_table<0>::LOWER_BOUND;
-		if(xa>phi_table<0>::UPPER_BOUND) xa = phi_table<0>::UPPER_BOUND;
-		assert(reinterpret_cast<std::uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U < phi_table<0>::VALUE_RANGE);
-		auto ya = values[reinterpret_cast<std::uint32_t&>(xa) - phi_table<0>::LOWER_BOUND_U];
-		auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
-		arr[i] = reinterpret_cast<float&>(yu);
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 //                                                            //
 //                     class phi_table<1>                     //
@@ -489,28 +465,6 @@ __host__ __device__ inline float phi_table<1>::get(float x, const float *values)
 	return reinterpret_cast<float&>(yu);
 }
 
-__global__ void get_parallel(const phi_table<1> &p ,float *arr, std::uint32_t size, float *values){
-	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
-	if(i<size){
-		auto x = arr[i];
-		auto xa = std::fabs(x);
-		//定義域を限定
-		if(xa<phi_table<1>::LOWER_BOUND) xa = phi_table<1>::LOWER_BOUND;
-		if(xa>phi_table<1>::UPPER_BOUND) xa = phi_table<1>::UPPER_BOUND;
-		auto xu = ((reinterpret_cast<std::uint32_t&>(xa) + phi_table<1>::EXPONENT_BIAS)>>phi_table<1>::SHIFT_HALF_FLOAT)&phi_table<1>::UPPER_BOUND_U;
-		assert(xu < phi_table<1>::VALUE_RANGE);
-		auto ya = values[xu];
-		//線形補間
-		constexpr std::uint32_t bottommask = ~0ui32>>(32-phi_table<1>::SHIFT_HALF_FLOAT);
-		constexpr float ratiounit = 1.0f/(1<<phi_table<1>::SHIFT_HALF_FLOAT);
-		auto y2 = values[xu+1];
-		ya += (y2-ya)*static_cast<float>(reinterpret_cast<std::uint32_t&>(xa)&bottommask)*ratiounit;
-
-		auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
-		arr[i] = reinterpret_cast<float&>(yu);
-	}
-}
-
 ////////////////////////////////////////////////////////////////
 //                                                            //
 //                     class phi_table<2>                     //
@@ -566,28 +520,6 @@ __host__ __device__ inline float phi_table<2>::get(float x, const float *values)
 
 	auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
 	return reinterpret_cast<float&>(yu);
-}
-
-__global__ void get_parallel(const phi_table<2> &p ,float *arr, std::uint32_t size, float *values){
-	std::uint32_t i = blockIdx.x*blockDim.x+threadIdx.x;
-	if(i<size){
-		auto x = arr[i];
-		auto xa = std::fabs(x);
-		//定義域を限定
-		if(xa<phi_table<2>::LOWER_BOUND) xa = phi_table<2>::LOWER_BOUND;
-		if(xa>phi_table<2>::UPPER_BOUND) xa = phi_table<2>::UPPER_BOUND;
-		auto xu = ((reinterpret_cast<std::uint32_t&>(xa) + phi_table<2>::EXPONENT_BIAS)>>phi_table<2>::SHIFT_MINI_FLOAT)&phi_table<2>::UPPER_BOUND_U;
-		assert(xu < phi_table<2>::VALUE_RANGE);
-		auto ya = values[xu];
-		//線形補間
-		// constexpr std::uint32_t bottommask = ~0ui32>>(32-phi_table<2>::SHIFT_MINI_FLOAT);
-		// constexpr float ratiounit = 1.0f/(1<<phi_table<2>::SHIFT_MINI_FLOAT);
-		// auto y2 = values[xu+1];
-		// ya += (y2-ya)*static_cast<float>(reinterpret_cast<std::uint32_t&>(xa)&bottommask)*ratiounit;
-
-		auto yu = reinterpret_cast<std::uint32_t&>(ya)|reinterpret_cast<std::uint32_t&>(x)&0x80000000;
-		arr[i] = reinterpret_cast<float&>(yu);
-	}
 }
 
 }
