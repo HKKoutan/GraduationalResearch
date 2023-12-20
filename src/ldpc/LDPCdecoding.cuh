@@ -284,6 +284,62 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::iterate(bool *parity, std:
 	// }
 }
 
+namespace {
+	template<boxplusclass P, CheckMatrix U>
+	__global__ void parallel_decode(
+		fptype *alphabeta,
+		uitype *alphabetaidx,
+		fptype *LPR,
+		const fptype *LLR,
+		const P &bp,
+		typename P::internaldatatype bpd,
+		U H,
+		typename U::internaldatatype Hd,
+		std::uint32_t iterationlimit
+	){
+		constexpr std::uint32_t Hsize = U::size();
+		constexpr std::uint32_t W = U::weightrowmax(Hd);
+		constexpr std::uint32_t C = U::codesize();
+		constexpr std::uint32_t VW = U::weightcolmax(Hd);
+		constexpr std::uint32_t Hones = U::countones();
+		const std::uint32_t tid = threadIdx.x;
+		const std::uint32_t tsize = blockDim.x;
+
+		for(std::uint32_t itr=0; itr<iterationlimit; ++itr){
+			//apply LLR & boxplus forwarding
+			for(auto i=tid; i<Hones; i+=tsize) alphabeta[i] = P::forward(alphabeta[i]+LLR[i%C],bpd);
+			__syncthreads();
+			//rowupdate
+			for(auto i=tid; i<Hsize; i+=tsize){
+				accumlator_t<P,fptype> acc;
+				const auto jbegin = U::headidxcol(i,Hd), jend = U::headidxcol(i+1,Hd);
+				for(auto j=jbegin; j<jend; ++j) acc += alphabeta[alphabetaidx[j]];
+				for(auto j=jbegin; j<jend; ++j) alphabeta[alphabetaidx[j]] = acc-alphabeta[alphabetaidx[j]];
+			}
+			//余ったスレッドでLPR初期化
+			for(auto i=tsize-tid-1; i<C; i+=tsize) LPR[i] = 0;
+			__syncthreads();
+			//boxplus backwarding
+			for(auto i=tid; i<Hones; i+=tsize) alphabeta[i] = P::backward(alphabeta[i],bpd);
+			__syncthreads();
+			//column update
+			for(auto i=tid; i<C; i+=tsize) for(auto j=i; j<Hones; j+=C) LPR[i] += alphabeta[j];
+			__syncthreads();
+			for(auto i=tid; i<Hones; i+=tsize) alphabeta[i] = LPR[i%C]-alphabeta[i];
+			__syncthreads();
+			for(auto i=tsize-tid-1; i<C; i+=tsize) LPR[i] += LLR[i];
+			__syncthreads();
+			//check pairty
+			// for(auto i=tid; i<Hsize; i+=tsize){
+			// 	auto &Hi = U::getrow(i,Hd);
+			// 	bool parity = false;
+			// 	for(std::uint32_t j=0; j<W; ++j) parity^=(LPR[Hi[j]]<0);
+			// }
+			// __syncthreads();
+		}
+	}
+}
+
 template<std::uint32_t S, std::uint32_t C, std::uint32_t W>
 template<boxplusclass P>
 void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
@@ -296,12 +352,13 @@ void Sumproduct_decoding<CheckMatrix_regular<S,C,W>>::decode(std::array<fptype,C
 	util::check_cuda_error(::cudaMalloc(&LLR_device, sizeof(fptype)*C));
 	util::check_cuda_error(::cudaMemcpy(LLR_device,LLR.data(),sizeof(fptype)*C,cudaMemcpyHostToDevice));
 
-	int itr = 0;
-	bool *parity = nullptr;
-	while(itr<iterationlimit){
-		iterate(parity, alphabeta, LPR_device, LLR_device, bp);
-		++itr;
-	}
+	// int itr = 0;
+	// bool *parity = nullptr;
+	// while(itr<iterationlimit){
+	// 	iterate(parity, alphabeta, LPR_device, LLR_device, bp);
+	// 	++itr;
+	// }
+	parallel_decode<<<1,1024>>>(alphabeta.get(), alphabetaidx_device.get(), LPR_device, LLR_device, bp, bp.data(), H, H.data(), iterationlimit);
 
 	util::check_cuda_error(::cudaMemcpy(LPR.data(),LPR_device,sizeof(fptype)*C,cudaMemcpyDeviceToHost));
 	util::check_cuda_error(::cudaFree(LPR_device));
