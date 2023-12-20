@@ -1,16 +1,16 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
+#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
 #define INCLUDE_GUARD_ldpc_LDPCboxplus
 
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <memory>
 #include <cstdint>
 #include <bit>
 #include <concepts>
 #include <cmath>
 #include <limits>
 #include <cassert>
+#include "..\common\memory.cuh"
 
 namespace code::LDPC {
 
