@@ -298,7 +298,7 @@ void CheckMatrix_regular<S,C,W>::readCheckMatrix(){
 		const char *bi = &buf.front();
 		const char *const bend = &buf.back();
 		while(bi!=bend){
-			uint64_t val;
+			std::uint32_t val;
 			if(j==W*(i+1)) throw std::runtime_error("Conflict between index data and file content detected.");//行重みは固定
 			auto r = std::from_chars(bi, bend, val);
 			if(r.ec!=std::errc{}) throw std::runtime_error("LDPC: invalid text format.");//読み込みに失敗した場合
