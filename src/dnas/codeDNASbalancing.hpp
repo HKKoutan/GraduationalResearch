@@ -505,7 +505,7 @@ constexpr auto DivisionBalancingDistribution<8,0>(){
 }
 
 template<std::size_t BS, std::uint8_t FLAG>
-constexpr auto DivisionBalancingDistribution(double tolerance){
+constexpr auto DivisionBalancingDistribution(double /*tolerance*/){
 	return std::array<float,BS+1>{};
 }
 
