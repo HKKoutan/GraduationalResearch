@@ -34,13 +34,12 @@ add_subdirectory(src/ldpcidec)
 
 target_link_libraries(ldpcidec PRIVATE ldpc idec)
 
-add_executable(aux ${PROJECT_SOURCE_DIR}/src/auxiliary.cpp)
-
 add_executable(cawgn ${PROJECT_SOURCE_DIR}/src/mainawgn.cu)
 add_executable(awgn ${PROJECT_SOURCE_DIR}/src/mainawgn.cpp)
 add_executable(mids ${PROJECT_SOURCE_DIR}/src/mainmids.cpp)
 add_executable(lids ${PROJECT_SOURCE_DIR}/src/mainlids.cpp)
 
+add_executable(daux ${PROJECT_SOURCE_DIR}/src/auxiliary.cpp)
 add_executable(dvnb ${PROJECT_SOURCE_DIR}/src/maindvnb.cpp)
 add_executable(dvdb ${PROJECT_SOURCE_DIR}/src/maindvdb.cpp)
 add_executable(ddnb ${PROJECT_SOURCE_DIR}/src/mainddnb.cpp)
