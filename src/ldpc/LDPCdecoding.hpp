@@ -27,7 +27,7 @@ class Sumproduct_decoding {
 	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
-	std::size_t alphabetasize() const{return C*VW;}
+	std::uint32_t alphabetasize() const{return C*VW;}
 	template<boxplusclass P>
 	bool iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 	template<boxplusclass P>
@@ -47,7 +47,7 @@ class Sumproduct_decoding<CheckMatrix_regular<S,C,W>> {
 	void alphabetaidx_init();
 public:
 	explicit Sumproduct_decoding(const T &H);
-	static constexpr std::size_t alphabetasize(){return Hones;}
+	static constexpr std::uint32_t alphabetasize(){return Hones;}
 	template<boxplusclass P>
 	bool iterate(std::unique_ptr<fptype[]> &alphabeta, std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp);
 	template<boxplusclass P>
