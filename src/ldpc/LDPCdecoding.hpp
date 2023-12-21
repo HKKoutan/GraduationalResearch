@@ -141,6 +141,7 @@ template<CheckMatrix T>
 template<boxplusclass P>
 void Sumproduct_decoding<T>::decode(std::array<fptype,C> &LPR, const std::array<fptype,C> &LLR, const P &bp, std::uint32_t iterationlimit){
 	auto alphabeta = std::make_unique<fptype[]>(alphabetasize());
+	for(std::uint32_t i=0, iend=alphabetasize(); i<iend; ++i) alphabeta[i]=0;
 	for(std::uint32_t iter=0; !iterate(alphabeta, LPR, LLR, bp) && iter<iterationlimit; ++iter);
 }
 
