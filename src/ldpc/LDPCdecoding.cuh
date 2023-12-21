@@ -237,10 +237,15 @@ namespace {
 		constexpr std::uint32_t C = U::codesize();
 		constexpr std::uint32_t VW = U::weightcolmax(Hd);
 		constexpr std::uint32_t Hones = U::countones();
+		constexpr std::uint32_t tsize = 1024;
 		const std::uint32_t tid = threadIdx.x;
-		const std::uint32_t tsize = blockDim.x;
+		assert(blockDim.x == tsize);
+		__shared__ bool parity;
 
-		for(std::uint32_t itr=0; itr<iterationlimit; ++itr){
+		if(tid==0) parity = true;
+		__syncthreads();
+
+		for(std::uint32_t itr=0; itr<iterationlimit&&parity; ++itr){
 			//apply LLR & boxplus forwarding
 			for(auto i=tid; i<Hones; i+=tsize) alphabeta[i] = P::forward(alphabeta[i]+LLR[i%C],bpd);
 			__syncthreads();
@@ -264,13 +269,15 @@ namespace {
 			__syncthreads();
 			for(auto i=tsize-tid-1; i<C; i+=tsize) LPR[i] += LLR[i];
 			__syncthreads();
-			//check pairty
-			// for(auto i=tid; i<Hsize; i+=tsize){
-			// 	auto &Hi = U::getrow(i,Hd);
-			// 	bool parity = false;
-			// 	for(std::uint32_t j=0; j<W; ++j) parity^=LPR[Hi[j]]<0;
-			// }
-			// __syncthreads();
+			//check parity
+			if(tid==0) parity = 0;
+			for(auto i=tid, iend=((Hsize-1)&0xfffffe00)+tsize; i<iend; i+=tsize){
+				bool parity_row = false;
+				if(i<Hsize) for(auto j: U::getrow(i,Hd)) parity_row^=LPR[j]<0;
+				parity_row = __syncthreads_or(parity_row);
+				if(tid==0) parity |= parity_row;
+			}
+			__syncthreads();
 		}
 	}
 }
