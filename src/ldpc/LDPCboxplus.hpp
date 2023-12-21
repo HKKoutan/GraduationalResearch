@@ -196,9 +196,7 @@ inline void min_accumlator<T>::operator+=(T rhs){
 	if(absmin.first>=arhs){
 		absmin.second = absmin.first;
 		absmin.first = arhs;
-	}else if(absmin.second>arhs){
-		absmin.second = arhs;
-	}
+	}else absmin.second = std::min(absmin.second, arhs);
 	signprod ^= std::bit_cast<uint_of_length_t<T>>(rhs);
 }
 
@@ -222,9 +220,9 @@ inline T phi_calc<precision>::common(T x){
 	static_assert(precision<2,"invalid precision specification");
 	auto y = std::fabs(x);
 	//定義域を限定
-	if(y<LOWER_BOUND) y = LOWER_BOUND;
-	if(y>UPPER_BOUND) y = UPPER_BOUND;
-	if constexpr(precision==0) y = static_cast<T>(std::log1p(static_cast<double>(2)/std::expm1(static_cast<double>(y))));
+	y = std::max(y, LOWER_BOUND);
+	y = std::min(y, UPPER_BOUND);
+	if constexpr(precision==0) y = static_cast<T>(std::log1p(2.0/std::expm1(static_cast<double>(y))));
 	if constexpr(precision==1) y = std::log1p(static_cast<T>(2)/std::expm1(y));
 	y = std::bit_cast<T>(std::bit_cast<uint_of_length_t<T>>(y)|std::bit_cast<uint_of_length_t<T>>(x)&0x80000000);
 	return y;
@@ -275,8 +273,8 @@ phi_table<0>::phi_table(){
 inline float phi_table<0>::get(float x) const{
 	auto xa = std::fabs(x);
 	//定義域を限定
-	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
-	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	xa = std::max(xa, LOWER_BOUND);
+	xa = std::min(xa, UPPER_BOUND);
 	assert(std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U < VALUE_RANGE);
 	auto ya = values[std::bit_cast<uint32_t>(xa) - LOWER_BOUND_U];
 	return std::bit_cast<float>(std::bit_cast<uint32_t>(ya)|std::bit_cast<uint32_t>(x)&0x80000000);
@@ -328,8 +326,8 @@ phi_table<1>::phi_table(){
 inline float phi_table<1>::get(float x) const{
 	auto xa = std::fabs(x);
 	//定義域を限定
-	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
-	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	xa = std::max(xa, LOWER_BOUND);
+	xa = std::min(xa, UPPER_BOUND);
 	auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_HALF_FLOAT)&UPPER_BOUND_U;
 	auto ya = values[xu];
 	//線形補間
@@ -364,8 +362,8 @@ phi_table<2>::phi_table(){
 inline float phi_table<2>::get(float x) const{
 	auto xa = std::fabs(x);
 	//定義域を限定
-	if(xa<LOWER_BOUND) xa = LOWER_BOUND;
-	if(xa>UPPER_BOUND) xa = UPPER_BOUND;
+	xa = std::max(xa, LOWER_BOUND);
+	xa = std::min(xa, UPPER_BOUND);
 	auto xu = ((std::bit_cast<std::uint32_t>(xa)+EXPONENT_BIAS)>>SHIFT_MINI_FLOAT)&UPPER_BOUND_U;
 	auto ya = values[xu];
 	//線形補間

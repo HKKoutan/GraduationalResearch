@@ -22,6 +22,8 @@ public:
 	template<std::floating_point T, std::size_t L>
 	auto noise(const std::bitset<L> &in);
 	template<std::floating_point T, std::size_t L>
+	auto pass(const std::bitset<L> &in) const;
+	template<std::floating_point T, std::size_t L>
 	auto LLR(const std::array<T,L> &y) const;
 };
 
@@ -35,6 +37,13 @@ template<std::floating_point T, std::size_t L>
 auto AWGN::noise(const std::bitset<L> &in){
 	std::array<T,L> out;
 	for(std::size_t i=0; i<L; ++i) out[i] = static_cast<T>((in.test(i)?-1.0:1.0)+norm(mt));
+	return out;
+}
+
+template<std::floating_point T, std::size_t L>
+auto AWGN::pass(const std::bitset<L> &in) const{
+	std::array<T,L> out;
+	for(std::size_t i=0; i<L; ++i) out[i] = static_cast<T>(in.test(i)?-1.0:1.0);
 	return out;
 }
 
