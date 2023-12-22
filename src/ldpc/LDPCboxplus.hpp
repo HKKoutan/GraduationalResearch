@@ -1,4 +1,4 @@
-﻿#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
+#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
 #define INCLUDE_GUARD_ldpc_LDPCboxplus
 
 #include <iostream>
@@ -34,8 +34,8 @@ namespace{
 		uint_of_length_t<T> signprod;
 	public:
 		sum_accumlator():abssum(0),signprod(0){}
-		void operator+=(T rhs);
-		T operator-(T rhs) const;
+		inline void operator+=(T rhs);
+		inline T operator-(T rhs) const;
 	};
 
 	template<std::floating_point T>
@@ -44,8 +44,8 @@ namespace{
 		uint_of_length_t<T> signprod;
 	public:
 		min_accumlator():absmin(std::numeric_limits<T>::infinity(),std::numeric_limits<T>::infinity()),signprod(0){}
-		void operator+=(T rhs);
-		T operator-(T rhs) const;
+		inline void operator+=(T rhs);
+		inline T operator-(T rhs) const;
 	};
 }
 
