@@ -28,7 +28,7 @@ int main(int argc, char* argv[]){
 	constexpr array noise_factor = {0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0};
 	//constexpr array noise_factor = {0.0};
 	constexpr size_t nsize = noise_factor.size();
-	code::LDPC::phi_table<2> decodertype;
+	code::LDPC::phi_calc<> decodertype;
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	array<array<uint64_t,nsize>,3> biterror = {0};
