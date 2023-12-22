@@ -465,6 +465,46 @@ constexpr auto DivisionBalancingDistribution(){
 }
 
 template<>
+constexpr auto DivisionBalancingDistribution<32,0>(){
+	constexpr float sum = 4294967296.f;
+	return std::array{
+		1202160780.f/sum,
+		581690700.f/sum,
+		421224300.f/sum,
+		338019500.f/sum,
+		283936380.f/sum,
+		244432188.f/sum,
+		213393180.f/sum,
+		187721820.f/sum,
+		165636900.f/sum,
+		146005860.f/sum,
+		128035908.f/sum,
+		111105540.f/sum,
+		94645460.f/sum,
+		78004500.f/sum,
+		60174900.f/sum,
+		38779380.f/sum,
+		601080390.f/sum,
+		891925740.f/sum,
+		501457500.f/sum,
+		379621900.f/sum,
+		310977940.f/sum,
+		264184284.f/sum,
+		228912684.f/sum,
+		200557500.f/sum,
+		176679360.f/sum,
+		155821380.f/sum,
+		137020884.f/sum,
+		119570724.f/sum,
+		102875500.f/sum,
+		86324980.f/sum,
+		69089700.f/sum,
+		49477140.f/sum,
+		19389690.f/sum
+	};
+}
+
+template<>
 constexpr auto DivisionBalancingDistribution<16,0>(){
 	constexpr float sum = 65536.f;
 	return std::array{
@@ -505,7 +545,7 @@ constexpr auto DivisionBalancingDistribution<8,0>(){
 }
 
 template<std::size_t BS, std::uint8_t FLAG>
-constexpr auto DivisionBalancingDistribution(double tolerance){
+constexpr auto DivisionBalancingDistribution(double /*tolerance*/){
 	return std::array<float,BS+1>{};
 }
 
@@ -553,6 +593,49 @@ constexpr auto DivisionBalancingDistribution<8,2>(double tolerance){
 			0.f/sum
 		};
 	}else return std::array<float,9>{};
+}
+
+template<>
+constexpr auto DivisionBalancingDistribution<32,6>(double tolerance){
+	constexpr float sum = 4294967296.f;
+	if(tolerance == 0) return DivisionBalancingDistribution<32,0>();
+	if(tolerance == 0.125){
+		return std::array{
+			423693554.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			42134866.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			6724378.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			684588.f/sum,
+			0.f/sum,
+			0.f/sum,
+			423693554.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			42134866.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			6724378.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			0.f/sum,
+			684588.f/sum,
+			0.f/sum,
+			0.f/sum
+		};
+	}else return std::array<float,33>{};
 }
 
 template<>

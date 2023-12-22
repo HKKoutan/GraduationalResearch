@@ -29,13 +29,22 @@ namespace{
 	using uint_of_length_t = uint_of_length<T>::type;
 
 	template<std::floating_point T>
+	class prod_accumlator{
+		T prod;
+	public:
+		prod_accumlator():prod(1){}
+		inline void operator+=(T rhs);
+		inline T operator-(T rhs) const;
+	};
+
+	template<std::floating_point T>
 	class sum_accumlator{
 		T abssum;
 		uint_of_length_t<T> signprod;
 	public:
 		sum_accumlator():abssum(0),signprod(0){}
-		void operator+=(T rhs);
-		T operator-(T rhs) const;
+		inline void operator+=(T rhs);
+		inline T operator-(T rhs) const;
 	};
 
 	template<std::floating_point T>
@@ -44,8 +53,8 @@ namespace{
 		uint_of_length_t<T> signprod;
 	public:
 		min_accumlator():absmin(std::numeric_limits<T>::infinity(),std::numeric_limits<T>::infinity()),signprod(0){}
-		void operator+=(T rhs);
-		T operator-(T rhs) const;
+		inline void operator+=(T rhs);
+		inline T operator-(T rhs) const;
 	};
 }
 
@@ -57,12 +66,23 @@ struct minsum {
 };
 
 template<std::uint8_t precision=0>
+class tanh_calc {
+	// static constexpr auto LOWER_BOUND = 0x1p-16f;
+	// static constexpr auto UPPER_BOUND = 0x1p6f;
+public:
+	template<std::floating_point T>
+	static inline T forward(T x);
+	template<std::floating_point T>
+	static inline T backward(T x);
+};
+
+template<std::uint8_t precision=0>
 class phi_calc {
 	static constexpr auto LOWER_BOUND = 0x1p-16f;
 	static constexpr auto UPPER_BOUND = 0x1p6f;
 
 	template<std::floating_point T>
-	static T common(T x);
+	static inline T common(T x);
 public:
 	template<std::floating_point T>
 	static inline T forward(T x){return common(x);}
@@ -149,6 +169,10 @@ struct accumlator<minsum,T> {
 	using type = min_accumlator<T>;
 };
 template<std::floating_point T, std::uint8_t P>
+struct accumlator<tanh_calc<P>,T> {
+	using type = prod_accumlator<T>;
+};
+template<std::floating_point T, std::uint8_t P>
 struct accumlator<phi_calc<P>,T> {
 	using type = sum_accumlator<T>;
 };
@@ -165,6 +189,24 @@ concept boxplusclass = requires(T x){
 	{x.forward(0.f)} -> std::same_as<float>;
 	{x.backward(0.f)} -> std::same_as<float>;
 };
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                   class prod_accumlator                    //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
+template<std::floating_point T>
+inline void prod_accumlator<T>::operator+=(T rhs){
+	prod *= rhs;
+}
+
+template<std::floating_point T>
+inline T prod_accumlator<T>::operator-(T rhs) const{
+	T inv = 1/rhs;
+	return prod*inv;
+	// return prod/rhs;//精度に悪影響？
+}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
@@ -206,6 +248,32 @@ inline T min_accumlator<T>::operator-(T rhs) const{
 	auto arhs = std::fabs(rhs);
 	auto val = absmin.first==arhs?absmin.second:absmin.first;
 	return std::bit_cast<T>((signprod^std::bit_cast<uint_of_length_t<T>>(rhs))&signmask|std::bit_cast<uint_of_length_t<T>>(val));
+}
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                      class tanh_calc                       //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
+template<std::uint8_t precision>
+template<std::floating_point T>
+inline T tanh_calc<precision>::forward(T x){
+	static_assert(precision<2,"invalid precision specification");
+	T y;
+	if constexpr(precision==0) y = static_cast<T>(std::tanh(static_cast<double>(x)*0.5));
+	if constexpr(precision==1) y = std::tanh(x*static_cast<T>(0.5));
+	return y;
+}
+
+template<std::uint8_t precision>
+template<std::floating_point T>
+inline T tanh_calc<precision>::backward(T x){
+	static_assert(precision<2,"invalid precision specification");
+	T y;
+	if constexpr(precision==0) y = static_cast<T>(2.0*std::atanh(static_cast<double>(x)));
+	if constexpr(precision==1) y = static_cast<T>(2.0)*std::atanh(x);
+	return y;
 }
 
 ////////////////////////////////////////////////////////////////

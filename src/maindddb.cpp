@@ -116,75 +116,75 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto plain_lesschange = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
-		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
-		auto &maxgcdev = std::get<2>(*st);
-		for(size_t n=0; n<nsize; ++n){
-			bitset<SOURCE_LENGTH> m;
-			util::RandomBits rb(t);
-			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
-			code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2> bl(TOLERANCE);
+	// auto plain_lesschange = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	// 	auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
+	// 	auto &maxgcdev = std::get<2>(*st);
+	// 	for(size_t n=0; n<nsize; ++n){
+	// 		bitset<SOURCE_LENGTH> m;
+	// 		util::RandomBits rb(t);
+	// 		channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
+	// 		code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2> bl(TOLERANCE);
 
-			for(size_t r=0u; r<repeat_per_thread; r++){
-				rb.generate(m);
+	// 		for(size_t r=0u; r<repeat_per_thread; r++){
+	// 			rb.generate(m);
 
-				auto nm = code::DNAS::convert<ATGC>::binary_to_nttype(m);
-				auto dm = code::DNAS::differential::encode(nm);
+	// 			auto nm = code::DNAS::convert<ATGC>::binary_to_nttype(m);
+	// 			auto dm = code::DNAS::differential::encode(nm);
 
-				auto dmbar = bl.balance(dm);
+	// 			auto dmbar = bl.balance(dm);
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(dmbar);
-				if(dev>maxgcdev) maxgcdev=dev;
+	// 			auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(dmbar);
+	// 			if(dev>maxgcdev) maxgcdev=dev;
 
-				auto rm = ch.noise(dmbar);
-				// auto rm=cmbar;
+	// 			auto rm = ch.noise(dmbar);
+	// 			// auto rm=cmbar;
 
-				auto nmest = code::DNAS::differential::decode(rm);
-				auto mest = code::DNAS::convert<ATGC>::nttype_to_binary(nmest);
+	// 			auto nmest = code::DNAS::differential::decode(rm);
+	// 			auto mest = code::DNAS::convert<ATGC>::nttype_to_binary(nmest);
 
-				nterror[n] += code::DNAS::countDifferentialError(dm,rm);
-				biterror[n] += (mest^m).count();
-			}
-		}
-	};
+	// 			nterror[n] += code::DNAS::countDifferentialError(dm,rm);
+	// 			biterror[n] += (mest^m).count();
+	// 		}
+	// 	}
+	// };
 
-	auto encoded_lesschange = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
-		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
-		auto &maxgcdev = std::get<2>(*st);
-		for(size_t n=0; n<nsize; ++n){
-			bitset<SOURCE_LENGTH> m;
-			util::RandomBits rb(t);
-			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
-			code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2> bl(TOLERANCE);
+	// auto encoded_lesschange = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	// 	auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
+	// 	auto &maxgcdev = std::get<2>(*st);
+	// 	for(size_t n=0; n<nsize; ++n){
+	// 		bitset<SOURCE_LENGTH> m;
+	// 		util::RandomBits rb(t);
+	// 		channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
+	// 		code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,2> bl(TOLERANCE);
 
-			for(size_t r=0u; r<repeat_per_thread; r++){
-				rb.generate(m);
+	// 		for(size_t r=0u; r<repeat_per_thread; r++){
+	// 			rb.generate(m);
 
-				auto c = ldpc.encode(m);
-				auto nc = code::DNAS::convert<ATGC>::binary_to_nttype(c);
-				auto dc = code::DNAS::differential::encode(nc);
+	// 			auto c = ldpc.encode(m);
+	// 			auto nc = code::DNAS::convert<ATGC>::binary_to_nttype(c);
+	// 			auto dc = code::DNAS::differential::encode(nc);
 
-				auto dcbar = bl.balance(dc);
+	// 			auto dcbar = bl.balance(dc);
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(dcbar);
-				if(dev>maxgcdev) maxgcdev=dev;
+	// 			auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(dcbar);
+	// 			if(dev>maxgcdev) maxgcdev=dev;
 
-				auto rc = ch.noise(dcbar);
-				// auto rc=dcbar;
+	// 			auto rc = ch.noise(dcbar);
+	// 			// auto rc=dcbar;
 
-				auto Ldcbar = ch.likelihood(rc);
-				auto Lncbar = code::DNAS::differential::decode_p(Ldcbar);
-				auto [Lnc,prev] = bl.restore_p(Lncbar);
-				auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lnc);
+	// 			auto Ldcbar = ch.likelihood(rc);
+	// 			auto Lncbar = code::DNAS::differential::decode_p(Ldcbar);
+	// 			auto [Lnc,prev] = bl.restore_p(Lncbar);
+	// 			auto Lc = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lnc);
 
-				auto Lcest = ldpc.decode(Lc,decodertype);
-				auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
+	// 			auto Lcest = ldpc.decode(Lc,decodertype);
+	// 			auto mest = code::estimate_crop<SOURCE_LENGTH>(Lcest);
 
-				nterror[n] += code::DNAS::countDifferentialError(dc,rc);
-				biterror[n] += (mest^m).count();
-			}
-		}
-	};
+	// 			nterror[n] += code::DNAS::countDifferentialError(dc,rc);
+	// 			biterror[n] += (mest^m).count();
+	// 		}
+	// 	}
+	// };
 
 	auto plain_pitch = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
@@ -292,16 +292,16 @@ int main(int argc, char* argv[]){
 	for(stats = {}; auto &st: stats) threads.emplace_back(encoded, threads.size(), &st);
 	for(auto &t: threads) t.join();
 	aggregate(1);
-	threads.clear();
-	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(plain_lesschange, threads.size(), &st);
-	for(auto &t: threads) t.join();
-	aggregate(2);
-	threads.clear();
-	tk.split();
-	for(stats = {}; auto &st: stats) threads.emplace_back(encoded_lesschange, threads.size(), &st);
-	for(auto &t: threads) t.join();
-	aggregate(3);
+	// threads.clear();
+	// tk.split();
+	// for(stats = {}; auto &st: stats) threads.emplace_back(plain_lesschange, threads.size(), &st);
+	// for(auto &t: threads) t.join();
+	// aggregate(2);
+	// threads.clear();
+	// tk.split();
+	// for(stats = {}; auto &st: stats) threads.emplace_back(encoded_lesschange, threads.size(), &st);
+	// for(auto &t: threads) t.join();
+	// aggregate(3);
 	threads.clear();
 	tk.split();
 	for(stats = {}; auto &st: stats) threads.emplace_back(plain_pitch, threads.size(), &st);
@@ -322,12 +322,12 @@ int main(int argc, char* argv[]){
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded"<<endl;
 	result(1, CODE_LENGTH);
-	cout<<SOURCE_LENGTH<<endl;
-	cout<<"plain(lesschange)"<<endl;
-	result(2, SOURCE_LENGTH);
-	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
-	cout<<"encoded(lesschange)"<<endl;
-	result(3, CODE_LENGTH);
+	// cout<<SOURCE_LENGTH<<endl;
+	// cout<<"plain(lesschange)"<<endl;
+	// result(2, SOURCE_LENGTH);
+	// cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
+	// cout<<"encoded(lesschange)"<<endl;
+	// result(3, CODE_LENGTH);
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain(pitch)"<<endl;
 	result(4, SOURCE_LENGTH);
