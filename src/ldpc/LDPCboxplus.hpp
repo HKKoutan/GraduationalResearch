@@ -1,4 +1,4 @@
-#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
+﻿#ifndef INCLUDE_GUARD_ldpc_LDPCboxplus
 #define INCLUDE_GUARD_ldpc_LDPCboxplus
 
 #include <iostream>
@@ -27,6 +27,15 @@ namespace{
 	};
 	template<std::floating_point T>
 	using uint_of_length_t = uint_of_length<T>::type;
+
+	template<std::floating_point T>
+	class prod_accumlator{
+		T prod;
+	public:
+		prod_accumlator():prod(1){}
+		inline void operator+=(T rhs);
+		inline T operator-(T rhs) const;
+	};
 
 	template<std::floating_point T>
 	class sum_accumlator{
@@ -165,6 +174,22 @@ concept boxplusclass = requires(T x){
 	{x.forward(0.f)} -> std::same_as<float>;
 	{x.backward(0.f)} -> std::same_as<float>;
 };
+
+////////////////////////////////////////////////////////////////
+//                                                            //
+//                   class prod_accumlator                    //
+//                                                            //
+////////////////////////////////////////////////////////////////
+
+template<std::floating_point T>
+inline void prod_accumlator<T>::operator+=(T rhs){
+	prod *= rhs;
+}
+
+template<std::floating_point T>
+inline T prod_accumlator<T>::operator-(T rhs) const{
+	return prod/rhs;
+}
 
 ////////////////////////////////////////////////////////////////
 //                                                            //
