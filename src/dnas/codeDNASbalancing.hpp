@@ -42,7 +42,7 @@ class DivisionBalancing<0x27,BS,1> {
 	static constexpr std::array<float,BS+1> dist = DivisionBalancingDistribution<BS,0>();
 public:
 	template<std::size_t S>
-	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> prevchange = 0);
+	static auto balance(const std::array<nucleotide_t<ATGC>,S> &source/*, nucleotide_t<ATGC> prevchange = 0*/);
 	template<std::floating_point T, std::size_t S>
 	static auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, T prevdist=0);
 };
@@ -81,7 +81,7 @@ class DivisionBalancing<0x27,BS,7> {
 public:
 	DivisionBalancing(double tolerance):tolerance(tolerance),dist(DivisionBalancingDistribution<BS,6>(tolerance)){}
 	template<std::size_t S>
-	auto balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> prevchange = 0) const;
+	auto balance(const std::array<nucleotide_t<ATGC>,S> &source/*, nucleotide_t<ATGC> prevchange = 0*/) const;
 	template<std::floating_point T, std::size_t S>
 	auto restore_p(const std::array<nucleotide_p<ATGC,T>,S> &source, T prevdist=0) const;
 };
@@ -191,12 +191,12 @@ auto DivisionBalancing<0x1B,BS,0>::restore_p(const std::array<nucleotide_p<ATGC,
 
 template<std::size_t BS>
 template<std::size_t S>
-auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> prevchange){
+auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S> &source/*, nucleotide_t<ATGC> prevchange*/){
 	constexpr std::size_t blocksize = BS==0?S:BS;
 	constexpr std::size_t divsize = blocksize>>1;
 	static_assert(blocksize%2==0&&S%blocksize==0);
 	std::array<nucleotide_t<ATGC>,S> balanced;
-	auto change = prevchange;
+	auto change = 0;
 
 	for(std::size_t i=0, iend=S/blocksize; i<iend; ++i){
 		section block(i*blocksize, blocksize);
@@ -226,7 +226,8 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 		else change += 3;
 		for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j] = source[j]+change;
 	}
-	return std::make_pair(balanced, change);
+	// return std::make_pair(balanced, change);
+	return balanced;
 }
 
 template<std::size_t BS>
@@ -376,7 +377,7 @@ auto DivisionBalancing<0x1B,BS,6>::restore_p(const std::array<nucleotide_p<ATGC,
 
 template<std::size_t BS>
 template<std::size_t S>
-auto DivisionBalancing<0x27,BS,7>::balance(const std::array<nucleotide_t<ATGC>,S> &source, nucleotide_t<ATGC> prevchange) const{
+auto DivisionBalancing<0x27,BS,7>::balance(const std::array<nucleotide_t<ATGC>,S> &source/*, nucleotide_t<ATGC> prevchange*/) const{
 	constexpr std::size_t blocksize = BS==0?S:BS;
 	constexpr std::size_t divsize = blocksize>>1;
 	static_assert(blocksize%2==0&&S%blocksize==0);
@@ -385,7 +386,7 @@ auto DivisionBalancing<0x27,BS,7>::balance(const std::array<nucleotide_t<ATGC>,S
 	const std::uint64_t qtyhalfhigh = divsize+qtytolerance;
 	const std::uint64_t pitch = qtytolerance*2+1;
 	std::array<nucleotide_t<ATGC>,S> balanced;
-	auto change = prevchange;
+	auto change = 0;
 
 	for(std::size_t i=0, iend=S/blocksize; i<iend; ++i){
 		section block(i*blocksize, blocksize);
@@ -424,7 +425,8 @@ auto DivisionBalancing<0x27,BS,7>::balance(const std::array<nucleotide_t<ATGC>,S
 		for(std::size_t j=block.head, jend=block.tail; j<jend; ++j) qtyATblock2 += balanced[j].is_AT();
 		assert(qtyATblock2<=qtyhalfhigh&&qtyATblock2>=qtyhalflow);
 	}
-	return std::make_pair(balanced, change);
+	// return std::make_pair(balanced, change);
+	return balanced;
 }
 
 template<std::size_t BS>
