@@ -21,7 +21,7 @@ constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
 constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 12;
-constexpr size_t BLOCK_SIZE = 8;
+constexpr size_t BLOCK_SIZE = 16;
 constexpr std::uint8_t ATGC = 0x27;
 constexpr double TOLERANCE = 0.125;
 
