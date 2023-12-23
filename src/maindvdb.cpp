@@ -134,7 +134,7 @@ int main(int argc, char* argv[]){
 				auto cmest = code::DNAS::differential::encode(cmdest);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cmest);
 
-				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
+				nterror[n] += code::DNAS::countDifferentialError(cm,cmest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
@@ -227,7 +227,7 @@ int main(int argc, char* argv[]){
 				auto cmest = code::DNAS::differential::encode(cmdest);
 				auto mest = code::DNAS::VLRLL<ATGC>::decode(cmest);
 
-				nterror[n] += code::DNAS::countDifferentialError(cm,rm);
+				nterror[n] += code::DNAS::countDifferentialError(cm,cmest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
 				bitcount[n] += mmask.count();
 			}
