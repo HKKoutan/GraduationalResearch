@@ -36,8 +36,8 @@ int main(int argc, char* argv[]){
 	cout<<repeat_per_thread<<"*"<<NUM_THREADS<<endl;
 
 	// constexpr array noise_factor = {0.0};
-	// constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
-	constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02,0.015,0.01,0.005,0.0};
+	constexpr array noise_factor = {0.04,0.03,0.02,0.01,0.0};
+	// constexpr array noise_factor = {0.04,0.035,0.03,0.025,0.02,0.015,0.01,0.005,0.0};
 	constexpr size_t nsize = noise_factor.size();
 	code::LDPC::phi_table<> decodertype;
 
