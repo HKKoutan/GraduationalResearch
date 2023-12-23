@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){
 
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 
-				auto [cmbar, c1] = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cm);
+				auto cmbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cm);
 				// auto bm = cm;
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cmbar);
@@ -102,10 +102,11 @@ int main(int argc, char* argv[]){
 				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
 				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
 
-				auto [cmbar, c1] = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cm);
-				auto [crbar, c2] = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(cr, c1);
-				// auto bm = cm;
-				// auto br = cr;
+				auto c = code::concatenate(cm, cr);
+				auto cbar = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::balance(c);
+				auto [cmbar, crbar] = code::split<cmd.size()>(cbar);
+				// auto cmbar = cm;
+				// auto crbar = cr;
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cmbar);
 				if(dev>maxgcdev) maxgcdev=dev;
@@ -116,15 +117,16 @@ int main(int argc, char* argv[]){
 
 				auto rm = ch.noise(cmbar);
 				auto rr = ch.noise(crbar);
-				// auto rm=bm;
-				// auto rr=br;
+				// auto rm=cmbar;
+				// auto rr=crbar;
 
 				auto Lcmbar = ch.likelihood<float>(rm);
 				auto Lcrbar = ch.likelihood<float>(rr);
 				auto Lcmdbar = code::DNAS::differential::decode_p(Lcmbar);
 				auto Lcrdbar = code::DNAS::puncturedRLL<ATGC>::decode_p(Lcrbar, Lcmbar.back());
-				auto [Lcmd, p1] = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::restore_p(Lcmdbar);
-				auto [Lcrd, p2] = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::restore_p(Lcrdbar,p1);
+				auto Lcbar = code::concatenate(Lcmdbar, Lcrdbar);
+				auto [Lc, p1] = code::DNAS::DivisionBalancing<ATGC,BLOCK_SIZE,1>::restore_p(Lcbar);
+				auto [Lcmd,Lcrd] = code::split<Lcmdbar.size()>(Lc);
 				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcmd), code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd));
 
 				auto LLRest = ldpc.decode(LLR,decodertype);
@@ -156,7 +158,7 @@ int main(int argc, char* argv[]){
 
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 
-				auto [cmbar, c1] = bl.balance(cm);
+				auto cmbar = bl.balance(cm);
 				// auto bm = cm;
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cmbar);
@@ -195,10 +197,11 @@ int main(int argc, char* argv[]){
 				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
 				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
 
-				auto [cmbar, c1] = bl.balance(cm);
-				auto [crbar, c2] = bl.balance(cr, c1);
-				// auto bm = cm;
-				// auto br = cr;
+				auto c = code::concatenate(cm, cr);
+				auto cbar = bl.balance(c);
+				auto [cmbar, crbar] = code::split<cmd.size()>(cbar);
+				// auto cmbar = cm;
+				// auto crbar = cr;
 
 				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cmbar);
 				if(dev>maxgcdev) maxgcdev=dev;
@@ -209,8 +212,8 @@ int main(int argc, char* argv[]){
 
 				auto rm = ch.noise(cmbar);
 				auto rr = ch.noise(crbar);
-				// auto rm=bm;
-				// auto rr=br;
+				// auto rm=cmbar;
+				// auto rr=crbar;
 
 				auto Lcmbar = ch.likelihood<float>(rm);
 				auto Lcrbar = ch.likelihood<float>(rr);
