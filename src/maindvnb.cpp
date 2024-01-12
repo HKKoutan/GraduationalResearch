@@ -21,8 +21,8 @@ constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 20;
 constexpr size_t BLOCK_SIZE = 0;
-constexpr std::uint8_t ATGC = 0x27;
-constexpr std::uint8_t ATGC2 = 0x1B;
+constexpr std::uint8_t ATGC = 0x1B;
+constexpr std::uint8_t ATGC2 = 0x27;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -136,19 +136,19 @@ int main(int argc, char* argv[]){
 		auto &gcdist = std::get<4>(*st);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
+			channel::NanoporeSequencing<ATGC2> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 			gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
+				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC2>::encode(m);
 				auto cmd = code::DNAS::differential::decode(cm);
-				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cmd);
+				auto tm = code::DNAS::convert<ATGC2>::nttype_to_binary(cmd);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
-				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
+				auto crd = code::DNAS::convert<ATGC2>::binary_to_nttype(tr);
+				auto cr = code::DNAS::puncturedRLL<ATGC2>::encode(crd, cm.back(), run);
 
 				auto c = code::concatenate(cm,cr);
 				code::DNAS::countBlockGC<BLOCK_SIZE>(c, gcdist);
@@ -163,17 +163,17 @@ int main(int argc, char* argv[]){
 				auto Lcm = ch.likelihood<float>(rm);
 				auto Lcr = ch.likelihood<float>(rr);
 				auto Lcmd = code::DNAS::differential::decode_p(Lcm);
-				auto Ltm = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcmd);
-				auto Lcrd = code::DNAS::puncturedRLL<ATGC>::decode_p(Lcr, Lcm.back());
-				auto Ltr = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd);
+				auto Ltm = code::DNAS::convert<ATGC2>::nttype_to_binary_p(Lcmd);
+				auto Lcrd = code::DNAS::puncturedRLL<ATGC2>::decode_p(Lcr, Lcm.back());
+				auto Ltr = code::DNAS::convert<ATGC2>::nttype_to_binary_p(Lcrd);
 				auto Ltc = code::concatenate(Ltm, Ltr);
 
 				auto Ltcest = ldpc.decode(Ltc,decodertype);
 				// auto LLRest = LLR;
 				auto tmest = code::estimate_crop<SOURCE_LENGTH>(Ltcest);
-				auto cmdest = code::DNAS::convert<ATGC>::binary_to_nttype(tmest);
+				auto cmdest = code::DNAS::convert<ATGC2>::binary_to_nttype(tmest);
 				auto cmest = code::DNAS::differential::encode(cmdest);
-				auto mest = code::DNAS::VLRLL<ATGC>::decode(cmest);
+				auto mest = code::DNAS::VLRLL<ATGC2>::decode(cmest);
 
 				nterror[n] += code::DNAS::countDifferentialError(cm,cmest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
