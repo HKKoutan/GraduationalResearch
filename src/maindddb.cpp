@@ -279,6 +279,7 @@ int main(int argc, char* argv[]){
 	};
 
 	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t channel_size){
+		double num_blocks = static_cast<double>((BLOCK_SIZE==0?1:channel_size/2/BLOCK_SIZE)*nsize*NUM_THREADS*repeat_per_thread);
 		cout<<"Noise factor"
 		<<"\tBER"
 		<<"\tNER"
@@ -290,10 +291,10 @@ int main(int argc, char* argv[]){
 			<<endl;
 		}
 		cout<<"GCcontent distribution(before): "<<endl;
-		for(auto i:std::get<2>(stat[target])) cout<<i<<"\t"<<flush;
+		for(auto i:std::get<2>(stat[target])) cout<<static_cast<double>(i)/num_blocks<<"\t"<<flush;
 		cout<<endl;
 		cout<<"GCcontent distribution(after): "<<endl;
-		for(auto i:std::get<3>(stat[target])) cout<<i<<"\t"<<flush;
+		for(auto i:std::get<3>(stat[target])) cout<<static_cast<double>(i)/num_blocks<<"\t"<<flush;
 		cout<<endl;
 	};
 

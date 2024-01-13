@@ -257,7 +257,8 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto result = [&stat, repeat_per_thread](std::size_t target){
+	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t channel_size){
+		double num_blocks = static_cast<double>((BLOCK_SIZE==0?1:channel_size/2/BLOCK_SIZE)*nsize*NUM_THREADS*repeat_per_thread);
 		cout<<"Run length: "<<std::get<3>(stat[target])<<endl;
 		cout<<"Noise factor"
 		<<"\tBER"
@@ -270,10 +271,10 @@ int main(int argc, char* argv[]){
 			<<endl;
 		}
 		cout<<"GCcontent distribution(before): "<<endl;
-		for(auto i:std::get<4>(stat[target])) cout<<i<<"\t"<<flush;
+		for(auto i:std::get<4>(stat[target])) cout<<static_cast<double>(i)/num_blocks<<"\t"<<flush;
 		cout<<endl;
 		cout<<"GCcontent distribution(after): "<<endl;
-		for(auto i:std::get<5>(stat[target])) cout<<i<<"\t"<<flush;
+		for(auto i:std::get<5>(stat[target])) cout<<static_cast<double>(i)/num_blocks<<"\t"<<flush;
 		cout<<endl;
 	};
 
@@ -308,10 +309,10 @@ int main(int argc, char* argv[]){
 	// result(1,SOURCE_LENGTH);
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain(pitch)"<<endl;
-	result(0);
+	result(0, SOURCE_LENGTH);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(pitch)"<<endl;
-	result(1);
+	result(1, CODE_LENGTH);
 
 	return 0;
 }
