@@ -16,11 +16,11 @@ using std::size_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
-constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
+constexpr size_t DEFAULT_REPEAT_PER_THREAD = 5000;
 constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
 constexpr size_t NUM_THREADS = 20;
-constexpr size_t BLOCK_SIZE = 0;
+constexpr size_t BLOCK_SIZE = 16;
 constexpr std::uint8_t ATGC = 0x1B;
 constexpr std::uint8_t ATGC2 = 0x27;
 
@@ -54,11 +54,11 @@ int main(int argc, char* argv[]){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &maxrunlength = std::get<3>(*st);
 		auto &gcdist = std::get<4>(*st);
+		gcdist.resize((BLOCK_SIZE==0?SOURCE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
-			gcdist.resize((BLOCK_SIZE==0?SOURCE_LENGTH/2:BLOCK_SIZE)+1);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
@@ -85,11 +85,11 @@ int main(int argc, char* argv[]){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &maxrunlength = std::get<3>(*st);
 		auto &gcdist = std::get<4>(*st);
+		gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
-			gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
@@ -134,11 +134,11 @@ int main(int argc, char* argv[]){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
 		auto &maxrunlength = std::get<3>(*st);
 		auto &gcdist = std::get<4>(*st);
+		gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC2> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
-			gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t info_size){
+	auto result = [&stat, repeat_per_thread](std::size_t target){
 		cout<<"Run length: "<<std::get<3>(stat[target])<<endl;
 		cout<<"Noise factor"
 		<<"\tBER"
@@ -204,7 +204,7 @@ int main(int argc, char* argv[]){
 		for(size_t n=0; n<noise_factor.size(); n++){
 			cout<<noise_factor[n]
 			<<"\t"<<static_cast<double>(std::get<0>(stat[target])[n])/static_cast<double>(std::get<1>(stat[target])[n])
-			<<"\t"<<static_cast<double>(std::get<2>(stat[target])[n])/static_cast<double>(info_size/2*NUM_THREADS*repeat_per_thread)
+			<<"\t"<<static_cast<double>(std::get<2>(stat[target])[n])/static_cast<double>(SOURCE_LENGTH/2*NUM_THREADS*repeat_per_thread)
 			<<endl;
 		}
 		cout<<"GCcontent distribution: "<<endl;
@@ -232,13 +232,13 @@ int main(int argc, char* argv[]){
 	cout<<"Block Size: "<<BLOCK_SIZE<<endl;
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain"<<endl;
-	result(0,SOURCE_LENGTH);
+	result(0);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(conv)"<<endl;
-	result(1,SOURCE_LENGTH);
+	result(1);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(diff)"<<endl;
-	result(2,SOURCE_LENGTH);
+	result(2);
 
 	return 0;
 }
