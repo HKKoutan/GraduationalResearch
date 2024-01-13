@@ -16,12 +16,13 @@ using std::size_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
-constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
+constexpr size_t DEFAULT_REPEAT_PER_THREAD = 5000;
 constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
-constexpr size_t NUM_THREADS = 12;
-constexpr size_t BLOCK_SIZE = 32;
+constexpr size_t NUM_THREADS = 20;
+constexpr size_t BLOCK_SIZE = 16;
 constexpr std::uint8_t ATGC = 0x1B;
+constexpr std::uint8_t ATGC2 = 0x27;
 
 int main(int argc, char* argv[]){
 	util::Timekeep tk;
@@ -44,14 +45,16 @@ int main(int argc, char* argv[]){
 	code::LDPC::phi_table<> decodertype;
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
-	// tuple: biterrors, bitcounts, nterrors, maxGCdeviation, maxrunlength
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t>,3> stat = {};
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t>,NUM_THREADS> stats = {};
+	// tuple: biterrors, bitcounts, nterrors, maxrunlength, GCdist
+	using stattype = tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,size_t,vector<uint64_t>>;
+	array<stattype,3> stat = {};
+	array<stattype,NUM_THREADS> stats = {};
 
-	auto plain = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t> *st){
+	auto plain = [repeat_per_thread](size_t t, stattype *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
-		auto &maxgcdev = std::get<3>(*st);
-		auto &maxrunlength = std::get<4>(*st);
+		auto &maxrunlength = std::get<3>(*st);
+		auto &gcdist = std::get<4>(*st);
+		gcdist.resize((BLOCK_SIZE==0?SOURCE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
@@ -62,8 +65,7 @@ int main(int argc, char* argv[]){
 
 				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
-				if(dev>maxgcdev) maxgcdev=dev;
+				code::DNAS::countBlockGC<BLOCK_SIZE>(cm, gcdist);
 				auto runlength = code::DNAS::countRunlength(cm);
 				if(maxrunlength<runlength) maxrunlength = runlength;
 
@@ -79,10 +81,11 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_conv = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t> *st){
+	auto encoded_conv = [&ldpc, &decodertype, repeat_per_thread](size_t t, stattype *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
-		auto &maxgcdev = std::get<3>(*st);
-		auto &maxrunlength = std::get<4>(*st);
+		auto &maxrunlength = std::get<3>(*st);
+		auto &gcdist = std::get<4>(*st);
+		gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
@@ -97,11 +100,9 @@ int main(int argc, char* argv[]){
 				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
 				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
-				if(dev>maxgcdev) maxgcdev=dev;
-				dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cr);
-				if(dev>maxgcdev) maxgcdev=dev;
-				auto runlength = code::DNAS::countRunlength(code::concatenate(cm,cr));
+				auto c = code::concatenate(cm,cr);
+				code::DNAS::countBlockGC<BLOCK_SIZE>(c, gcdist);
+				auto runlength = code::DNAS::countRunlength(c);
 				if(maxrunlength<runlength) maxrunlength = runlength;
 
 				auto rm = ch.noise(cm);
@@ -129,30 +130,29 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_diff = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t,size_t> *st){
+	auto encoded_diff = [&ldpc, &decodertype, repeat_per_thread](size_t t, stattype *st){
 		auto &biterror = std::get<0>(*st), &bitcount = std::get<1>(*st), &nterror = std::get<2>(*st);
-		auto &maxgcdev = std::get<3>(*st);
-		auto &maxrunlength = std::get<4>(*st);
+		auto &maxrunlength = std::get<3>(*st);
+		auto &gcdist = std::get<4>(*st);
+		gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
-			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
+			channel::NanoporeSequencing<ATGC2> ch(noise_factor[n],t);
 			util::RandomBits rb(t);
 
 			for(size_t r=0u; r<repeat_per_thread; r++){
 				rb.generate(m);
 
-				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC>::encode(m);
+				auto [cm, mmask, run] = code::DNAS::VLRLL<ATGC2>::encode(m);
 				auto cmd = code::DNAS::differential::decode(cm);
-				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cmd);
+				auto tm = code::DNAS::convert<ATGC2>::nttype_to_binary(cmd);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
-				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
+				auto crd = code::DNAS::convert<ATGC2>::binary_to_nttype(tr);
+				auto cr = code::DNAS::puncturedRLL<ATGC2>::encode(crd, cm.back(), run);
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
-				if(dev>maxgcdev) maxgcdev=dev;
-				dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cr);
-				if(dev>maxgcdev) maxgcdev=dev;
-				auto runlength = code::DNAS::countRunlength(code::concatenate(cm,cr));
+				auto c = code::concatenate(cm,cr);
+				code::DNAS::countBlockGC<BLOCK_SIZE>(c, gcdist);
+				auto runlength = code::DNAS::countRunlength(c);
 				if(maxrunlength<runlength) maxrunlength = runlength;
 
 				auto rm = ch.noise(cm);
@@ -163,17 +163,17 @@ int main(int argc, char* argv[]){
 				auto Lcm = ch.likelihood<float>(rm);
 				auto Lcr = ch.likelihood<float>(rr);
 				auto Lcmd = code::DNAS::differential::decode_p(Lcm);
-				auto Ltm = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcmd);
-				auto Lcrd = code::DNAS::puncturedRLL<ATGC>::decode_p(Lcr, Lcm.back());
-				auto Ltr = code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd);
+				auto Ltm = code::DNAS::convert<ATGC2>::nttype_to_binary_p(Lcmd);
+				auto Lcrd = code::DNAS::puncturedRLL<ATGC2>::decode_p(Lcr, Lcm.back());
+				auto Ltr = code::DNAS::convert<ATGC2>::nttype_to_binary_p(Lcrd);
 				auto Ltc = code::concatenate(Ltm, Ltr);
 
 				auto Ltcest = ldpc.decode(Ltc,decodertype);
 				// auto LLRest = LLR;
 				auto tmest = code::estimate_crop<SOURCE_LENGTH>(Ltcest);
-				auto cmdest = code::DNAS::convert<ATGC>::binary_to_nttype(tmest);
+				auto cmdest = code::DNAS::convert<ATGC2>::binary_to_nttype(tmest);
 				auto cmest = code::DNAS::differential::encode(cmdest);
-				auto mest = code::DNAS::VLRLL<ATGC>::decode(cmest);
+				auto mest = code::DNAS::VLRLL<ATGC2>::decode(cmest);
 
 				nterror[n] += code::DNAS::countDifferentialError(cm,cmest);
 				biterror[n] += ((mest&mmask)^(m&mmask)).count();
@@ -190,14 +190,13 @@ int main(int argc, char* argv[]){
 				std::get<2>(stat[dest])[n] += std::get<2>(st)[n];
 			}
 			if(std::get<3>(st)>std::get<3>(stat[dest])) std::get<3>(stat[dest])=std::get<3>(st);
-			if(std::get<4>(st)>std::get<4>(stat[dest])) std::get<4>(stat[dest])=std::get<4>(st);
+			std::get<4>(stat[dest]).resize(std::get<4>(st).size());
+			for(size_t i=0, iend=std::get<4>(st).size(); i<iend; ++i) std::get<4>(stat[dest])[i] += std::get<4>(st)[i];
 		}
 	};
 
-	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t info_size){
-		const std::size_t block_size = BLOCK_SIZE==0?info_size:BLOCK_SIZE;
-		cout<<"max GCcontent deviation: "<<static_cast<double>(std::get<3>(stat[target]))/static_cast<double>(block_size)<<endl;
-		cout<<"Run length: "<<std::get<4>(stat[target])<<endl;
+	auto result = [&stat, repeat_per_thread](std::size_t target){
+		cout<<"Run length: "<<std::get<3>(stat[target])<<endl;
 		cout<<"Noise factor"
 		<<"\tBER"
 		<<"\tNER"
@@ -205,9 +204,12 @@ int main(int argc, char* argv[]){
 		for(size_t n=0; n<noise_factor.size(); n++){
 			cout<<noise_factor[n]
 			<<"\t"<<static_cast<double>(std::get<0>(stat[target])[n])/static_cast<double>(std::get<1>(stat[target])[n])
-			<<"\t"<<static_cast<double>(std::get<2>(stat[target])[n])/static_cast<double>(info_size/2*NUM_THREADS*repeat_per_thread)
+			<<"\t"<<static_cast<double>(std::get<2>(stat[target])[n])/static_cast<double>(SOURCE_LENGTH/2*NUM_THREADS*repeat_per_thread)
 			<<endl;
 		}
+		cout<<"GCcontent distribution: "<<endl;
+		for(auto i:std::get<4>(stat[target])) cout<<i<<"\t"<<flush;
+		cout<<endl;
 	};
 
 	vector<std::thread> threads;
@@ -230,13 +232,13 @@ int main(int argc, char* argv[]){
 	cout<<"Block Size: "<<BLOCK_SIZE<<endl;
 	cout<<SOURCE_LENGTH<<endl;
 	cout<<"plain"<<endl;
-	result(0,SOURCE_LENGTH);
+	result(0);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(conv)"<<endl;
-	result(1,SOURCE_LENGTH);
+	result(1);
 	cout<<SOURCE_LENGTH<<"->"<<CODE_LENGTH<<endl;
 	cout<<"encoded(diff)"<<endl;
-	result(2,SOURCE_LENGTH);
+	result(2);
 
 	return 0;
 }

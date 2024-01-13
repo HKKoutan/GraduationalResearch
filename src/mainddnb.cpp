@@ -14,11 +14,11 @@ using std::size_t, std::uint8_t, std::uint64_t;
 using std::cout, std::cerr, std::flush, std::endl;
 using code::DNAS::nucleotide_t;
 
-constexpr size_t DEFAULT_REPEAT_PER_THREAD = 1000;
+constexpr size_t DEFAULT_REPEAT_PER_THREAD = 5000;
 constexpr size_t SOURCE_LENGTH = 512;
 constexpr size_t CODE_LENGTH = 1024;
-constexpr size_t NUM_THREADS = 12;
-constexpr size_t BLOCK_SIZE = 32;//GCdevの集計にのみ影響
+constexpr size_t NUM_THREADS = 20;
+constexpr size_t BLOCK_SIZE = 16;//GCdevの集計にのみ影響
 constexpr uint8_t ATGC = 0x1B;
 
 int main(int argc, char* argv[]){
@@ -43,12 +43,14 @@ int main(int argc, char* argv[]){
 
 	auto ldpc = code::make_SystematicLDPC<SOURCE_LENGTH,CODE_LENGTH>();
 	// tuple: biterrors, nterrors, maxGCdeviation
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t>,4> stat = {};
-	array<tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t>,NUM_THREADS> stats = {};
+	using stattype = tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,vector<uint64_t>>;
+	array<stattype,4> stat = {};
+	array<stattype,NUM_THREADS> stats = {};
 
-	auto plain_conv = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	auto plain_conv = [repeat_per_thread](size_t t, stattype *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
-		auto &maxgcdev = std::get<2>(*st);
+		auto &gcdist = std::get<2>(*st);
+		gcdist.resize((BLOCK_SIZE==0?SOURCE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
@@ -60,8 +62,7 @@ int main(int argc, char* argv[]){
 				auto cm = code::DNAS::convert<ATGC>::binary_to_nttype(m);
 				// for(auto &ci: cm) ci = 3;
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
-				if(dev>maxgcdev) maxgcdev=dev;
+				code::DNAS::countBlockGC<BLOCK_SIZE>(cm, gcdist);
 
 				auto rm = ch.noise(cm);
 				// auto rm=cm;
@@ -74,9 +75,10 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_conv = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	auto encoded_conv = [&ldpc, &decodertype, repeat_per_thread](size_t t, stattype *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
-		auto &maxgcdev = std::get<2>(*st);
+		auto &gcdist = std::get<2>(*st);
+		gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
@@ -88,8 +90,7 @@ int main(int argc, char* argv[]){
 				auto c = ldpc.encode(m);
 				auto cc = code::DNAS::convert<ATGC>::binary_to_nttype(c);
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cc);
-				if(dev>maxgcdev) maxgcdev=dev;
+				code::DNAS::countBlockGC<BLOCK_SIZE>(cc, gcdist);
 
 				auto rc = ch.noise(cc);
 				// auto rc=cc;
@@ -106,9 +107,10 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto plain_diff = [repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	auto plain_diff = [repeat_per_thread](size_t t, stattype *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
-		auto &maxgcdev = std::get<2>(*st);
+		auto &gcdist = std::get<2>(*st);
+		gcdist.resize((BLOCK_SIZE==0?SOURCE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
@@ -121,8 +123,7 @@ int main(int argc, char* argv[]){
 				auto cm = code::DNAS::differential::encode(nm);
 				// for(auto &ci: cm) ci = 3;
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cm);
-				if(dev>maxgcdev) maxgcdev=dev;
+				code::DNAS::countBlockGC<BLOCK_SIZE>(cm, gcdist);
 
 				auto rm = ch.noise(cm);
 				// auto rm=cm;
@@ -136,9 +137,10 @@ int main(int argc, char* argv[]){
 		}
 	};
 
-	auto encoded_diff = [&ldpc, &decodertype, repeat_per_thread](size_t t, tuple<array<uint64_t,nsize>,array<uint64_t,nsize>,uint64_t> *st){
+	auto encoded_diff = [&ldpc, &decodertype, repeat_per_thread](size_t t, stattype *st){
 		auto &biterror = std::get<0>(*st), &nterror = std::get<1>(*st);
-		auto &maxgcdev = std::get<2>(*st);
+		auto &gcdist = std::get<2>(*st);
+		gcdist.resize((BLOCK_SIZE==0?CODE_LENGTH/2:BLOCK_SIZE)+1);
 		for(size_t n=0; n<nsize; ++n){
 			bitset<SOURCE_LENGTH> m;
 			channel::NanoporeSequencing<ATGC> ch(noise_factor[n],t);
@@ -151,8 +153,7 @@ int main(int argc, char* argv[]){
 				auto nc = code::DNAS::convert<ATGC>::binary_to_nttype(c);
 				auto cc = code::DNAS::differential::encode(nc);
 
-				auto dev = code::DNAS::countBlockGCmaxDeviation<BLOCK_SIZE>(cc);
-				if(dev>maxgcdev) maxgcdev=dev;
+				code::DNAS::countBlockGC<BLOCK_SIZE>(cc, gcdist);
 
 				auto rc = ch.noise(cc);
 				// auto rc=cc;
@@ -176,13 +177,12 @@ int main(int argc, char* argv[]){
 				std::get<0>(stat[dest])[n] += std::get<0>(st)[n];
 				std::get<1>(stat[dest])[n] += std::get<1>(st)[n];
 			}
-			if(std::get<2>(st)>std::get<2>(stat[dest])) std::get<2>(stat[dest]) = std::get<2>(st);
+			std::get<2>(stat[dest]).resize(std::get<2>(st).size());
+			for(size_t i=0, iend=std::get<2>(st).size(); i<iend; ++i) std::get<2>(stat[dest])[i] += std::get<2>(st)[i];
 		}
 	};
 
 	auto result = [&stat, repeat_per_thread](std::size_t target, std::size_t channel_size){
-		const std::size_t block_size = BLOCK_SIZE==0?channel_size:BLOCK_SIZE;
-		cout<<"max GCcontent deviation: "<<static_cast<double>(std::get<2>(stat[target]))/static_cast<double>(block_size)<<endl;
 		cout<<"Noise factor"
 		<<"\tBER"
 		<<"\tNER"
@@ -193,6 +193,9 @@ int main(int argc, char* argv[]){
 			<<"\t"<<static_cast<double>(std::get<1>(stat[target])[n])/static_cast<double>(channel_size/2*NUM_THREADS*repeat_per_thread)
 			<<endl;
 		}
+		cout<<"GCcontent distribution: "<<endl;
+		for(auto i:std::get<2>(stat[target])) cout<<i<<"\t"<<flush;
+		cout<<endl;
 	};
 
 	//実行
