@@ -201,8 +201,10 @@ int main(int argc, char* argv[]){
 				auto cmd = code::DNAS::differential::decode(cm);
 				auto tm = code::DNAS::convert<ATGC>::nttype_to_binary(cmd);
 				auto tr = ldpc.encode_redundancy(tm);
-				auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
-				auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
+				auto crd = code::DNAS::puncturedRLL<ATGC>::encode(tr, run);
+				auto cr = code::DNAS::differential::encode(crd, cm.back());
+				// auto crd = code::DNAS::convert<ATGC>::binary_to_nttype(tr);
+				// auto cr = code::DNAS::puncturedRLL<ATGC>::encode(crd, cm.back(), run);
 
 				auto c = code::concatenate(cm, cr);
 				auto cbar = bl.balance(c);
@@ -223,10 +225,12 @@ int main(int argc, char* argv[]){
 				auto Lcmbar = ch.likelihood<float>(rm);
 				auto Lcrbar = ch.likelihood<float>(rr);
 				auto Lcmdbar = code::DNAS::differential::decode_p(Lcmbar);
-				auto Lcrdbar = code::DNAS::puncturedRLL<ATGC>::decode_p(Lcrbar, Lcmbar.back());
+				auto Lcrdbar = code::DNAS::differential::decode_p(Lcrbar, Lcmbar.back());
+				// auto Lcrdbar = code::DNAS::puncturedRLL<ATGC>::decode_p(Lcrbar, Lcmbar.back());
 				auto [Lcmd, p1] = bl.restore_p(Lcmdbar);
 				auto [Lcrd, p2] = bl.restore_p(Lcrdbar,p1);
-				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcmd), code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd));
+				auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcmd), code::DNAS::puncturedRLL<ATGC>::decode_p(Lcrd));
+				// auto LLR = code::concatenate(code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcmd), code::DNAS::convert<ATGC>::nttype_to_binary_p(Lcrd));
 
 				auto LLRest = ldpc.decode(LLR,decodertype);
 				// auto LLRest = LLR;
