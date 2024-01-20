@@ -222,8 +222,10 @@ auto DivisionBalancing<0x27,BS,1>::balance(const std::array<nucleotide_t<ATGC>,S
 		if(div.head!=0&&source[div.head-1]==source[div.head]+1) change += 3;//分割位置の前後が連続しているかどうか調べる
 		else change += 1;
 		for(std::size_t j=div.head, jend=div.tail; j<jend; ++j) balanced[j] = source[j]+change;
-		if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+3) change += 1;
-		else change += 3;
+		// if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+3) change += 1;
+		// else change += 3;
+		if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+1) change += 3;
+		else change += 1;
 		for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j] = source[j]+change;
 	}
 	// return std::make_pair(balanced, change);
@@ -246,7 +248,7 @@ auto DivisionBalancing<0x27,BS,1>::restore_p(const std::array<nucleotide_p<ATGC,
 				prob -= prevdist;
 				prevdist = dist[BS];
 			}
-			for(auto k=0ui8; k<4; ++k) ri[k] += (di[k+1]*b1p+di[k+3]*b3p-di[k]*(b1p+b3p))*prob;
+			for(auto k=0ui8; k<4; ++k) ri[k] += (di[k+1]*b1p+di[k+3]*b3p-di[k])*prob;
 		}
 	}else{
 		prevdist = 0;
@@ -414,8 +416,10 @@ auto DivisionBalancing<0x27,BS,7>::balance(const std::array<nucleotide_t<ATGC>,S
 			if(div.head!=0&&source[div.head-1]==source[div.head]+1) change += 3;//分割位置の前後が連続しているかどうか調べる
 			else change += 1;
 			for(std::size_t j=div.head, jend=div.tail; j<jend; ++j) balanced[j] = source[j]+change;
-			if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+3) change += 1;
-			else change += 3;
+			// if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+3) change += 1;
+			// else change += 3;
+			if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+1) change += 3;
+			else change += 1;
 			for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j] = source[j]+change;
 		}else{
 			for(std::size_t j=block.head; j<block.tail; ++j) balanced[j] = source[j]+change;
@@ -445,7 +449,7 @@ auto DivisionBalancing<0x27,BS,7>::restore_p(const std::array<nucleotide_p<ATGC,
 				prob -= prevdist;
 				prevdist = dist[BS];
 			}
-			for(auto k=0ui8; k<4; ++k) ri[k] += (di[k+1]*b1p+di[k+3]*b3p-di[k]*(b1p+b3p))*prob;
+			for(auto k=0ui8; k<4; ++k) ri[k] += (di[k+1]*b1p+di[k+3]*b3p-di[k])*prob;
 		}
 	}else{
 		prevdist = 0;
