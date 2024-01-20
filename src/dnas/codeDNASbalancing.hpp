@@ -388,7 +388,7 @@ auto DivisionBalancing<0x27,BS,7>::balance(const std::array<nucleotide_t<ATGC>,S
 	const std::uint64_t qtyhalfhigh = divsize+qtytolerance;
 	const std::uint64_t pitch = qtytolerance*2+1;
 	std::array<nucleotide_t<ATGC>,S> balanced;
-	auto change = 0;
+	nucleotide_t<ATGC> change = 0;
 
 	for(std::size_t i=0, iend=S/blocksize; i<iend; ++i){
 		section block(i*blocksize, blocksize);
@@ -412,15 +412,17 @@ auto DivisionBalancing<0x27,BS,7>::balance(const std::array<nucleotide_t<ATGC>,S
 			//適用
 			div.head = div.head>>1;
 			div.tail = (div.tail+1)>>1;
-			for(std::size_t j=block.head, jend=div.head; j<jend; ++j) balanced[j] = source[j]+change;
-			if(div.head!=0&&source[div.head-1]==source[div.head]+1) change += 3;//分割位置の前後が連続しているかどうか調べる
+			for(std::size_t j=block.head; j<div.head; ++j) balanced[j] = source[j]+change;
+			if(div.head!=0&&balanced[div.head-1]==source[div.head]+change+1) change += 3;//分割位置の前後が連続しているかどうか調べる
 			else change += 1;
-			for(std::size_t j=div.head, jend=div.tail; j<jend; ++j) balanced[j] = source[j]+change;
-			// if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+3) change += 1;
+			for(std::size_t j=div.head; j<div.tail; ++j) balanced[j] = source[j]+change;
+			assert(div.head==0||(div.head!=0&&balanced[div.head-1]!=balanced[div.head]));
+			// if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+change+3) change += 1;
 			// else change += 3;
-			if(div.tail<source.size()&&source[div.tail-1]==source[div.tail]+1) change += 3;
+			if(div.tail<source.size()&&balanced[div.tail-1]==source[div.tail]+change+1) change += 3;
 			else change += 1;
 			for(std::size_t j=div.tail; j<block.tail; ++j) balanced[j] = source[j]+change;
+			assert(div.tail==source.size()||(div.tail!=source.size()&&balanced[div.tail-1]!=source[div.tail]+change));
 		}else{
 			for(std::size_t j=block.head; j<block.tail; ++j) balanced[j] = source[j]+change;
 		}
